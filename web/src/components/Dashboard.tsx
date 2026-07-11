@@ -10,6 +10,7 @@ interface DashboardProps { data: DashboardData; }
 type TimeScope = "current" | "baseline";
 
 const chartColors = ["#f97316", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
+const ratingColor = "#f97316";
 const platformColors: Record<string, string> = {
   "TikTok Shop": "#18181b",
   Shopee: "#f97316",
@@ -17,10 +18,6 @@ const platformColors: Record<string, string> = {
   GrabMart: "#16a34a",
 };
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "5", md: "6" } } as const;
-
-function productName(product: DashboardProduct): string {
-  return cleanDisplayText(product.shortName ?? product.name ?? `Unidentified product - ${product.id}`);
-}
 
 function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
@@ -77,12 +74,12 @@ function ChangeBadge({ value }: { value: number | null }) {
 function RatingBars({ items }: { items: Array<{ label: string; count: number }> }) {
   const max = Math.max(1, ...items.map((item) => item.count));
   return (
-    <Grid gridTemplateColumns="repeat(5, minmax(0, 1fr))" gap={{ base: "2", md: "3" }} h="220px" alignItems="end">
-      {items.map((item, index) => (
+    <Grid gridTemplateColumns="repeat(5, minmax(0, 1fr))" gap={{ base: "2", md: "3" }} h="190px" alignItems="end">
+      {items.map((item) => (
         <Flex key={item.label} direction="column" align="center" justify="flex-end" h="full" gap="2">
           <Text fontWeight="750">{item.count.toLocaleString()}</Text>
-          <Flex w="full" maxW="54px" h={`${Math.max(8, (item.count / max) * 142)}px`} bg={chartColors[index]} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
-          <Flex align="center" gap="1" fontWeight="700"><Star size={16} weight="fill" color={chartColors[index]} />{item.label}</Flex>
+          <Flex w="full" maxW="54px" h={`${Math.max(8, (item.count / max) * 112)}px`} bg={ratingColor} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
+          <Flex align="center" gap="1" fontWeight="700"><Star size={16} weight="fill" color={ratingColor} />{item.label}</Flex>
         </Flex>
       ))}
     </Grid>
@@ -192,15 +189,14 @@ export function Dashboard({ data }: DashboardProps) {
   const negativeFeedback = aggregateThemes(selectedProducts, "negativeFeedback").sort(periodIssueSort).slice(0, 5);
   const problems = aggregateThemes(selectedProducts, "problems").sort(periodIssueSort).slice(0, 5);
   const ratingTrend = aggregateRatingTrend(selectedProducts);
-  const productsToWatch = [...selectedProducts].sort((a, b) => (ratio(b.current.complaints, b.current.feedback) ?? 0) - (ratio(a.current.complaints, a.current.feedback) ?? 0)).slice(0, 3);
-  const heroProduct = productsToWatch[0];
+  const heroProduct = [...selectedProducts].sort((a, b) => (ratio(b.current.complaints, b.current.feedback) ?? 0) - (ratio(a.current.complaints, a.current.feedback) ?? 0))[0];
   const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
 
   const metrics = [
-    { icon: <ChatCircleDots size={36} />, label: "Reviews", value: totals.feedback.toLocaleString(), bg: "#eff6ff", darkBg: "#10233f", color: "#2563eb" },
-    { icon: <CheckCircle size={36} weight="fill" />, label: "Positive", value: percent(ratio(totals.positive, totals.feedback), 0), bg: "#ecfdf3", darkBg: "#102b20", color: "#16a34a" },
-    { icon: <Pulse size={36} weight="fill" />, label: "Neutral", value: percent(ratio(totals.neutral, totals.feedback), 0), bg: "#fff7e6", darkBg: "#38260d", color: "#d97706" },
-    { icon: <WarningCircle size={36} weight="fill" />, label: "Negative", value: percent(ratio(negative, totals.feedback), 0), bg: "#fff1f2", darkBg: "#3a151c", color: "#e11d48" },
+    { icon: <ChatCircleDots size={34} />, label: "Reviews", value: totals.feedback.toLocaleString(), iconBg: "#eff6ff", darkIconBg: "#10233f", color: "#2563eb" },
+    { icon: <CheckCircle size={34} weight="fill" />, label: "Positive", value: percent(ratio(totals.positive, totals.feedback), 0), iconBg: "#ecfdf3", darkIconBg: "#102b20", color: "#16a34a" },
+    { icon: <Pulse size={34} weight="fill" />, label: "Neutral", value: percent(ratio(totals.neutral, totals.feedback), 0), iconBg: "#fff7e6", darkIconBg: "#38260d", color: "#d97706" },
+    { icon: <WarningCircle size={34} weight="fill" />, label: "Negative", value: percent(ratio(negative, totals.feedback), 0), iconBg: "#fff1f2", darkIconBg: "#3a151c", color: "#e11d48" },
   ];
 
   return (
@@ -223,8 +219,8 @@ export function Dashboard({ data }: DashboardProps) {
         </Grid>}
 
         <Grid as="section" aria-label="Sentiment metrics" gridTemplateColumns={{ base: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
-          {metrics.map((metric) => <Flex key={metric.label} minH={{ base: "158px", md: "164px" }} p={{ base: "5", md: "7" }} gap={{ base: "2", md: "5" }} direction={{ base: "column", md: "row" }} justify="center" align="center" bg={metric.bg} _dark={{ bg: metric.darkBg }} borderWidth="1px" borderColor="border" borderRadius="panel">
-            <Flex color={metric.color} w={{ base: "12", md: "16" }} h={{ base: "12", md: "16" }} align="center" justify="center" flex="0 0 auto">{metric.icon}</Flex>
+          {metrics.map((metric) => <Flex key={metric.label} minH={{ base: "146px", md: "128px" }} p={{ base: "5", md: "5" }} gap={{ base: "2", md: "4" }} direction={{ base: "column", md: "row" }} justify={{ base: "center", md: "flex-start" }} align="center" bg="surface" borderWidth="1px" borderTopWidth="3px" borderColor="border" borderTopColor={metric.color} borderRadius="panel">
+            <Flex color={metric.color} bg={metric.iconBg} _dark={{ bg: metric.darkIconBg }} w={{ base: "12", md: "13" }} h={{ base: "12", md: "13" }} borderRadius="control" align="center" justify="center" flex="0 0 auto">{metric.icon}</Flex>
             <Box minW="0" textAlign={{ base: "center", md: "left" }}><Text color="muted" fontWeight="600" whiteSpace="nowrap">{metric.label}</Text><Text fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.1" fontWeight="780" letterSpacing="0" whiteSpace="nowrap">{metric.value}</Text></Box>
           </Flex>)}
         </Grid>
@@ -247,11 +243,6 @@ export function Dashboard({ data }: DashboardProps) {
               <Text color="muted">Net Sentiment Score · 0-100</Text>
             </Stack>}
           </Section>
-        </Grid>
-
-        <Grid gridTemplateColumns={{ base: "1fr", xl: "1.1fr .9fr" }} gap="4">
-          <Section title="Products to watch"><Stack gap="0" divideY="1px" divideColor="border">{productsToWatch.map((product, index) => <Button key={product.id} variant="ghost" h="auto" py="4" px="0" borderRadius="0" justifyContent="stretch" onClick={() => setSelectedIds([product.id])}><Grid width="full" gridTemplateColumns="32px minmax(0,1fr) auto" gap="3" textAlign="left" alignItems="center"><Flex w="7" h="7" align="center" justify="center" borderRadius="full" bg={chartColors[index]} color="white" fontWeight="750">{index + 1}</Flex><Box minW="0"><Text fontWeight="700" whiteSpace="normal">{productName(product)}</Text><Text color="muted" whiteSpace="normal">{humanize(product.problems[0]?.label ?? "No dominant problem")}</Text></Box><Text color="danger" fontWeight="750">{percent(ratio(product.current.complaints, product.current.feedback), 0)}</Text></Grid></Button>)}</Stack></Section>
-          <Section title="Recommended actions">{insight?.recommendedActions.length ? <Stack as="ol" gap="4" pl="5">{insight.recommendedActions.map((action) => <Text as="li" key={action} fontWeight="550">{cleanDisplayText(action)}</Text>)}</Stack> : <Text color="muted">No action is required for the selected scope.</Text>}</Section>
         </Grid>
 
         {selectedEvidence.length > 0 && <Section title="Recent review signals" action={<Badge variant="subtle" colorPalette="orange">{selectedEvidence.length}</Badge>}><Stack gap="0" divideY="1px" divideColor="border">{selectedEvidence.slice(0, 4).map((item) => <Grid key={item.id} py="4" gridTemplateColumns={{ base: "1fr", md: "130px minmax(0, 1fr) auto" }} gap="4" alignItems="start"><Text fontWeight="650">{humanize(cleanDisplayText(item.sourcePlatform))}</Text><Text>“{cleanDisplayText(item.text)}”</Text><Badge colorPalette={item.sentiment === "positive" ? "green" : item.sentiment === "negative" ? "red" : "gray"} variant="subtle">{humanize(item.sentiment ?? "neutral")}</Badge></Grid>)}</Stack></Section>}
