@@ -169,6 +169,7 @@ function normalizeEvidence(value: unknown): DashboardEvidence | null {
     text,
     sourceGroup: stringValue(value.source_group ?? value.sourceGroup) ?? "Unknown source group",
     sourcePlatform: stringValue(value.source_platform ?? value.sourcePlatform) ?? "Unknown source",
+    sourceUrl: stringValue(value.source_url ?? value.sourceUrl),
     timestamp: stringValue(value.timestamp ?? value.occurred_at),
     confidence: numberValue(value.confidence),
     stance: stringValue(value.stance ?? value.evidence_role),

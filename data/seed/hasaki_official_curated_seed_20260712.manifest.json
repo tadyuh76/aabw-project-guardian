@@ -1,0 +1,55 @@
+{
+  "created_at": "2026-07-11T22:31:28.196258+00:00",
+  "source_raw_rows": 1367,
+  "selected_rows": 80,
+  "output": "guardian-voc-mvp/data/seed/hasaki_official_curated_seed_20260712.jsonl",
+  "not_imported_reason": "DuckDB was locked by another seed process; artifact is JSONL-ready for import.",
+  "filters": [
+    "Vietnamese official Hasaki product reviews only",
+    "occurred_at >= 2024-07-12 inherited from crawl",
+    "phone/url redaction",
+    "contact-only resale comments removed",
+    "duplicate review text removed"
+  ],
+  "classification": "manual/rule curated using project taxonomy",
+  "counts_by_sentiment": {
+    "negative": 50,
+    "positive": 28,
+    "neutral": 2
+  },
+  "counts_by_topic": {
+    "customer_service": 7,
+    "product_quality_authenticity": 73
+  },
+  "sample_sources": [
+    "https://hasaki.vn/dich-vu/combo-meso-mun-lay-mun-87131.html",
+    "https://hasaki.vn/dich-vu/trai-nghiem-combo-lay-mun-vung-chieu-assh-mat-na-khang-khuan-105375.html",
+    "https://hasaki.vn/san-pham/bo-3-hop-bong-tay-trang-co-ban-silcot-82-mieng-hop-88133.html",
+    "https://hasaki.vn/san-pham/bong-tay-trang-mihoo-kokimi-bong-vuong-tui-240-mieng-93859.html",
+    "https://hasaki.vn/san-pham/combo-10-mat-na-bnbg-vitamin-b-phuc-hoi-da-30ml-moi-132381.html",
+    "https://hasaki.vn/san-pham/combo-10-mat-na-caryophy-giam-mun-tham-duong-am-da-22g-108668.html",
+    "https://hasaki.vn/san-pham/combo-2-bong-tay-trang-hotosu-cao-cap-150-mieng-107938.html",
+    "https://hasaki.vn/san-pham/combo-2-nuoc-tay-trang-bi-dao-cocoon-lam-sach-giam-dau-500ml-96589.html",
+    "https://hasaki.vn/san-pham/combo-3-gel-rua-mat-la-roche-posay-cho-da-dau-nhay-cam-50ml-106275.html",
+    "https://hasaki.vn/san-pham/combo-4-bong-tay-trang-ipek-150-mieng-94831.html",
+    "https://hasaki.vn/san-pham/combo-cocoon-mat-na-nghe-hung-yen-tay-da-chet-toan-than-ca-phe-dak-lak-30ml-200ml-137395.html",
+    "https://hasaki.vn/san-pham/dau-goi-buoi-cocoon-giam-rung-kich-thich-moc-toc-500ml-112793.html",
+    "https://hasaki.vn/san-pham/dau-goi-duoc-lieu-nguyen-xuan-cho-toc-hu-ton-450ml-131412.html",
+    "https://hasaki.vn/san-pham/dau-goi-l-oreal-paris-duong-toc-suon-muot-toc-cao-cap-440ml-100909.html",
+    "https://hasaki.vn/san-pham/dau-goi-selsun-ngua-gau-giam-ngua-da-dau-250ml-100901.html",
+    "https://hasaki.vn/san-pham/kem-chong-nang-d-alba-nang-tong-sang-hong-tu-nhien-50ml-127148.html",
+    "https://hasaki.vn/san-pham/kem-chong-nang-l-oreal-paris-x20-thoang-da-mong-nhe-50ml-105523.html",
+    "https://hasaki.vn/san-pham/kem-chong-nang-la-roche-posay-spf-50-bao-ve-da-50ml-183033.html",
+    "https://hasaki.vn/san-pham/kem-chong-nang-martiderm-pho-rong-toan-dien-spf50-40ml-90401.html",
+    "https://hasaki.vn/san-pham/kem-chong-nang-skin1004-chiet-xuat-rau-ma-spf50-pa-50ml-86167.html"
+  ],
+  "counts_by_subtopic": {
+    "unresolved_case": 5,
+    "suspected_counterfeit": 2,
+    "adverse_reaction": 33,
+    "product_performance": 34,
+    "difficult_contact": 2,
+    "packaging_quality": 4
+  },
+  "classification_fix": "2026-07-11T22:34Z corrected Vietnamese substring false-positive for counterfeit term giả vs giảm"
+}

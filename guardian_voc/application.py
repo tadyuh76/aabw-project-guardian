@@ -19,6 +19,7 @@ from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
@@ -189,6 +190,40 @@ def _dashboard_product_id(row: Mapping[str, Any]) -> str:
         return "unattributed"
     digest = hashlib.sha256(product_name.encode("utf-8")).hexdigest()[:20]
     return f"product-name-{digest}"
+
+
+def _public_evidence_source_url(row: Mapping[str, Any]) -> str | None:
+    """Expose only public, operator-actionable evidence URLs."""
+
+    if bool(row.get("is_synthetic")):
+        return None
+    source_group = str(row.get("source_group") or "").strip().lower()
+    source_platform = str(row.get("source_platform") or "").strip().lower()
+    if source_group == "social":
+        url = _dashboard_text(row.get("canonical_url")) or _dashboard_text(
+            row.get("source_url")
+        )
+    elif source_group == "owned" and source_platform.endswith("_ecommerce"):
+        url = _dashboard_text(row.get("source_url")) or _dashboard_text(
+            row.get("canonical_url")
+        )
+    else:
+        return None
+    if url is None:
+        return None
+    try:
+        parsed = urlsplit(url)
+        _ = parsed.port
+    except (TypeError, ValueError):
+        return None
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not parsed.netloc
+        or parsed.username
+        or parsed.password
+    ):
+        return None
+    return url
 
 
 def _dashboard_dominant(values: Iterable[str | None]) -> str | None:
@@ -2657,7 +2692,8 @@ class GuardianService:
         rows = self.database.query(
             """
             SELECT ie.evidence_role, ie.rank, fi.feedback_id, fi.source_platform,
-                fi.source_group, fi.occurred_at, fi.text_redacted, fi.is_synthetic,
+                fi.source_group, fi.source_url, fi.canonical_url, fi.occurred_at,
+                fi.text_redacted, fi.is_synthetic,
                 fa.sentiment, fa.primary_topic
             FROM insight_evidence ie
             JOIN feedback_items fi ON fi.feedback_id = ie.feedback_id
@@ -2672,6 +2708,7 @@ class GuardianService:
                 evidence_role=row["evidence_role"],
                 source_platform=str(row["source_platform"]),
                 source_group=str(row["source_group"]),
+                source_url=_public_evidence_source_url(row),
                 occurred_at=row.get("occurred_at"),
                 text_redacted=str(row["text_redacted"]),
                 sentiment=str(row["sentiment"]),
@@ -3305,7 +3342,8 @@ class GuardianService:
                 fi.source_platform, fi.visibility, fi.brand, fi.occurred_at,
                 fi.observed_at, fi.occurred_at_quality, fi.ingested_at,
                 fi.language, fi.text_redacted, fi.rating, fi.product_name,
-                fi.product_category, fi.sanitized_metadata, fi.analysis_status,
+                fi.product_category, fi.source_url, fi.canonical_url,
+                fi.sanitized_metadata, fi.is_synthetic, fi.analysis_status,
                 fa.feedback_id AS analysis_feedback_id, fa.is_relevant,
                 fa.primary_brand, fa.brand_attribution_confidence,
                 fa.brand_evidence_span,
@@ -3720,6 +3758,7 @@ class GuardianService:
                     text=str(row.get("text_redacted") or ""),
                     source_group=str(row.get("source_group")),
                     source_platform=str(row.get("source_platform")),
+                    source_url=_public_evidence_source_url(row),
                     timestamp=row.get("occurred_at"),
                     confidence=float(row.get("confidence") or 0),
                     stance=("contradict" if sentiment == "positive" else "support"),

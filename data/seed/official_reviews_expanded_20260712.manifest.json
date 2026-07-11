@@ -1,0 +1,167 @@
+{
+  "blocked_or_deferred": {
+    "guardian": "Cloudflare blocked plain HTTP/API access; needs browser-network extractor or approved export.",
+    "watsons": "Akamai/SAP Commerce access blocked plain HTTP/API access; needs browser-network extractor or approved export."
+  },
+  "brands": {
+    "hasaki": 340
+  },
+  "created_at": "2026-07-11T22:07:35.859515+00:00",
+  "dataset": "official_reviews_expanded_20260712.raw.jsonl",
+  "period_end": "2026-07-12",
+  "period_start": "2024-07-12",
+  "platforms": {
+    "hasaki_ecommerce": 340
+  },
+  "products_considered": 21,
+  "real_rows_only": true,
+  "rows": 340,
+  "sentiments": {
+    "negative": 67,
+    "neutral": 1,
+    "positive": 272
+  },
+  "synthetic_rows": 0,
+  "top_products": [
+    {
+      "product_id": "19325",
+      "review_count": null,
+      "title": "Nước Tẩy Trang L'Oreal Tươi Mát Cho Da Dầu, Hỗn Hợp 400ml",
+      "url": "https://hasaki.vn/san-pham/nuoc-tay-trang-tuoi-mat-l-oreal-3-in-1-danh-cho-da-dau-da-hon-hop-400ml-19325.html"
+    },
+    {
+      "product_id": "34119",
+      "review_count": null,
+      "title": "Nước Tẩy Trang L'Oreal Làm Sạch Sâu Trang Điểm 400ml",
+      "url": "https://hasaki.vn/san-pham/nuoc-tay-trang-l-oreal-3-in-1-lam-sach-sau-400ml-34119.html"
+    },
+    {
+      "product_id": "106889",
+      "review_count": null,
+      "title": "Combo 2 Nước Tẩy Trang L'Oreal Tươi Mát Cho Da Dầu, Hỗn Hợp 400ml",
+      "url": "https://hasaki.vn/san-pham/combo-2-nuoc-tay-trang-l-oreal-tuoi-mat-cho-da-dau-hon-hop-400ml-106889.html"
+    },
+    {
+      "product_id": "55867",
+      "review_count": null,
+      "title": "Mặt Nạ Naruko Tràm Trà Kiểm Soát Dầu Và Giảm Mụn 26ml",
+      "url": "https://hasaki.vn/san-pham/mat-na-naruko-tram-tra-kiem-soat-dau-va-giam-mun-26ml-55867.html"
+    },
+    {
+      "product_id": "73471",
+      "review_count": null,
+      "title": "Hộp 8 Miếng Mặt Nạ Naruko Tràm Trà Kiềm Dầu Giảm Mụn 26ml/Miếng",
+      "url": "https://hasaki.vn/san-pham/hop-8-mieng-mat-na-naruko-tram-tra-kiem-soat-dau-va-giam-mun-26ml-mieng-73471.html"
+    },
+    {
+      "product_id": "76844",
+      "review_count": null,
+      "title": "Gel Rửa Mặt Eucerin Cho Da Nhờn Mụn 400ml",
+      "url": "https://hasaki.vn/san-pham/gel-rua-mat-eucerin-cho-da-dau-mun-400ml-76844.html"
+    },
+    {
+      "product_id": "9740",
+      "review_count": null,
+      "title": "Nước Tẩy Trang Bioderma Dành Cho Da Nhạy Cảm 500ml",
+      "url": "https://hasaki.vn/san-pham/nuoc-tay-trang-bioderma-danh-cho-da-nhay-cam-500ml-9740.html"
+    },
+    {
+      "product_id": "11089",
+      "review_count": null,
+      "title": "Nước Tẩy Trang Bioderma Dành Cho Da Dầu & Hỗn Hợp 500ml",
+      "url": "https://hasaki.vn/san-pham/nuoc-tay-trang-bioderma-danh-cho-da-dau-hon-hop-500ml-11089.html"
+    },
+    {
+      "product_id": "96523",
+      "review_count": null,
+      "title": "Gel Rửa Mặt Cosrx Tràm Trà, 0.5% BHA Có Độ pH Thấp 150ml",
+      "url": "https://hasaki.vn/san-pham/gel-rua-mat-cosrx-tram-tra-0-5-bha-co-do-ph-thap-150ml-96523.html"
+    },
+    {
+      "product_id": "2364",
+      "review_count": null,
+      "title": "Dung Dịch Tẩy Da Chết Paula’s Choice 2% BHA 30ml",
+      "url": "https://hasaki.vn/san-pham/dung-dich-tay-da-chet-paula-s-choice-bha-2-30ml-2364.html"
+    },
+    {
+      "product_id": "65994",
+      "review_count": null,
+      "title": "Nước Hoa Hồng Klairs Không Mùi Cho Da Nhạy Cảm 180ml",
+      "url": "https://hasaki.vn/san-pham/nuoc-hoa-hong-khong-mui-klairs-danh-cho-da-nhay-cam-180ml-65994.html"
+    },
+    {
+      "product_id": "68810",
+      "review_count": null,
+      "title": "Gel Rửa Mặt La Roche-Posay Dành Cho Da Dầu, Nhạy Cảm 400ml",
+      "url": "https://hasaki.vn/san-pham/gel-rua-mat-la-roche-posay-cho-da-dau-nhay-cam-400ml-68810.html"
+    },
+    {
+      "product_id": "74010",
+      "review_count": null,
+      "title": "Tinh Chất Chống Nắng Sunplay Hiệu Chỉnh Sắc Da 50g (Tím)",
+      "url": "https://hasaki.vn/san-pham/tinh-chat-chong-nang-sunplay-hieu-chinh-sac-da-50g-tim-74010.html"
+    },
+    {
+      "product_id": "71263",
+      "review_count": null,
+      "title": "Sữa Rửa Mặt Simple Giúp Da Sạch Thoáng 150ml",
+      "url": "https://hasaki.vn/san-pham/gel-rua-mat-danh-cho-da-nhay-cam-simple-150ml-71263.html"
+    },
+    {
+      "product_id": "98921",
+      "review_count": null,
+      "title": "Gel Rửa Mặt Simple Thanh Khiết, Giảm Bóng Nhờn 150ml",
+      "url": "https://hasaki.vn/san-pham/sua-rua-mat-simple-kiem-dau-ngua-mun-cho-da-mun-150ml-98921.html"
+    },
+    {
+      "product_id": "78190",
+      "review_count": null,
+      "title": "Sữa Tắm Hatomugi Dưỡng Ẩm Chiết Xuất Ý Dĩ 800ml",
+      "url": "https://hasaki.vn/san-pham/sua-tam-hatomugi-ho-tro-trang-da-giu-am-800ml-78190.html"
+    },
+    {
+      "product_id": "86167",
+      "review_count": null,
+      "title": "Kem Chống Nắng Skin1004 Cho Da Nhạy Cảm SPF 50+ 50ml",
+      "url": "https://hasaki.vn/san-pham/kem-chong-nang-skin1004-chiet-xuat-rau-ma-spf50-pa-50ml-86167.html"
+    },
+    {
+      "product_id": "102959",
+      "review_count": null,
+      "title": "Sữa Rửa Mặt CeraVe Sạch Sâu Cho Da Thường Đến Da Dầu 473ml",
+      "url": "https://hasaki.vn/san-pham/sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml-102959.html"
+    },
+    {
+      "product_id": "90401",
+      "review_count": null,
+      "title": "Kem Chống Nắng MartiDerm Phổ Rộng Bảo Vệ Toàn Diện 40ml",
+      "url": "https://hasaki.vn/san-pham/kem-chong-nang-martiderm-pho-rong-toan-dien-spf50-40ml-90401.html"
+    },
+    {
+      "product_id": "12064",
+      "review_count": null,
+      "title": "Sữa Chống Nắng Sunplay Skin Aqua Dưỡng Da Sáng Mịn 55g",
+      "url": "https://hasaki.vn/san-pham/sua-chong-nang-sunplay-duong-da-sang-min-spf50-pa-55g-12064.html"
+    },
+    {
+      "product_id": "86161",
+      "review_count": null,
+      "title": "Serum Skin1004 Rau Má Làm Dịu & Hỗ Trợ Phục Hồi Da 100ml",
+      "url": "https://hasaki.vn/san-pham/tinh-chat-rau-ma-skin1004-ho-tro-giam-mun-phuc-hoi-da-100ml-86161.html"
+    }
+  ],
+  "topics": {
+    "delivery_fulfilment/damaged_package": 14,
+    "delivery_fulfilment/fast_delivery": 17,
+    "delivery_fulfilment/late_delivery": 1,
+    "price_promotion/good_value": 5,
+    "price_promotion/missing_gift": 2,
+    "price_promotion/price_mismatch": 4,
+    "product_quality_authenticity/adverse_reaction": 15,
+    "product_quality_authenticity/authenticity_praise": 7,
+    "product_quality_authenticity/expired_product": 2,
+    "product_quality_authenticity/product_performance": 262,
+    "product_quality_authenticity/suspected_counterfeit": 10,
+    "returns_refunds/return_process": 1
+  }
+}

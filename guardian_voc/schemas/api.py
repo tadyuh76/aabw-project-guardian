@@ -100,6 +100,7 @@ class EvidencePreviewView(BaseModel):
     evidence_role: Literal["representative", "supporting", "counterexample"]
     source_platform: str
     source_group: str
+    source_url: str | None = None
     occurred_at: datetime | None = None
     text_redacted: str
     sentiment: str
@@ -231,6 +232,7 @@ class DashboardEvidenceView(BaseModel):
     text: str
     source_group: str
     source_platform: str
+    source_url: str | None = None
     timestamp: datetime | None = None
     confidence: float = Field(ge=0, le=1)
     stance: Literal["support", "contradict"]

@@ -51,13 +51,17 @@ def _raw(
     product: bool = True,
     product_id: str = "P-1",
     product_name: str = "Serum A",
+    source_group: str = "marketplace",
+    source_platform: str = "shopee",
+    visibility: str = "public",
+    source_url: str | None = None,
     synthetic: bool = False,
 ) -> RawFeedback:
     return RawFeedback(
         source_external_id=external_id,
-        source_group="marketplace",
-        source_platform="shopee",
-        visibility="public",
+        source_group=source_group,
+        source_platform=source_platform,
+        visibility=visibility,
         brand="guardian",
         brand_candidates=["guardian"],
         occurred_at=datetime.fromisoformat(occurred_at) if occurred_at else None,
@@ -68,6 +72,7 @@ def _raw(
         rating=rating,
         product_name=product_name if product else None,
         product_category="Serum" if product else None,
+        source_url=source_url,
         metadata=(
             {
                 "product_id": product_id,
@@ -332,6 +337,48 @@ def test_live_missing_date_and_product_is_partial_but_keeps_actual_evidence(
     assert any("unattributed" in message for message in result.messages)
     assert result.benchmark.comparable is False
     assert result.benchmark.aggregates == []
+    service.close()
+
+
+def test_dashboard_exposes_only_public_evidence_urls(tmp_path: Path) -> None:
+    service = _service(tmp_path, "dashboard-public-evidence-url")
+    social_url = "https://www.facebook.com/groups/example/posts/123"
+    canonical_url = "https://facebook.com/groups/example/posts/123"
+    private_url = "https://seller.shopee.vn/private-review-path"
+    rows = [
+        _raw(
+            "social-public",
+            occurred_at="2026-07-10T09:00:00+07:00",
+            text="Guardian public social complaint.",
+            rating=None,
+            product=False,
+            source_group="social",
+            source_platform="facebook",
+            source_url=social_url,
+        ),
+        _raw(
+            "marketplace-private",
+            occurred_at="2026-07-10T10:00:00+07:00",
+            text="Guardian marketplace complaint.",
+            rating=2,
+            source_url=private_url,
+        ),
+    ]
+    assert service._ingest_raw_rows(
+        rows, source_name="dashboard_url_fixture", source_file=None
+    )["inserted"] == 2
+    _persist_by_external_id(
+        service,
+        {
+            "social-public": ("complaint", "negative", -0.7),
+            "marketplace-private": ("complaint", "negative", -0.7),
+        },
+    )
+
+    by_text = {item.text: item for item in service.dashboard().evidence}
+
+    assert by_text["Guardian public social complaint."].source_url == canonical_url
+    assert by_text["Guardian marketplace complaint."].source_url is None
     service.close()
 
 

@@ -1,0 +1,919 @@
+{
+  "created_at": "2026-07-11T22:19:22.579Z",
+  "query_count": 26,
+  "product_candidates": 140,
+  "products_with_meta": 26,
+  "reviews": [],
+  "products": [
+    {
+      "href": "https://www.guardian.com.vn/khuyen-mai-6/doc-quyen-tai-app-ll06-26.html?utm_source=website&utm_medium=TopHeader&utm_campaign=AppRelaunch&utm_term=DonDauTien",
+      "name": "",
+      "near": "",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "18268",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "KHÁM PHÁ NGAY",
+      "url": "https://www.guardian.com.vn/khuyen-mai-6/doc-quyen-tai-app-ll06-26.html?utm_source=website&utm_medium=TopHeader&utm_campaign=AppRelaunch&utm_term=DonDauTien"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian.html",
+      "name": "Độc quyền Guardian",
+      "near": "Độc quyền Guardian Độc quyền Guardian Tất cả sản phẩm Sản phẩm Guardian Chăm sóc da mặt Chăm sóc cơ thể Chăm sóc răng miệng Chăm sóc tóc Vệ sinh phụ nữ Khăn giấy - Bông tẩy trang Dụng cụ trang điểm Chăm sóc bé Chỉ có tại Guardian Dasique Millimilli Deleaf Farmstay Im Unau Allione Licorne Magnet OOTD Lolane Bidalli Lanbena Foasu Epunol Ottie Vely Vely Duft & Doft Charmiss Sace Lady Thương hiệu Guar",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "44289",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "ĐỘC QUYỀN GUARDIAN",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian.html",
+      "name": "Sản phẩm Guardian",
+      "near": "Sản phẩm Guardian Chăm sóc da mặt Chăm sóc cơ thể Chăm sóc răng miệng Chăm sóc tóc Vệ sinh phụ nữ Khăn giấy - Bông tẩy trang Dụng cụ trang điểm Chăm sóc bé",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "21803",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "SẢN PHẨM GUARDIAN",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-da-mat.html",
+      "name": "Chăm sóc da mặt",
+      "near": "Chăm sóc da mặt",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "37106",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "CHĂM SÓC DA MẶT",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-da-mat.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-co-the.html",
+      "name": "Chăm sóc cơ thể",
+      "near": "Chăm sóc cơ thể",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "22198",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "CHĂM SÓC CƠ THỂ",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-co-the.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-rang-mieng.html",
+      "name": "Chăm sóc răng miệng",
+      "near": "Chăm sóc răng miệng",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "22836",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "CHĂM SÓC RĂNG MIỆNG",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-rang-mieng.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-toc.html",
+      "name": "Chăm sóc tóc",
+      "near": "Chăm sóc tóc",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "36823",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "CHĂM SÓC TÓC",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-toc.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/ve-sinh-phu-nu.html",
+      "name": "Vệ sinh phụ nữ",
+      "near": "Vệ sinh phụ nữ",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "23656",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "VỆ SINH PHỤ NỮ",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/ve-sinh-phu-nu.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/khan-giay-bong-tay-trang.html",
+      "name": "Khăn giấy - Bông tẩy trang",
+      "near": "Khăn giấy - Bông tẩy trang",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "37775",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "KHĂN GIẤY - BÔNG TẨY TRANG",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/khan-giay-bong-tay-trang.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/dung-cu-trang-diem.html",
+      "name": "Dụng cụ trang điểm",
+      "near": "Dụng cụ trang điểm",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "37005",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "DỤNG CỤ TRANG ĐIỂM",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/dung-cu-trang-diem.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-be.html",
+      "name": "Chăm sóc bé",
+      "near": "Chăm sóc bé",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "21803",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "CHĂM SÓC BÉ",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/san-pham-guardian/cham-soc-be.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian.html",
+      "name": "Chỉ có tại Guardian",
+      "near": "Chỉ có tại Guardian Dasique Millimilli Deleaf Farmstay Im Unau Allione Licorne Magnet OOTD Lolane Bidalli Lanbena Foasu Epunol Ottie Vely Vely Duft & Doft Charmiss Sace Lady",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "20264",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "CHỈ CÓ TẠI GUARDIAN",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/dasique.html",
+      "name": "Dasique",
+      "near": "Dasique",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "DASIQUE",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/dasique.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/millimilli.html",
+      "name": "Millimilli",
+      "near": "Millimilli",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "MILLIMILLI",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/millimilli.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/deleaf.html",
+      "name": "Deleaf",
+      "near": "Deleaf",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "DELEAF",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/deleaf.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/farmstay.html",
+      "name": "Farmstay",
+      "near": "Farmstay",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "FARMSTAY",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/farmstay.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/im-unau.html",
+      "name": "Im Unau",
+      "near": "Im Unau",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "35084",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "IM UNAU",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/im-unau.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/allione.html",
+      "name": "Allione",
+      "near": "Allione",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "ALLIONE",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/allione.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/licorne.html",
+      "name": "Licorne",
+      "near": "Licorne",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "LICORNE",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/licorne.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/magnet.html",
+      "name": "Magnet",
+      "near": "Magnet",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "MAGNET",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/magnet.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/ootd.html",
+      "name": "OOTD",
+      "near": "OOTD",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "20267",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "OOTD",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/ootd.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/lolane.html",
+      "name": "Lolane",
+      "near": "Lolane",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "LOLANE",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/lolane.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/bidalli.html",
+      "name": "Bidalli",
+      "near": "Bidalli",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "BIDALLI",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/bidalli.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/lanbena.html",
+      "name": "Lanbena",
+      "near": "Lanbena",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "LANBENA",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/lanbena.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/foasu.html",
+      "name": "Foasu",
+      "near": "Foasu",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "FOASU",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/foasu.html"
+    },
+    {
+      "href": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/epunol.html",
+      "name": "Epunol",
+      "near": "Epunol",
+      "query": "laroche",
+      "brand": "",
+      "reviewCount": 0,
+      "reviewId": "",
+      "sku": "",
+      "starBreakdown": [],
+      "title": "EPUNOL",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/epunol.html"
+    }
+  ],
+  "errors": [
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/ottie.html",
+      "error": "Error: Timed out waiting for the Browser webview to attach for this browser-use page"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/vely-vely.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/duft-doft.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/charmiss.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/chi-co-tai-guardian/sace-lady.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian/guardian.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian/eco-garden.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian/happy-mask.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian/number-eight.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian/botaneco.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian/kusabana.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian/yue-hon-tong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/thuong-hieu-guardian/mannings-guardian.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/5s.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/5s/cham-soc-da.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/5s/my-pham.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/doc-quyen-guardian/5s/cham-soc-toc.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/tay-trang.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/sua-rua-mat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/tay-te-bao-chet-da-mat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/bong-tay-trang.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/khan-uot-khan-tay-trang.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/duong-da.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/toner-nuoc-hoa-hong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/serum-tinh-chat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/mat-na.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/kem-gel-xit-duong-da/kem-gel-xit-duong-am.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/kem-gel-xit-duong-da/kem-duong-sang-mo-tham.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/kem-gel-xit-duong-da/kem-ngan-ngua-lao-hoa.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/chong-nang.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/cham-soc-da-vung-mat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/cham-soc-da-dau-mun.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/san-pham-khac-cham-soc-da-mat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-da-mat/chiet-my-pham.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat/kem-nen-bb-cream.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat/cushion-phan-nuoc.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat/phan-nen-phan-phu.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat/che-khuyet-diem.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat/ma-hong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat/kem-lot.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat/tao-khoi.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/damat/xit-khoa-nen.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/mat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/mat/chi-ke-may.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/mat/mascara.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/mat/ke-mat-eyeliner.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/mat/phan-mat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/moi.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/moi/son-moi.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/moi/son-duong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/phu-kien-trang-diem.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/phu-kien-trang-diem/dung-cu-trang-diem-khac.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/phu-kien-trang-diem/bong-mut-trang-diem.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/trang-diem/phu-kien-trang-diem/co-trang-diem.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/lam-sach-co-the.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/sua-tam.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/xa-phong-tam.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/nuoc-rua-tay.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/tay-te-bao-chet-co-the.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/tay-long-cao-rau.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/tay-long-cao-rau/san-pham-cao-rau.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/tay-long-cao-rau/san-pham-tay-long.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/tay-long-cao-rau/dao-cao-danh-cho-nam.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/tay-long-cao-rau/dao-cao-danh-cho-nu.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/khu-mui.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/khu-mui/khu-mui-danh-cho-nu.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/khu-mui/khu-mui-danh-cho-nam.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/duong-da-co-the.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/duong-da-co-the/ngua-ran-da-mo-seo.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/duong-da-co-the/duong-am-duong-trang-co-the.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/duong-da-co-the/dau-duong-the.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/ve-sinh-ca-nhan.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/ve-sinh-ca-nhan/bang-ve-sinh-tampon.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/ve-sinh-ca-nhan/dung-dich-ve-sinh.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/ve-sinh-ca-nhan/san-pham-khac-ve-sinh-ca-nhan.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/cham-soc-da-tay-chan-mong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/cham-soc-da-tay-chan-mong/cham-soc-da-tay-mong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/cham-soc-da-tay-chan-mong/cham-soc-da-chan.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/cham-soc-mong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/cham-soc-mong/nuoc-tay-mong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/cham-soc-mong/son-mong-son-duong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/cham-soc-mong/dung-cu-cham-soc-mong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/san-pham-khac-cham-soc-co-the.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-co-the/dung-cu-cham-soc-co-the.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-nhom-vitamin-khoang-chat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-nhom-omega.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-ho-tro-xuong-khop.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-ho-tro-nao-giac-ngu.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-ho-tro-mat.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-ho-tro-sinh-ly-nam-nu.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-ho-tro-gan.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-ho-tro-ho-hap.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-ho-tro-tieu-hoa.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/thuc-pham-chuc-nang/tpcn-ho-tro-dieu-tri.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/tpcn-ho-tro-lam-dep.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/tpcn-ho-tro-lam-dep/tpcn-ho-tro-lam-dep-da.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/tpcn-ho-tro-lam-dep/tpcn-ho-tro-giam-can.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/tpcn-ho-tro-lam-dep/tpcn-ho-tro-toc-mong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/tpcn-ho-tro-lam-dep/tpcn-ho-tro-lam-trang-da.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/tpcn-ho-tro-lam-dep/tpcn-ho-tro-chong-lao-hoa-da.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/ke-hoach-gia-dinh.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/ke-hoach-gia-dinh/bao-cao-su.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/ke-hoach-gia-dinh/gel-boi-tron.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/ke-hoach-gia-dinh/que-but-thu-thai.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/ke-hoach-gia-dinh/que-thu-rung-trung.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/cham-soc-mat-mui-hong.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    },
+    {
+      "stage": "product",
+      "url": "https://www.guardian.com.vn/cham-soc-suc-khoe/san-pham-tu-thao-moc.html",
+      "error": "Error: Tab 8 is not part of browser session 019f525f-fec9-7522-8d05-35ee9f1ddc8f"
+    }
+  ]
+}

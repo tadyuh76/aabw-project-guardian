@@ -1,0 +1,35 @@
+{
+  "blocked_or_rejected_sources": [
+    "TikTok direct fetch commonly requires JS/app context and blocked reliable text extraction; no TikTok rows imported from snippets.",
+    "Instagram and Threads public search results did not expose enough full Vietnamese user review text for import in this pass.",
+    "Facebook search snippets were retained as discovery evidence unless full public post/comment text was accessible.",
+    "Rows with only star ratings and no text were skipped.",
+    "Rows containing resale/pass contact details were skipped unless a retailer/product issue was present; phone numbers were redacted."
+  ],
+  "brands": {
+    "guardian": 9,
+    "hasaki": 10,
+    "watsons": 1
+  },
+  "created_at": "2026-07-11T21:44:10.591929+00:00",
+  "dataset": "real_feedback_seed_20260712.jsonl",
+  "period_end": "2026-07-12",
+  "period_start": "2024-07-12",
+  "platforms": {
+    "guardian_ecommerce": 9,
+    "hasaki_ecommerce": 10,
+    "watsons_ecommerce": 1
+  },
+  "queries_used": [
+    "site:facebook.com (\"Guardian\" OR \"Hasaki\" OR \"Watsons\") (\"giao hàng\" OR \"đổi trả\" OR \"lừa đảo\" OR \"hàng giả\")",
+    "site:instagram.com (\"guardianvietnam\" OR \"hasaki\" OR \"watsonsvietnam\") review OR đánh giá",
+    "site:threads.net (\"Guardian\" OR \"Hasaki\" OR \"Watsons\") (\"mỹ phẩm\" OR \"giao hàng\" OR \"voucher\")",
+    "site:tiktok.com (\"Guardian\" OR \"Hasaki\" OR \"Watsons\") (\"đánh giá\" OR \"mua hàng\" OR \"giao hàng\")",
+    "official product review pages for Guardian/Hasaki/Watsons CeraVe Foaming Cleanser 473ml"
+  ],
+  "real_rows_only": true,
+  "row_count": 20,
+  "social_discovery_file": "data/seed/real_social_discovery_review_needed_20260712.jsonl",
+  "social_discovery_rows_review_needed": 30,
+  "synthetic_rows": 0
+}

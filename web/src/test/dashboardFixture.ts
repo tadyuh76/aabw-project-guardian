@@ -55,6 +55,7 @@ export function dashboardFixture(overrides: Partial<DashboardData> = {}): Dashbo
       text: "The cleanser arrived securely packed.",
       sourceGroup: "marketplace",
       sourcePlatform: "Shopee",
+      sourceUrl: null,
       timestamp: "2026-07-10T10:00:00Z",
       confidence: 0.91,
       stance: "support",

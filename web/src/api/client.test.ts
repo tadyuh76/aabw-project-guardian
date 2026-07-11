@@ -45,6 +45,7 @@ const wirePayload = {
     text: "A redacted customer report",
     source_group: "marketplace",
     source_platform: "Shopee",
+    source_url: null,
     timestamp: null,
     confidence: 0.8,
     stance: "support",
@@ -99,6 +100,7 @@ describe("dashboard API contract", () => {
     expect(result.primaryInsight).toMatchObject({ label: "watch", status: "open" });
     expect(result.benchmark?.brands.map((brand) => brand.brand)).toEqual(["guardian", "hasaki", "watsons"]);
     expect(result.benchmark?.brands[0]?.share).toBe(0.25);
+    expect(result.evidence[0]?.sourceUrl).toBeNull();
   });
 
   it("rejects an invalid truth state instead of inventing a fallback", () => {

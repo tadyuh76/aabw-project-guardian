@@ -18,6 +18,14 @@ const PROFILE_LABELS: Record<ReviewImportProfile, string> = {
   grabmart: "GrabMart",
 };
 
+const PROFILE_LOGOS: Record<ReviewImportProfile, string> = {
+  guardian_ecommerce: "/logo.svg",
+  tiktok_shop: "/marketplace-logos/tiktok.svg",
+  shopee: "/marketplace-logos/shopee.svg",
+  lazada: "/marketplace-logos/lazada.svg",
+  grabmart: "/marketplace-logos/grab.svg",
+};
+
 const PREVIEW_COLUMNS = [
   "source_platform",
   "brand",
@@ -287,12 +295,14 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
                 key={value}
                 as="label"
                 align="center"
-                gap="2.5"
+                justify="center"
+                direction="column"
+                gap="2"
                 flex={{ base: "1 1 190px", xl: "1 1 0" }}
                 minW={{ base: "180px", xl: "0" }}
-                minH="62px"
+                minH="104px"
                 px="3.5"
-                py="2.5"
+                py="3"
                 borderWidth="1px"
                 borderColor={selected ? "accent" : "border"}
                 borderRadius="control"
@@ -311,10 +321,10 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
                   disabled={locked}
                   onChange={() => { setProfile(value); resetResult(); }}
                 />
-                <Flex w="4" h="4" align="center" justify="center" borderRadius="full" borderWidth="2px" borderColor={selected ? "accent" : "muted"} flexShrink="0">
-                  {selected && <Box w="1.5" h="1.5" borderRadius="full" bg="accent" />}
-                </Flex>
-                <Box minW="0" textAlign="left">
+                <Box asChild h="7" maxW="124px" objectFit="contain">
+                  <img src={PROFILE_LOGOS[value]} alt="" aria-hidden="true" />
+                </Box>
+                <Box minW="0" textAlign="center">
                   <Text fontSize="sm" fontWeight="700" lineHeight="1.25">{PROFILE_LABELS[value]}</Text>
                   <Text color={selected ? "accent" : "muted"} fontSize="xs" lineHeight="1.35">Last import: {importTime(lastImportByProfile[value] ?? null)}</Text>
                 </Box>
