@@ -38,7 +38,28 @@ done
 
 cd "${ROOT_DIR}"
 docker compose config --quiet
-docker compose up --build --detach --remove-orphans
+
+compose_up() {
+  local log_file="$1"
+  docker compose up --build --detach --remove-orphans 2>&1 | tee "${log_file}"
+  return "${PIPESTATUS[0]}"
+}
+
+compose_log="$(mktemp)"
+trap 'rm -f "${compose_log}"' EXIT
+
+if ! compose_up "${compose_log}"; then
+  app_container_name="${COMPOSE_PROJECT_NAME:-guardian-signal}-app-1"
+  if grep -Fq "container name \"/${app_container_name}\" is already in use" "${compose_log}" \
+    && docker ps --all --format '{{.Names}}' | grep -Fxq "${app_container_name}"; then
+    printf 'Removing stale container %s after Compose name conflict, then retrying deployment.\n' "${app_container_name}" >&2
+    docker rm --force "${app_container_name}"
+    : > "${compose_log}"
+    compose_up "${compose_log}"
+  else
+    exit 1
+  fi
+fi
 
 for _ in $(seq 1 "${GUARDIAN_STARTUP_TIMEOUT_SECONDS:-180}"); do
   if curl --fail --silent --show-error \

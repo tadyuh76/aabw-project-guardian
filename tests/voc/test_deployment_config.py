@@ -19,6 +19,10 @@ def test_production_has_one_canonical_deployment_path() -> None:
     assert "social-listening-crawler" not in production
     assert "social-listening-crawler" not in live
     assert "docker compose up --build --detach --remove-orphans" in deployment
+    assert "container name" in deployment
+    assert "${app_container_name}" in deployment
+    assert "is already in use" in deployment
+    assert 'docker rm --force "${app_container_name}"' in deployment
     assert "chown 0:1000" in deployment
     assert "/api/v1/ready" in deployment
 
