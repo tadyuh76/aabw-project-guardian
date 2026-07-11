@@ -9,8 +9,8 @@ import { ProductFilter } from "./ProductFilter";
 interface DashboardProps { data: DashboardData; }
 type TimeScope = "current" | "baseline";
 
-const chartColors = ["#f97316", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
-const ratingColor = "#f97316";
+const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
+const ratingColor = "#ec7e24";
 const platformColors: Record<string, string> = {
   "TikTok Shop": "#18181b",
   Shopee: "#f97316",
@@ -212,8 +212,8 @@ export function Dashboard({ data }: DashboardProps) {
       {selectedProducts.length === 0 ? (
         <Stack {...panelProps} align="flex-start" gap="4"><Package size={30} /><Heading size="lg">No products selected</Heading><Button colorPalette="orange" onClick={() => setSelectedIds(data.products.map((product) => product.id))}>Show products</Button></Stack>
       ) : <>
-        {insight && <Grid as="section" aria-labelledby="pulse-title" {...panelProps} bg="#fff7ed" _dark={{ bg: "#30190c" }} borderColor="#fed7aa" gridTemplateColumns={{ base: "1fr", md: "auto 1fr auto" }} alignItems="center" gap="5">
-          <Flex w="14" h="14" align="center" justify="center" borderRadius="full" bg="#ffedd5" color="#ea580c"><Star size={30} weight="fill" /></Flex>
+        {insight && <Grid as="section" aria-labelledby="pulse-title" {...panelProps} bg="brand.50" _dark={{ bg: "#30190c" }} borderColor="brand.200" gridTemplateColumns={{ base: "1fr", md: "auto 1fr auto" }} alignItems="center" gap="5">
+          <Flex w="14" h="14" align="center" justify="center" borderRadius="full" bg="brand.100" color="brand.500"><Star size={30} weight="fill" /></Flex>
           <Box><Heading id="pulse-title" size="lg" letterSpacing="0">{cleanDisplayText(insight.title)}</Heading>{insight.summary && <Text color="muted" mt="2">{cleanDisplayText(insight.summary)}</Text>}</Box>
           {heroProduct && <Button variant="outline" colorPalette="orange" onClick={() => setSelectedIds([heroProduct.id])}>Focus <ArrowRight size={16} /></Button>}
         </Grid>}

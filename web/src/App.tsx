@@ -32,7 +32,7 @@ const stateBox = { maxW: "720px", mx: "auto", mt: "10", p: { base: "6", md: "9" 
 function GuardianPalmBrand({ compact = false }: { compact?: boolean }) {
   return (
     <Flex align="center" gap="2.5" minW="0" aria-label="Guardian Palm">
-      <Flex align="center" justify="center" w={compact ? "10" : "104px"} h={compact ? "10" : "8"} px={compact ? "0" : "2.5"} bg="#f58220" borderRadius="control" overflow="hidden" flexShrink="0">
+      <Flex align="center" justify="center" w={compact ? "10" : "104px"} h={compact ? "10" : "8"} px={compact ? "0" : "2.5"} bg="brand.500" borderRadius="control" overflow="hidden" flexShrink="0">
         <Box asChild h={compact ? "8" : "5"} w={compact ? "8" : "auto"} maxW="100%" objectFit="contain">
           <img src={compact ? "/favicon.webp" : "/logo.svg"} alt="" aria-hidden="true" />
         </Box>
