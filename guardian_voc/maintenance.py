@@ -28,18 +28,55 @@ CREATE TABLE discovery_results (
 )
 """
 
+FETCH_TABLE_SQL = """
+CREATE TABLE fetch_attempts (
+    fetch_id VARCHAR PRIMARY KEY,
+    discovery_id VARCHAR,
+    source_id VARCHAR NOT NULL,
+    canonical_url VARCHAR NOT NULL,
+    final_url VARCHAR,
+    reader VARCHAR NOT NULL,
+    status VARCHAR NOT NULL,
+    error_code VARCHAR,
+    content_hash VARCHAR,
+    content_chars BIGINT NOT NULL DEFAULT 0,
+    customer_voice_units BIGINT NOT NULL DEFAULT 0,
+    fetched_at TIMESTAMPTZ NOT NULL,
+    metadata JSON NOT NULL DEFAULT '{}'
+)
+"""
+
+EXTRACTION_TABLE_SQL = """
+CREATE TABLE page_extractions (
+    extraction_id VARCHAR PRIMARY KEY,
+    fetch_id VARCHAR NOT NULL,
+    discovery_id VARCHAR NOT NULL,
+    source_id VARCHAR NOT NULL,
+    canonical_url VARCHAR NOT NULL,
+    page_state VARCHAR NOT NULL,
+    status VARCHAR NOT NULL,
+    error_code VARCHAR,
+    unit_count BIGINT NOT NULL DEFAULT 0,
+    model_version VARCHAR NOT NULL,
+    prompt_version VARCHAR NOT NULL,
+    extracted_at TIMESTAMPTZ NOT NULL,
+    metadata JSON NOT NULL DEFAULT '{}'
+)
+"""
+
 
 def repair_discovery_cache(
     database_path: str | Path,
     *,
     create_backup: bool = True,
 ) -> Path | None:
-    """Rebuild only the derived SERP discovery table and its indexes.
+    """Rebuild only the derived acquisition audit tables and their indexes.
 
     The application must be stopped before this operation. Canonical feedback,
-    classifications, fetch audits, and page extractions are intentionally left
-    untouched. Discovery identities are deterministic and are repopulated by
-    the next collection.
+    classifications, checkpoints, and insights are intentionally left
+    untouched. Discovery, fetch, and extraction identities are deterministic
+    and are repopulated by the next collection. A full database backup makes
+    the discarded acquisition audit rows recoverable.
     """
 
     path = Path(database_path).expanduser().resolve()
@@ -57,6 +94,8 @@ def repair_discovery_cache(
         connection.execute("SET TimeZone='UTC'")
         connection.execute("BEGIN TRANSACTION")
         try:
+            connection.execute("DROP TABLE IF EXISTS page_extractions")
+            connection.execute("DROP TABLE IF EXISTS fetch_attempts")
             connection.execute("DROP TABLE IF EXISTS discovery_results")
             connection.execute(DISCOVERY_TABLE_SQL)
             connection.execute(
@@ -65,6 +104,21 @@ def repair_discovery_cache(
             )
             connection.execute(
                 "CREATE INDEX discovery_url_idx ON discovery_results(canonical_url)"
+            )
+            connection.execute(FETCH_TABLE_SQL)
+            connection.execute(
+                "CREATE INDEX fetch_source_idx ON fetch_attempts(source_id, fetched_at)"
+            )
+            connection.execute(
+                "CREATE INDEX fetch_url_idx ON fetch_attempts(canonical_url)"
+            )
+            connection.execute(EXTRACTION_TABLE_SQL)
+            connection.execute(
+                "CREATE INDEX extraction_source_idx "
+                "ON page_extractions(source_id, extracted_at)"
+            )
+            connection.execute(
+                "CREATE INDEX extraction_fetch_idx ON page_extractions(fetch_id)"
             )
             connection.execute(
                 """

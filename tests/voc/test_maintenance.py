@@ -25,6 +25,25 @@ def test_discovery_repair_is_backed_up_and_preserves_canonical_tables(
     )
     database.execute(
         """
+        INSERT INTO fetch_attempts VALUES (
+            'fetch-one', 'discovery-one', 'guardian_public_social',
+            'https://example.com/post', 'https://example.com/post', 'test',
+            'usable', NULL, 'hash', 100, 1, current_timestamp, '{}'
+        )
+        """
+    )
+    database.execute(
+        """
+        INSERT INTO page_extractions VALUES (
+            'extraction-one', 'fetch-one', 'discovery-one',
+            'guardian_public_social', 'https://example.com/post', 'public',
+            'accepted', NULL, 1, 'test-model', 'test-prompt', current_timestamp,
+            '{}'
+        )
+        """
+    )
+    database.execute(
+        """
         INSERT INTO source_checkpoints VALUES (
             'guardian_public_social', 'test', '{}', current_timestamp
         )
@@ -40,6 +59,12 @@ def test_discovery_repair_is_backed_up_and_preserves_canonical_tables(
         assert connection.execute(
             "SELECT count(*) FROM discovery_results"
         ).fetchone() == (0,)
+        assert connection.execute("SELECT count(*) FROM fetch_attempts").fetchone() == (
+            0,
+        )
+        assert connection.execute("SELECT count(*) FROM page_extractions").fetchone() == (
+            0,
+        )
         assert connection.execute(
             "SELECT count(*) FROM source_checkpoints"
         ).fetchone() == (1,)
@@ -49,6 +74,25 @@ def test_discovery_repair_is_backed_up_and_preserves_canonical_tables(
         assert {row[0] for row in indexes} == {
             "discovery_source_idx",
             "discovery_url_idx",
+        }
+        all_indexes = {
+            row[0]
+            for row in connection.execute(
+                """
+                SELECT index_name FROM duckdb_indexes()
+                WHERE table_name IN (
+                    'discovery_results', 'fetch_attempts', 'page_extractions'
+                )
+                """
+            ).fetchall()
+        }
+        assert all_indexes == {
+            "discovery_source_idx",
+            "discovery_url_idx",
+            "fetch_source_idx",
+            "fetch_url_idx",
+            "extraction_source_idx",
+            "extraction_fetch_idx",
         }
     finally:
         connection.close()
