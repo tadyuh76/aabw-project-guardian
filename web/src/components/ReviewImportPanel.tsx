@@ -287,7 +287,6 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
                 key={value}
                 as="label"
                 align="center"
-                justify="center"
                 gap="2.5"
                 flex={{ base: "1 1 190px", xl: "1 1 0" }}
                 minW={{ base: "180px", xl: "0" }}
@@ -315,7 +314,7 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
                 <Flex w="4" h="4" align="center" justify="center" borderRadius="full" borderWidth="2px" borderColor={selected ? "accent" : "muted"} flexShrink="0">
                   {selected && <Box w="1.5" h="1.5" borderRadius="full" bg="accent" />}
                 </Flex>
-                <Box minW="0" textAlign="center">
+                <Box minW="0" textAlign="left">
                   <Text fontSize="sm" fontWeight="700" lineHeight="1.25">{PROFILE_LABELS[value]}</Text>
                   <Text color={selected ? "accent" : "muted"} fontSize="xs" lineHeight="1.35">Last import: {importTime(lastImportByProfile[value] ?? null)}</Text>
                 </Box>
