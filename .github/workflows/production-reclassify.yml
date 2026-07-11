@@ -1,0 +1,48 @@
+name: Production OpenAI classification retry
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 120
+    concurrency:
+      group: guardian-signal-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: /opt/guardian-signal
+    steps:
+      - name: Configure verified SSH access
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/guardian-deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/guardian-deploy ~/.ssh/known_hosts
+
+      - name: Retry pending OpenAI classifications and republish
+        run: |
+          ssh -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=20 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && token=\$(cat .runtime/admin-token) && curl --fail --silent --show-error --max-time 7000 -X POST -H \"X-Admin-Token: \${token}\" http://127.0.0.1:8000/api/v1/pipeline/run > .runtime/last-classification-retry.json"
+
+      - name: Verify terminal result
+        run: |
+          ssh -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && python3 -c 'import json; p=json.load(open(\".runtime/last-classification-retry.json\")); assert p[\"status\"] in {\"completed\", \"partial\"}, p[\"status\"]; print(json.dumps({k:p.get(k) for k in (\"pipeline_run_id\",\"status\",\"records_seen\",\"records_inserted\",\"records_skipped\",\"records_failed\")}, sort_keys=True))' && curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/ready >/dev/null"

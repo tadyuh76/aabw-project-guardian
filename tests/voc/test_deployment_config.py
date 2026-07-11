@@ -56,6 +56,19 @@ def test_production_social_collection_is_bounded_and_secret_safe() -> None:
     assert "SERP_API_KEY" not in configuration
 
 
+def test_production_classification_retry_is_protected_and_has_no_crawl() -> None:
+    workflow = (
+        ROOT / ".github" / "workflows" / "production-reclassify.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "environment: production" in workflow
+    assert "/api/v1/pipeline/run" in workflow
+    assert "X-Admin-Token" in workflow
+    assert "ServerAliveInterval=30" in workflow
+    assert "live-collections" not in workflow
+    assert "SERP_API_KEY" not in workflow
+
+
 def test_compose_is_one_hardened_service_without_sibling_mounts() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 
