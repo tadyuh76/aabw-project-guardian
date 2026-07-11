@@ -47,11 +47,40 @@ jobs:
               ORDER BY started_at DESC LIMIT 1
               '''
           )
+          recent = db.query(
+              '''
+              SELECT id, status, trigger, current_stage, started_at,
+                     completed_at, stage_results, error_summary
+              FROM pipeline_runs
+              ORDER BY started_at DESC LIMIT 8
+              '''
+          )
           stage_results = {}
           if last and last.get('stage_results'):
               stage_results = json.loads(str(last['stage_results']))
           ingest = stage_results.get('ingest') or {}
           collection = ingest.get('collection') or {}
+          recent_runs = []
+          for row in recent:
+              row_stage_results = {}
+              if row.get('stage_results'):
+                  row_stage_results = json.loads(str(row['stage_results']))
+              row_ingest = row_stage_results.get('ingest') or {}
+              row_collection = row_ingest.get('collection') or {}
+              recent_runs.append({
+                  'id': row.get('id'),
+                  'status': row.get('status'),
+                  'trigger': row.get('trigger'),
+                  'current_stage': row.get('current_stage'),
+                  'started_at': row.get('started_at'),
+                  'completed_at': row.get('completed_at'),
+                  'error_summary': row.get('error_summary'),
+                  'seen': row_ingest.get('seen'),
+                  'inserted': row_ingest.get('inserted'),
+                  'skipped': row_ingest.get('skipped'),
+                  'failed': row_ingest.get('failed'),
+                  'collection': row_collection,
+              })
           fetch_status = db.query(
               '''
               SELECT status, count(*) AS count
@@ -101,6 +130,7 @@ jobs:
                   },
               } if last else None,
               'collection': collection,
+              'recent_runs': recent_runs,
               'fetch_status': fetch_status,
               'extraction_status': extraction_status,
               'discovery_by_source': latest_discovery,
