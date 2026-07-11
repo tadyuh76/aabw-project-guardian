@@ -23,7 +23,7 @@ const PROFILE_LOGOS: Record<ReviewImportProfile, string> = {
   tiktok_shop: "/marketplace-logos/tiktok.svg",
   shopee: "/marketplace-logos/shopee.svg",
   lazada: "/marketplace-logos/lazada.svg",
-  grabmart: "/marketplace-logos/grab.svg",
+  grabmart: "/marketplace-logos/grabmart.png",
 };
 
 const PREVIEW_COLUMNS = [
@@ -321,11 +321,20 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
                   disabled={locked}
                   onChange={() => { setProfile(value); resetResult(); }}
                 />
-                <Box asChild h="7" maxW="124px" objectFit="contain">
-                  <img src={PROFILE_LOGOS[value]} alt="" aria-hidden="true" />
-                </Box>
+                <Flex
+                  align="center"
+                  justify="center"
+                  h="10"
+                  minW={value === "guardian_ecommerce" ? "112px" : "0"}
+                  px={value === "guardian_ecommerce" ? "3" : "0"}
+                  borderRadius="control"
+                  bg={value === "guardian_ecommerce" ? "#f58220" : "transparent"}
+                >
+                  <Box asChild h={value === "guardian_ecommerce" ? "5" : "8"} maxW="132px" objectFit="contain">
+                    <img src={PROFILE_LOGOS[value]} alt="" aria-hidden="true" />
+                  </Box>
+                </Flex>
                 <Box minW="0" textAlign="center">
-                  <Text fontSize="sm" fontWeight="700" lineHeight="1.25">{PROFILE_LABELS[value]}</Text>
                   <Text color={selected ? "accent" : "muted"} fontSize="xs" lineHeight="1.35">Last import: {importTime(lastImportByProfile[value] ?? null)}</Text>
                 </Box>
               </Flex>
