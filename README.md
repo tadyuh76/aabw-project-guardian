@@ -155,7 +155,13 @@ To enable the scheduled live pipeline, also configure `SERP_API_KEY` and
 VOC_SCHEDULER_ENABLED=true
 VOC_SCHEDULER_FULL_FLOW_ENABLED=true
 TINYFISH_ENABLED=true
+VOC_LIVE_COLLECTION_SOURCE_IDS=guardian_public_social,hasaki_public_social,watsons_public_social
 ```
+
+These registry sources cover the verified public-social discovery scopes for
+Guardian, Hasaki, and Watsons. Search results remain discovery evidence only;
+only fetched public pages that pass strict extraction and provenance checks are
+published as feedback.
 
 Scheduled work and imports share the same serialized writer lock. Keep one app
 container while DuckDB is the database.

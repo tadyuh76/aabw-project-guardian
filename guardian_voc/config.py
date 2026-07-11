@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     voc_collector_enrichment_concurrency: int = Field(default=3, ge=1, le=25)
     voc_live_collection_source_ids: Annotated[tuple[str, ...], NoDecode] = (
         "guardian_public_social",
+        "hasaki_public_social",
+        "watsons_public_social",
     )
     voc_live_collection_pages_per_query: int = Field(default=1, ge=1, le=10)
     voc_live_collection_fetch_limit: int = Field(default=25, ge=1, le=500)

@@ -44,6 +44,10 @@ def test_compose_is_one_hardened_service_without_sibling_mounts() -> None:
     assert compose.count("\n  app:") == 1
     assert '"127.0.0.1:${GUARDIAN_PORT:-8000}:8000"' in compose
     assert "VOC_DEMO_MODE: \"${VOC_DEMO_MODE:-false}\"" in compose
+    assert (
+        "guardian_public_social,hasaki_public_social,watsons_public_social"
+        in compose
+    )
     assert "VOC_ADMIN_TOKEN_FILE: /run/secrets/admin_token" in compose
     assert "AI_API_KEY_FILE: /run/secrets/openai_api_key" in compose
     assert "SERP_API_KEY_FILE: /run/secrets/serp_api_key" in compose
