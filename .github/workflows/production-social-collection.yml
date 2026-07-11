@@ -48,6 +48,8 @@ jobs:
           ssh -i ~/.ssh/guardian-deploy \
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=20 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "chmod +x '${DEPLOY_PATH}/scripts/configure-production-social' '${DEPLOY_PATH}/scripts/deploy-server' && '${DEPLOY_PATH}/scripts/configure-production-social' && '${DEPLOY_PATH}/scripts/deploy-server'"
 
@@ -56,6 +58,8 @@ jobs:
           ssh -i ~/.ssh/guardian-deploy \
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=20 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd '${DEPLOY_PATH}' && token=\$(cat .runtime/admin-token) && curl --fail --silent --show-error --max-time 21000 -H 'Content-Type: application/json' -H \"X-Admin-Token: \${token}\" --data '{\"source_ids\":[\"guardian_public_social\",\"hasaki_public_social\",\"watsons_public_social\"],\"pages_per_query\":3,\"fetch_limit\":500,\"extraction_limit\":500,\"lookback_days\":30,\"refresh\":false}' http://127.0.0.1:8000/api/v1/live-collections > .runtime/last-social-collection.json"
 
