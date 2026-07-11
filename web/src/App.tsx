@@ -134,7 +134,7 @@ function AppContent() {
               {theme === "light" ? <Sun size={17} weight="fill" /> : <Moon size={17} weight="fill" />}<Box as="span" display={{ base: "none", md: "inline" }}>{theme === "light" ? "Light" : "Dark"}</Box>
             </Button>
             {activeTab === "dashboard" && <Flex display={{ base: "none", xl: "flex" }} align="center" gap="2" color="muted" fontSize="sm"><CalendarBlank size={17} />{timestampLabel(data?.lastUpdated ?? data?.asOf)}</Flex>}
-            {activeTab === "dashboard" && data && <Flex align="center" gap="2" px="3" py="1.5" borderRadius="full" bg="subtle" color="muted" fontSize="sm" fontWeight="600"><Box w="2" h="2" borderRadius="full" bg={data.overallHealth === "healthy" ? "success" : "danger"} />{data.mode === "demo" ? "Demo" : data.overallHealth}</Flex>}
+            {activeTab === "dashboard" && data && <Flex align="center" gap="2" px="3" py="1.5" borderRadius="full" bg="subtle" color="muted" fontSize="sm" fontWeight="600"><Box w="2" h="2" borderRadius="full" bg={data.overallHealth === "healthy" ? "success" : "danger"} />{data.overallHealth === "healthy" ? "Healthy" : "Needs attention"}</Flex>}
           </Flex>
         </Flex>
 

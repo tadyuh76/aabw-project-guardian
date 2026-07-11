@@ -3,6 +3,7 @@ import { ArrowDown, ArrowRight, ArrowUp, ChatCircleDots, CheckCircle, Package, P
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
+import { cleanDisplayText } from "../utils/displayText";
 import { ProductFilter } from "./ProductFilter";
 
 interface DashboardProps { data: DashboardData; }
@@ -18,7 +19,7 @@ const platformColors: Record<string, string> = {
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "5", md: "6" } } as const;
 
 function productName(product: DashboardProduct): string {
-  return product.shortName ?? product.name ?? `Unidentified product - ${product.id}`;
+  return cleanDisplayText(product.shortName ?? product.name ?? `Unidentified product - ${product.id}`);
 }
 
 function ratio(numerator: number, denominator: number): number | null {
@@ -217,7 +218,7 @@ export function Dashboard({ data }: DashboardProps) {
       ) : <>
         {insight && <Grid as="section" aria-labelledby="pulse-title" {...panelProps} bg="#fff7ed" _dark={{ bg: "#30190c" }} borderColor="#fed7aa" gridTemplateColumns={{ base: "1fr", md: "auto 1fr auto" }} alignItems="center" gap="5">
           <Flex w="14" h="14" align="center" justify="center" borderRadius="full" bg="#ffedd5" color="#ea580c"><Star size={30} weight="fill" /></Flex>
-          <Box><Heading id="pulse-title" size="lg" letterSpacing="0">{insight.title}</Heading>{insight.summary && <Text color="muted" mt="2">{insight.summary}</Text>}</Box>
+          <Box><Heading id="pulse-title" size="lg" letterSpacing="0">{cleanDisplayText(insight.title)}</Heading>{insight.summary && <Text color="muted" mt="2">{cleanDisplayText(insight.summary)}</Text>}</Box>
           {heroProduct && <Button variant="outline" colorPalette="orange" onClick={() => setSelectedIds([heroProduct.id])}>Focus <ArrowRight size={16} /></Button>}
         </Grid>}
 
@@ -237,7 +238,7 @@ export function Dashboard({ data }: DashboardProps) {
         <Grid gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.55fr) minmax(320px, .75fr)" }} gap="4">
           <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
           <Section title="Competitive sentiment">
-            {!data.benchmark?.comparable ? <Text color="muted">{data.benchmark?.reason ?? "Comparison not available."}</Text> : <Stack gap="5">
+            {!data.benchmark?.comparable ? <Text color="muted">{cleanDisplayText(data.benchmark?.reason ?? "Comparison not available.")}</Text> : <Stack gap="5">
               {data.benchmark.brands.map((brand, index) => {
                 const negativeMentions = Math.max(0, (brand.feedback ?? 0) - (brand.positive ?? 0) - (brand.neutral ?? 0));
                 const score = brand.feedback ? 50 + 50 * (((brand.positive ?? 0) - negativeMentions) / brand.feedback) : null;
@@ -250,10 +251,10 @@ export function Dashboard({ data }: DashboardProps) {
 
         <Grid gridTemplateColumns={{ base: "1fr", xl: "1.1fr .9fr" }} gap="4">
           <Section title="Products to watch"><Stack gap="0" divideY="1px" divideColor="border">{productsToWatch.map((product, index) => <Button key={product.id} variant="ghost" h="auto" py="4" px="0" borderRadius="0" justifyContent="stretch" onClick={() => setSelectedIds([product.id])}><Grid width="full" gridTemplateColumns="32px minmax(0,1fr) auto" gap="3" textAlign="left" alignItems="center"><Flex w="7" h="7" align="center" justify="center" borderRadius="full" bg={chartColors[index]} color="white" fontWeight="750">{index + 1}</Flex><Box minW="0"><Text fontWeight="700" whiteSpace="normal">{productName(product)}</Text><Text color="muted" whiteSpace="normal">{humanize(product.problems[0]?.label ?? "No dominant problem")}</Text></Box><Text color="danger" fontWeight="750">{percent(ratio(product.current.complaints, product.current.feedback), 0)}</Text></Grid></Button>)}</Stack></Section>
-          <Section title="Recommended actions">{insight?.recommendedActions.length ? <Stack as="ol" gap="4" pl="5">{insight.recommendedActions.map((action) => <Text as="li" key={action} fontWeight="550">{action}</Text>)}</Stack> : <Text color="muted">No action is required for the selected scope.</Text>}</Section>
+          <Section title="Recommended actions">{insight?.recommendedActions.length ? <Stack as="ol" gap="4" pl="5">{insight.recommendedActions.map((action) => <Text as="li" key={action} fontWeight="550">{cleanDisplayText(action)}</Text>)}</Stack> : <Text color="muted">No action is required for the selected scope.</Text>}</Section>
         </Grid>
 
-        {selectedEvidence.length > 0 && <Section title="Recent review signals" action={<Badge variant="subtle" colorPalette="orange">{selectedEvidence.length}</Badge>}><Stack gap="0" divideY="1px" divideColor="border">{selectedEvidence.slice(0, 4).map((item) => <Grid key={item.id} py="4" gridTemplateColumns={{ base: "1fr", md: "130px minmax(0, 1fr) auto" }} gap="4" alignItems="start"><Text fontWeight="650">{item.sourcePlatform}</Text><Text>“{item.text}”</Text><Badge colorPalette={item.sentiment === "positive" ? "green" : item.sentiment === "negative" ? "red" : "gray"} variant="subtle">{humanize(item.sentiment ?? "neutral")}</Badge></Grid>)}</Stack></Section>}
+        {selectedEvidence.length > 0 && <Section title="Recent review signals" action={<Badge variant="subtle" colorPalette="orange">{selectedEvidence.length}</Badge>}><Stack gap="0" divideY="1px" divideColor="border">{selectedEvidence.slice(0, 4).map((item) => <Grid key={item.id} py="4" gridTemplateColumns={{ base: "1fr", md: "130px minmax(0, 1fr) auto" }} gap="4" alignItems="start"><Text fontWeight="650">{humanize(cleanDisplayText(item.sourcePlatform))}</Text><Text>“{cleanDisplayText(item.text)}”</Text><Badge colorPalette={item.sentiment === "positive" ? "green" : item.sentiment === "negative" ? "red" : "gray"} variant="subtle">{humanize(item.sentiment ?? "neutral")}</Badge></Grid>)}</Stack></Section>}
       </>}
     </Stack>
   );

@@ -2,11 +2,12 @@ import { Box, Button, Flex, Grid, Heading, IconButton, Input, Stack, Text } from
 import { CaretDown, Check, MagnifyingGlass, Package, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DashboardProduct } from "../api/types";
+import { cleanDisplayText } from "../utils/displayText";
 
 interface ProductFilterProps { products: DashboardProduct[]; selectedIds: string[]; onChange: (ids: string[]) => void; }
 
 function productName(product: DashboardProduct): string {
-  return product.shortName ?? product.name ?? `Unidentified product - ${product.id}`;
+  return cleanDisplayText(product.shortName ?? product.name ?? `Unidentified product - ${product.id}`);
 }
 
 export function ProductFilter({ products, selectedIds, onChange }: ProductFilterProps) {

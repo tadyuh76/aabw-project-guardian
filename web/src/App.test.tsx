@@ -22,7 +22,7 @@ describe("App dashboard states", () => {
   });
 
   it("renders only values from a successful dashboard response", async () => {
-    api.fetchDashboard.mockResolvedValue(dashboardFixture());
+    api.fetchDashboard.mockResolvedValue(dashboardFixture({ mode: "demo" }));
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
@@ -37,6 +37,7 @@ describe("App dashboard states", () => {
     expect(screen.getByText("128")).toBeInTheDocument();
     expect(screen.getByText("Product Quality")).toBeInTheDocument();
     expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Demo", { exact: true })).not.toBeInTheDocument();
   });
 
   it("keeps partial backend copy out of the dashboard", async () => {
