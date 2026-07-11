@@ -88,13 +88,18 @@ deployment succeeds.
 
 Configure these secrets in the GitHub `production` environment:
 
-- `DEPLOY_HOST`: VPS hostname or IP address
-- `DEPLOY_USER`: restricted deployment SSH user (or `root` during bootstrap)
+- `DEPLOY_HOST`: VPS hostname or IP address. Defaults to
+  `31.22.104.121.compute.verda.run` for the Verda production instance.
+- `DEPLOY_USER`: restricted deployment SSH user. Defaults to `root` for
+  bootstrap on the Verda production instance.
 - `DEPLOY_SSH_PRIVATE_KEY`: the dedicated deployment private key
-- `DEPLOY_KNOWN_HOSTS`: the pinned SSH host-key line
+- `DEPLOY_KNOWN_HOSTS`: the pinned SSH host-key line. If omitted, CI uses the
+  pinned Verda host key for `31.22.104.121.compute.verda.run` and
+  `31.22.104.121`.
 
-The deployment excludes and preserves `.env`, `.runtime/`, and persistent
-Docker volume data on the VPS.
+The deploy job bootstraps `rsync`, Docker, Docker Compose, and
+`/opt/guardian-signal` on a fresh Ubuntu VPS. It excludes and preserves `.env`,
+`.runtime/`, and persistent Docker volume data on the VPS.
 
 Compose replaces the application container while retaining the `guardian_data`
 volume.

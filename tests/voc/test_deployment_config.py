@@ -32,6 +32,9 @@ def test_main_ci_deploys_only_after_tests_pass() -> None:
     assert "github.event_name == 'push'" in workflow
     assert "environment: production" in workflow
     assert "DEPLOY_SSH_PRIVATE_KEY" in workflow
+    assert "31.22.104.121.compute.verda.run" in workflow
+    assert "Bootstrap server runtime" in workflow
+    assert "docker-compose-plugin" in workflow
     assert "scripts/deploy-server" in workflow
     assert "--exclude='.env'" in workflow
     assert "--exclude='.runtime/'" in workflow
@@ -50,7 +53,7 @@ def test_production_social_collection_is_bounded_and_secret_safe() -> None:
     assert "secrets.SERP_API_KEY" in workflow
     assert "pages_per_query\\\":3" in workflow
     assert "fetch_limit\\\":500" in workflow
-    assert "lookback_days\\\":30" in workflow
+    assert "lookback_days\\\":365" in workflow
     assert "last-social-collection.json" in workflow
     assert "guardian_public_social,hasaki_public_social,watsons_public_social" in configuration
     assert "SERP_API_KEY" not in configuration

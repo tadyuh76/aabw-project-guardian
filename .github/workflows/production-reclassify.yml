@@ -15,19 +15,34 @@ jobs:
       group: guardian-signal-production
       cancel-in-progress: false
     env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_PATH: /opt/guardian-signal
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST || '31.22.104.121.compute.verda.run' }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER || vars.DEPLOY_USER || 'root' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || vars.DEPLOY_PATH || '/opt/guardian-signal' }}
     steps:
       - name: Configure verified SSH access
         env:
           DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_SSH_PRIVATE_KEY"
           install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/guardian-deploy
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/guardian-deploy
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          else
+            cat > ~/.ssh/known_hosts <<'KNOWN_HOSTS'
+          31.22.104.121.compute.verda.run ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGUh+ji+1lTytVTe1Kz+huGJLDgMQl29ZTcYhCoxbDd+
+          31.22.104.121 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGUh+ji+1lTytVTe1Kz+huGJLDgMQl29ZTcYhCoxbDd+
+          KNOWN_HOSTS
+          fi
           chmod 600 ~/.ssh/guardian-deploy ~/.ssh/known_hosts
+          ssh-keygen -F "$DEPLOY_HOST" -f ~/.ssh/known_hosts >/dev/null || {
+            echo "::error::DEPLOY_KNOWN_HOSTS does not contain a host key for $DEPLOY_HOST"
+            exit 1
+          }
 
       - name: Retry pending OpenAI classifications and republish
         run: |

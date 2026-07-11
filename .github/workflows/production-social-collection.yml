@@ -21,9 +21,9 @@ jobs:
       group: guardian-signal-production
       cancel-in-progress: false
     env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_PATH: /opt/guardian-signal
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST || '31.22.104.121.compute.verda.run' }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER || vars.DEPLOY_USER || 'root' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || vars.DEPLOY_PATH || '/opt/guardian-signal' }}
     steps:
       - uses: actions/checkout@v7.0.0
 
@@ -32,10 +32,25 @@ jobs:
           DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_SSH_PRIVATE_KEY"
           install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/guardian-deploy
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/guardian-deploy
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          else
+            cat > ~/.ssh/known_hosts <<'KNOWN_HOSTS'
+          31.22.104.121.compute.verda.run ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGUh+ji+1lTytVTe1Kz+huGJLDgMQl29ZTcYhCoxbDd+
+          31.22.104.121 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGUh+ji+1lTytVTe1Kz+huGJLDgMQl29ZTcYhCoxbDd+
+          KNOWN_HOSTS
+          fi
           chmod 600 ~/.ssh/guardian-deploy ~/.ssh/known_hosts
+          ssh-keygen -F "$DEPLOY_HOST" -f ~/.ssh/known_hosts >/dev/null || {
+            echo "::error::DEPLOY_KNOWN_HOSTS does not contain a host key for $DEPLOY_HOST"
+            exit 1
+          }
 
       - name: Install protected SERP credential
         env:
@@ -68,7 +83,7 @@ jobs:
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd '${DEPLOY_PATH}'; docker compose stop app; docker compose run --rm --no-deps --entrypoint python app scripts/repair-discovery-cache; repair_status=\$?; scripts/deploy-server; exit \${repair_status}"
 
-      - name: Run bounded 30-day production collection
+      - name: Run bounded 365-day production collection
         run: |
           ssh -i ~/.ssh/guardian-deploy \
             -o BatchMode=yes \
@@ -76,7 +91,7 @@ jobs:
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=20 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_PATH}' && token=\$(cat .runtime/admin-token) && curl --fail --silent --show-error --max-time 21000 -H 'Content-Type: application/json' -H \"X-Admin-Token: \${token}\" --data '{\"source_ids\":[\"guardian_public_social\",\"hasaki_public_social\",\"watsons_public_social\"],\"pages_per_query\":3,\"fetch_limit\":500,\"extraction_limit\":500,\"lookback_days\":30,\"refresh\":false}' http://127.0.0.1:8000/api/v1/live-collections > .runtime/last-social-collection.json"
+            "cd '${DEPLOY_PATH}' && token=\$(cat .runtime/admin-token) && curl --fail --silent --show-error --max-time 21000 -H 'Content-Type: application/json' -H \"X-Admin-Token: \${token}\" --data '{\"source_ids\":[\"guardian_public_social\",\"hasaki_public_social\",\"watsons_public_social\"],\"pages_per_query\":3,\"fetch_limit\":500,\"extraction_limit\":500,\"lookback_days\":365,\"refresh\":false}' http://127.0.0.1:8000/api/v1/live-collections > .runtime/last-social-collection.json"
 
       - name: Report redacted server failure context
         if: failure()
