@@ -244,8 +244,6 @@ function WeeklySummaryCard({ message }: { message: string }) {
       boxShadow="0 10px 30px rgba(236, 126, 36, 0.10)"
     >
       <Box position="absolute" inset="0" bg="linear-gradient(100deg, rgba(255,248,241,0.95) 0%, rgba(255,255,255,0.95) 58%, rgba(255,234,216,0.42) 100%)" pointerEvents="none" />
-      <Box position="absolute" right={{ base: "-28px", md: "24px" }} top={{ base: "-18px", md: "20px" }} w={{ base: "96px", md: "128px" }} h={{ base: "96px", md: "128px" }} borderWidth="1px" borderColor="brand.200" borderRadius="full" opacity="0.45" pointerEvents="none" />
-      <Box position="absolute" right={{ base: "28px", md: "148px" }} bottom={{ base: "-14px", md: "18px" }} w="28px" h="28px" bg="brand.100" borderRadius="full" opacity="0.7" pointerEvents="none" />
       <Flex position="relative" w={{ base: "14", md: "16" }} h={{ base: "14", md: "16" }} flex="0 0 auto" align="center" justify="center" borderRadius="full" bg="brand.100" color="brand.500">
         <Flex w={{ base: "10", md: "12" }} h={{ base: "10", md: "12" }} align="center" justify="center" borderRadius="full" bg="brand.500" color="white">
           <Star size={28} weight="fill" />
@@ -264,13 +262,21 @@ function WeeklySummaryCard({ message }: { message: string }) {
         flex="0 0 auto"
         align="center"
         justify="center"
-        w="72px"
-        h="72px"
+        w="178px"
+        h="86px"
         color="brand.500"
-        opacity="0.9"
         aria-hidden="true"
       >
-        <Package size={48} />
+        <Box position="absolute" insetY="3" right="0" w="128px" bg="rgba(255, 248, 241, 0.82)" borderWidth="1px" borderColor="brand.200" borderRadius="12px" transform="rotate(-3deg)" />
+        <Stack position="absolute" left="0" gap="2" align="flex-start">
+          <Box h="3px" w="62px" bg="brand.300" borderRadius="full" />
+          <Box h="3px" w="42px" bg="brand.200" borderRadius="full" />
+          <Box h="3px" w="78px" bg="brand.100" borderRadius="full" />
+        </Stack>
+        <Flex position="relative" ml="10" w="58px" h="58px" align="center" justify="center" bg="brand.500" color="white" borderRadius="14px" boxShadow="0 12px 26px rgba(236, 126, 36, 0.22)">
+          <Package size={34} weight="bold" />
+        </Flex>
+        <Box position="absolute" right="20px" bottom="9px" w="34px" h="4px" bg="brand.200" borderRadius="full" opacity="0.9" />
       </Flex>
     </Flex>
   );
