@@ -95,7 +95,13 @@ function normalizeThemes(value: unknown): DashboardProduct["themes"] {
         if (!isRecord(item)) return [];
         const label = stringValue(item.label ?? item.topic);
         if (!label) return [];
-        return [{ label, subtopic: stringValue(item.subtopic), count: countValue(item.count) }];
+        return [{
+          label,
+          subtopic: stringValue(item.subtopic),
+          count: countValue(item.count),
+          baselineCount: countValue(item.baseline_count ?? item.baselineCount),
+          percentageChange: numberValue(item.percentage_change ?? item.percentageChange),
+        }];
       })
     : [];
 }
@@ -110,6 +116,17 @@ function normalizeRatingDistribution(value: unknown): DashboardProduct["ratingDi
           : [];
       })
     : [];
+}
+
+function normalizeRatingTrend(value: unknown): DashboardProduct["ratingTrend"] {
+  return Array.isArray(value) ? value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const date = stringValue(item.date);
+    const platform = stringValue(item.platform);
+    const averageRating = numberValue(item.average_rating ?? item.averageRating);
+    if (!date || !platform || averageRating === null) return [];
+    return [{ date, platform, averageRating, count: countValue(item.count), predicted: booleanValue(item.predicted) }];
+  }) : [];
 }
 
 function normalizeProduct(value: unknown): DashboardProduct | null {
@@ -134,6 +151,8 @@ function normalizeProduct(value: unknown): DashboardProduct | null {
     sources: normalizeSources(value.sources),
     themes,
     ratingDistribution: normalizeRatingDistribution(value.rating_distribution ?? value.ratingDistribution),
+    baselineRatingDistribution: normalizeRatingDistribution(value.baseline_rating_distribution ?? value.baselineRatingDistribution),
+    ratingTrend: normalizeRatingTrend(value.rating_trend ?? value.ratingTrend),
     negativeFeedback: normalizeThemes(value.negative_feedback ?? value.negativeFeedback),
     problems: normalizeThemes(value.problems ?? value.themes),
   };

@@ -28,11 +28,21 @@ export interface ProductTheme {
   label: string;
   subtopic: string | null;
   count: number;
+  baselineCount: number;
+  percentageChange: number | null;
 }
 
 export interface ProductRatingCount {
   rating: number;
   count: number;
+}
+
+export interface ProductRatingTrendPoint {
+  date: string;
+  platform: string;
+  averageRating: number;
+  count: number;
+  predicted: boolean;
 }
 
 export interface DashboardProduct {
@@ -52,6 +62,8 @@ export interface DashboardProduct {
   sources: Array<{ sourceGroup: string; count: number }>;
   themes: ProductTheme[];
   ratingDistribution: ProductRatingCount[];
+  baselineRatingDistribution: ProductRatingCount[];
+  ratingTrend: ProductRatingTrendPoint[];
   negativeFeedback: ProductTheme[];
   problems: ProductTheme[];
 }

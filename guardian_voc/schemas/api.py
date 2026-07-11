@@ -184,9 +184,22 @@ class DashboardThemeView(BaseModel):
     count: int = Field(ge=0)
 
 
+class DashboardComparisonThemeView(DashboardThemeView):
+    baseline_count: int = Field(default=0, ge=0)
+    percentage_change: float | None = None
+
+
 class DashboardRatingCountView(BaseModel):
     rating: int = Field(ge=1, le=5)
     count: int = Field(ge=0)
+
+
+class DashboardRatingTrendPointView(BaseModel):
+    date: date
+    platform: str
+    average_rating: float = Field(ge=1, le=5)
+    count: int = Field(ge=0)
+    predicted: bool = False
 
 
 class DashboardProductView(BaseModel):
@@ -206,8 +219,10 @@ class DashboardProductView(BaseModel):
     sources: dict[str, int] = Field(default_factory=dict)
     themes: list[DashboardThemeView] = Field(default_factory=list)
     rating_distribution: list[DashboardRatingCountView] = Field(default_factory=list)
-    negative_feedback: list[DashboardThemeView] = Field(default_factory=list)
-    problems: list[DashboardThemeView] = Field(default_factory=list)
+    baseline_rating_distribution: list[DashboardRatingCountView] = Field(default_factory=list)
+    rating_trend: list[DashboardRatingTrendPointView] = Field(default_factory=list)
+    negative_feedback: list[DashboardComparisonThemeView] = Field(default_factory=list)
+    problems: list[DashboardComparisonThemeView] = Field(default_factory=list)
 
 
 class DashboardEvidenceView(BaseModel):

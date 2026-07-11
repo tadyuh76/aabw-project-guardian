@@ -84,11 +84,13 @@ from guardian_voc.schemas.api import (
     CoverageView,
     DashboardBenchmarkAggregateView,
     DashboardBenchmarkView,
+    DashboardComparisonThemeView,
     DashboardCoverageView,
     DashboardEvidenceView,
     DashboardPeriodCountsView,
     DashboardProductView,
     DashboardRatingCountView,
+    DashboardRatingTrendPointView,
     DashboardResponse,
     DashboardThemeView,
     DashboardWindowsView,
@@ -3517,6 +3519,9 @@ class GuardianService:
             complaint_rows = [
                 row for row in current_analyzed if str(row.get("intent")) == "complaint"
             ]
+            baseline_complaint_rows = [
+                row for row in baseline_analyzed if str(row.get("intent")) == "complaint"
+            ]
             source_counts = Counter(str(row.get("source_group")) for row in current_rows)
             feedback_counts = Counter(
                 str(row.get("primary_topic") or "other")
@@ -3526,16 +3531,95 @@ class GuardianService:
                 str(row.get("subtopic") or row.get("primary_topic") or "other")
                 for row in complaint_rows
             )
+            baseline_feedback_counts = Counter(
+                str(row.get("primary_topic") or "other")
+                for row in baseline_complaint_rows
+            )
+            baseline_problem_counts = Counter(
+                str(row.get("subtopic") or row.get("primary_topic") or "other")
+                for row in baseline_complaint_rows
+            )
             rating_counts = Counter(
                 max(1, min(5, int(float(row["rating"]) + 0.5)))
                 for row in current_rows
                 if row.get("rating") is not None
             )
+            baseline_rating_counts = Counter(
+                max(1, min(5, int(float(row["rating"]) + 0.5)))
+                for row in baseline_rows
+                if row.get("rating") is not None
+            )
+
+            platform_aliases = {
+                "tiktok": "TikTok Shop",
+                "tiktok_shop": "TikTok Shop",
+                "shopee": "Shopee",
+                "lazada": "Lazada",
+                "grabmart": "GrabMart",
+            }
+            trend_start = windows.baseline_start
+            trend_rows: dict[tuple[str, int], list[float]] = defaultdict(list)
+            for row in product_rows:
+                platform = platform_aliases.get(str(row.get("source_platform") or "").lower())
+                occurred_at = row.get("occurred_at")
+                if (
+                    platform is None
+                    or row.get("rating") is None
+                    or not self._dashboard_time_eligible(row)
+                    or not isinstance(occurred_at, datetime)
+                    or occurred_at < trend_start
+                    or occurred_at >= windows.current_end
+                ):
+                    continue
+                week_index = (occurred_at - trend_start).days // 7
+                trend_rows[(platform, week_index)].append(float(row["rating"]))
+
+            rating_trend: list[DashboardRatingTrendPointView] = []
+            for platform in platform_aliases.values():
+                observed = sorted(
+                    (week, values)
+                    for (candidate, week), values in trend_rows.items()
+                    if candidate == platform
+                )
+                for week, values in observed:
+                    rating_trend.append(
+                        DashboardRatingTrendPointView(
+                            date=(trend_start + timedelta(days=week * 7)).date(),
+                            platform=platform,
+                            average_rating=sum(values) / len(values),
+                            count=len(values),
+                        )
+                    )
+                if len(observed) < 2:
+                    continue
+                xs = [float(week) for week, _ in observed]
+                ys = [sum(values) / len(values) for _, values in observed]
+                x_mean = sum(xs) / len(xs)
+                y_mean = sum(ys) / len(ys)
+                denominator = sum((x - x_mean) ** 2 for x in xs)
+                slope = 0.0 if denominator == 0 else sum(
+                    (x - x_mean) * (y - y_mean) for x, y in zip(xs, ys, strict=True)
+                ) / denominator
+                intercept = y_mean - slope * x_mean
+                last_week = observed[-1][0]
+                sample_size = len(observed[-1][1])
+                for week in (last_week + 1, last_week + 2):
+                    rating_trend.append(
+                        DashboardRatingTrendPointView(
+                            date=(trend_start + timedelta(days=week * 7)).date(),
+                            platform=platform,
+                            average_rating=max(1.0, min(5.0, intercept + slope * week)),
+                            count=sample_size,
+                            predicted=True,
+                        )
+                    )
             sorted_feedback = sorted(
-                feedback_counts.items(), key=lambda item: (-item[1], item[0])
+                ((label, feedback_counts[label]) for label in set(feedback_counts) | set(baseline_feedback_counts)),
+                key=lambda item: (-item[1], item[0]),
             )
             sorted_problems = sorted(
-                problem_counts.items(), key=lambda item: (-item[1], item[0])
+                ((label, problem_counts[label]) for label in set(problem_counts) | set(baseline_problem_counts)),
+                key=lambda item: (-item[1], item[0]),
             )
             products.append(
                 DashboardProductView(
@@ -3576,12 +3660,36 @@ class GuardianService:
                         for rating in range(5, 0, -1)
                         if rating_counts[rating]
                     ],
+                    baseline_rating_distribution=[
+                        DashboardRatingCountView(rating=rating, count=baseline_rating_counts[rating])
+                        for rating in range(5, 0, -1)
+                        if baseline_rating_counts[rating]
+                    ],
+                    rating_trend=rating_trend,
                     negative_feedback=[
-                        DashboardThemeView(label=label, count=count)
+                        DashboardComparisonThemeView(
+                            label=label,
+                            count=count,
+                            baseline_count=baseline_feedback_counts[label],
+                            percentage_change=(
+                                None
+                                if baseline_feedback_counts[label] == 0
+                                else 100 * (count - baseline_feedback_counts[label]) / baseline_feedback_counts[label]
+                            ),
+                        )
                         for label, count in sorted_feedback
                     ],
                     problems=[
-                        DashboardThemeView(label=label, count=count)
+                        DashboardComparisonThemeView(
+                            label=label,
+                            count=count,
+                            baseline_count=baseline_problem_counts[label],
+                            percentage_change=(
+                                None
+                                if baseline_problem_counts[label] == 0
+                                else 100 * (count - baseline_problem_counts[label]) / baseline_problem_counts[label]
+                            ),
+                        )
                         for label, count in sorted_problems
                     ],
                 )

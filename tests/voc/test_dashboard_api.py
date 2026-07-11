@@ -235,11 +235,28 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
         {"rating": 3, "count": 1},
         {"rating": 1, "count": 1},
     ]
+    assert [item.model_dump() for item in product.baseline_rating_distribution] == [
+        {"rating": 4, "count": 1},
+        {"rating": 2, "count": 1},
+    ]
+    shopee_trend = [item for item in product.rating_trend if item.platform == "Shopee"]
+    assert len([item for item in shopee_trend if not item.predicted]) == 2
+    assert len([item for item in shopee_trend if item.predicted]) == 2
     assert [item.model_dump() for item in product.negative_feedback] == [
-        {"label": "product_quality_authenticity", "count": 1}
+        {
+            "label": "product_quality_authenticity",
+            "count": 1,
+            "baseline_count": 1,
+            "percentage_change": 0.0,
+        }
     ]
     assert [item.model_dump() for item in product.problems] == [
-        {"label": "product_performance", "count": 1}
+        {
+            "label": "product_performance",
+            "count": 1,
+            "baseline_count": 1,
+            "percentage_change": 0.0,
+        }
     ]
     assert len(result.evidence) == 5
     assert all(item.product_id == "P-1" for item in result.evidence)
