@@ -8,7 +8,7 @@ const config = defineConfig({
       bg: "canvas",
       color: "ink",
       fontFamily: "Inter, system-ui, sans-serif",
-      fontSize: "15px",
+      fontSize: "14px",
       lineHeight: "1.6",
     },
     "*": { boxSizing: "border-box" },
