@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE_ENV="${ROOT_DIR}/../social-listening-crawler/.env"
+RUNTIME_DIR="${ROOT_DIR}/.runtime"
+DOCKER_CONFIG_DIR="${RUNTIME_DIR}/docker-config"
+TOKEN_FILE="${RUNTIME_DIR}/admin-token"
+HOST_DATA_DIR="${ROOT_DIR}/data"
+
+mkdir -p "${RUNTIME_DIR}" "${DOCKER_CONFIG_DIR}"
+chmod 700 "${RUNTIME_DIR}"
+umask 077
+
+# Copy only the three allowlisted credentials into ignored mode-0600 files.
+# Values are never sourced as shell code and never printed. Exported variables
+# win over the existing crawler .env, which wins over an existing secret file.
+ROOT_DIR="${ROOT_DIR}" SOURCE_ENV="${SOURCE_ENV}" python3 - <<'PY'
+import ast
+import os
+import secrets
+from pathlib import Path
+
+root = Path(os.environ["ROOT_DIR"])
+runtime = root / ".runtime"
+
+
+def dotenv(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.is_file():
+        return values
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].lstrip()
+        if "=" not in line:
+            continue
+        key, raw_value = line.split("=", 1)
+        key = key.strip()
+        if key not in {
+            "SERP_API_KEY",
+            "TINY_FISH_API_KEY",
+            "TINYFISH_API_KEY",
+            "OPENAI_API_KEY",
+            "AI_API_KEY",
+        }:
+            continue
+        value = raw_value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            try:
+                value = str(ast.literal_eval(value))
+            except (SyntaxError, ValueError):
+                value = value[1:-1]
+        values[key] = value
+    return values
+
+
+file_values = dotenv(Path(os.environ["SOURCE_ENV"]))
+
+
+def first(*names: str) -> str:
+    for name in names:
+        value = os.environ.get(name, "").strip() or file_values.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def store(name: str, value: str) -> Path:
+    path = runtime / name
+    if value:
+        path.write_text(value + "\n", encoding="utf-8")
+    elif not path.exists():
+        path.touch()
+    path.chmod(0o600)
+    return path
+
+
+openai = store("openai-api-key", first("OPENAI_API_KEY", "AI_API_KEY"))
+tinyfish = store("tinyfish-api-key", first("TINY_FISH_API_KEY", "TINYFISH_API_KEY"))
+serp = store("serp-api-key", first("SERP_API_KEY"))
+token = runtime / "admin-token"
+if not token.exists() or not token.read_text(encoding="utf-8").strip():
+    token.write_text(secrets.token_urlsafe(32) + "\n", encoding="utf-8")
+token.chmod(0o600)
+
+if not openai.read_text(encoding="utf-8").strip():
+    raise SystemExit("OPENAI_API_KEY is required for live classification")
+if not (
+    tinyfish.read_text(encoding="utf-8").strip()
+    or serp.read_text(encoding="utf-8").strip()
+):
+    raise SystemExit("TINY_FISH_API_KEY or SERP_API_KEY is required for live collection")
+PY
+
+printf '{"auths":{}}\n' > "${DOCKER_CONFIG_DIR}/config.json"
+export DOCKER_CONFIG="${DOCKER_CONFIG_DIR}"
+if [[ -S "${HOME}/.docker/run/docker.sock" ]]; then
+  export DOCKER_HOST="${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock}"
+fi
+
+export VOC_DEMO_MODE=false
+export COMPOSE_PROJECT_NAME=guardian-voc-live
+# CSV review uploads are protected by the mode-0600 mounted admin token.
+export VOC_WRITE_API_ENABLED=true
+unset VOC_ADMIN_TOKEN || true
+export VOC_SCHEDULER_ENABLED=true
+# The sibling collector is already running. Keep direct paid crawling off by
+# default to avoid duplicate quota use; opt in explicitly when desired.
+export VOC_SCHEDULER_CRAWL_ENABLED="${VOC_SCHEDULER_CRAWL_ENABLED:-false}"
+export VOC_SCHEDULER_FULL_FLOW_ENABLED="${VOC_SCHEDULER_FULL_FLOW_ENABLED:-true}"
+export VOC_SCHEDULER_INTERVAL_SECONDS="${VOC_SCHEDULER_INTERVAL_SECONDS:-1800}"
+export VOC_LIVE_COLLECTION_SOURCE_IDS="${VOC_LIVE_COLLECTION_SOURCE_IDS:-guardian_public_social}"
+export VOC_LIVE_COLLECTION_PAGES_PER_QUERY="${VOC_LIVE_COLLECTION_PAGES_PER_QUERY:-1}"
+export VOC_LIVE_COLLECTION_FETCH_LIMIT="${VOC_LIVE_COLLECTION_FETCH_LIMIT:-25}"
+export VOC_LIVE_COLLECTION_EXTRACTION_LIMIT="${VOC_LIVE_COLLECTION_EXTRACTION_LIMIT:-25}"
+export VOC_LIVE_COLLECTION_LOOKBACK_DAYS="${VOC_LIVE_COLLECTION_LOOKBACK_DAYS:-2}"
+export VOC_LIVE_COLLECTION_REFRESH="${VOC_LIVE_COLLECTION_REFRESH:-false}"
+export AI_PROVIDER=openai_compatible
+export AI_BASE_URL="${AI_BASE_URL:-https://api.openai.com/v1}"
+export AI_MODEL="${AI_MODEL:-gpt-5.4-mini}"
+if [[ -s "${RUNTIME_DIR}/tinyfish-api-key" ]]; then
+  export TINYFISH_ENABLED=true
+  # Page content is not automatically customer voice. Keep the generic
+  # watcher enrichment opt-in; the live data layer's strict extractor is the
+  # production path for separating customer units from seller copy/login UI.
+  export VOC_COLLECTOR_ENRICHMENT_ENABLED="${VOC_COLLECTOR_ENRICHMENT_ENABLED:-false}"
+else
+  export TINYFISH_ENABLED=false
+  export VOC_COLLECTOR_ENRICHMENT_ENABLED=false
+fi
+export VOC_COLLECTOR_ENRICHMENT_MAX_ROWS="${VOC_COLLECTOR_ENRICHMENT_MAX_ROWS:-25}"
+export VOC_COLLECTOR_ENRICHMENT_CONCURRENCY="${VOC_COLLECTOR_ENRICHMENT_CONCURRENCY:-3}"
+
+# Prevent Compose from interpolating API credentials into container metadata.
+unset OPENAI_API_KEY AI_API_KEY TINY_FISH_API_KEY TINYFISH_API_KEY SERP_API_KEY || true
+
+cd "${ROOT_DIR}"
+if command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE=(docker-compose)
+else
+  unset DOCKER_CONFIG
+  COMPOSE=(docker compose)
+fi
+"${COMPOSE[@]}" -p guardian-voc-demo down --remove-orphans >/dev/null 2>&1 || true
+"${COMPOSE[@]}" -p guardian-voc-mvp down --remove-orphans >/dev/null 2>&1 || true
+
+# Build while the current live service remains available, then stop its sole
+# DuckDB writer before inspecting or changing the named-volume database.
+"${COMPOSE[@]}" build guardian-voc
+"${COMPOSE[@]}" stop guardian-voc >/dev/null 2>&1 || true
+if [[ -n "$(docker ps -q \
+  --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
+  --filter "label=com.docker.compose.service=guardian-voc")" ]]; then
+  printf 'Guardian Signal live service did not stop; database handoff refused.\n' >&2
+  exit 1
+fi
+
+# The helper sees the host build read-only and the stopped live named volume at
+# /app/data. It prints only an action and counts; identities and content stay in
+# DuckDB. Any refusal leaves the destination untouched and restarts the existing
+# stopped container before this deployment returns a nonzero status.
+if "${COMPOSE[@]}" run --rm --no-deps \
+    -v "${HOST_DATA_DIR}:/handoff/host:ro" \
+    guardian-voc \
+    python /app/scripts/sync_live_db.py \
+      --source /handoff/host/guardian_voc.duckdb \
+      --destination /app/data/guardian_voc.duckdb; then
+  :
+else
+  handoff_status=$?
+  if "${COMPOSE[@]}" start guardian-voc >/dev/null 2>&1 && \
+      [[ -n "$(docker ps -q \
+        --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
+        --filter "label=com.docker.compose.service=guardian-voc")" ]]; then
+    printf 'Database handoff refused; existing live service restarted.\n' >&2
+  else
+    printf 'Database handoff refused; existing live service restart failed.\n' >&2
+  fi
+  exit "${handoff_status}"
+fi
+
+"${COMPOSE[@]}" up --no-build -d
+
+for _ in $(seq 1 "${VOC_LIVE_STARTUP_TIMEOUT_SECONDS:-1800}"); do
+  runtime_state="$(python3 - <<'PY' 2>/dev/null || true
+import json
+import urllib.request
+
+try:
+    with urllib.request.urlopen("http://127.0.0.1:8000/api/v1/runtime", timeout=2) as response:
+        payload = json.load(response)
+except Exception:
+    print("waiting")
+else:
+    failures = int(payload.get("consecutive_failures") or 0)
+    state = str(payload.get("state") or "")
+    completed = payload.get("last_completed_at")
+    collector = payload.get("collector") or {}
+    collector_ready = (
+        int(collector.get("watched_files") or 0) > 0
+        and collector.get("status")
+        in {"discovery_only", "unchanged", "completed", "partial"}
+    )
+    if failures or state == "backoff":
+        print("failed")
+    elif completed and state == "idle" and collector_ready:
+        print(
+            "success",
+            int(collector.get("mapped_rows") or 0)
+            + int(collector.get("verified_mapped_rows") or 0),
+            int(collector.get("discovered_rows") or 0),
+        )
+    else:
+        print("waiting")
+PY
+)"
+  case "${runtime_state}" in
+    success*)
+      mapped="$(printf '%s' "${runtime_state}" | awk '{print $2}')"
+      discovered="$(printf '%s' "${runtime_state}" | awk '{print $3}')"
+      printf 'Guardian Signal live pipeline finished its first cycle (%s verified of %s discovered) at http://127.0.0.1:8000\n' "${mapped}" "${discovered}"
+      exit 0
+      ;;
+    failed)
+      "${COMPOSE[@]}" logs --tail=120 guardian-voc
+      printf 'Guardian Signal started, but its first live pipeline cycle failed.\n' >&2
+      exit 1
+      ;;
+  esac
+  sleep 1
+done
+
+"${COMPOSE[@]}" logs --tail=120 guardian-voc
+printf 'Guardian Signal live pipeline did not become ready in time.\n' >&2
+exit 1

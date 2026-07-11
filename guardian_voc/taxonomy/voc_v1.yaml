@@ -1,0 +1,112 @@
+version: voc-v1
+topics:
+  product_quality_authenticity:
+    label: Product quality/authenticity
+    subtopics:
+      - suspected_counterfeit
+      - damaged_product
+      - expired_product
+      - packaging_quality
+      - adverse_reaction
+      - product_performance
+      - authenticity_praise
+  price_promotion:
+    label: Price/promotion
+    subtopics:
+      - voucher_not_applied
+      - unclear_eligibility
+      - missing_gift
+      - price_mismatch
+      - good_value
+  availability_assortment:
+    label: Availability/assortment
+    subtopics:
+      - out_of_stock
+      - order_cancelled_out_of_stock
+      - assortment_gap
+      - restock_request
+      - availability_praise
+  delivery_fulfilment:
+    label: Delivery/fulfilment
+    subtopics:
+      - late_delivery
+      - damaged_package
+      - missing_item
+      - wrong_item
+      - tracking_problem
+      - fast_delivery
+  online_checkout_payment:
+    label: Online checkout/payment
+    subtopics:
+      - payment_failed
+      - checkout_error
+      - duplicate_charge
+      - payment_method_unavailable
+      - checkout_ease
+  store_staff_experience:
+    label: Store/staff experience
+    subtopics:
+      - unhelpful_staff
+      - rude_staff
+      - wait_time
+      - product_advice
+      - helpful_staff
+  customer_service:
+    label: Customer service
+    subtopics:
+      - slow_response
+      - unresolved_case
+      - poor_response
+      - difficult_contact
+      - helpful_resolution
+  returns_refunds:
+    label: Returns/refunds
+    subtopics:
+      - refund_delay
+      - return_rejected
+      - unclear_policy
+      - return_process
+      - fast_refund
+  loyalty_membership:
+    label: Loyalty/membership
+    subtopics:
+      - points_missing
+      - earn_redeem_problem
+      - unclear_benefits
+      - account_problem
+      - valuable_benefits
+  other:
+    label: Other
+    subtopics:
+      - other
+intents:
+  - complaint
+  - praise
+  - question_request
+  - suggestion
+  - purchase_consideration
+sentiments:
+  - positive
+  - neutral
+  - negative
+urgencies:
+  - low
+  - normal
+  - high
+  - critical
+journey_stages:
+  - awareness
+  - consideration
+  - product_detail
+  - promotion
+  - cart
+  - checkout
+  - payment
+  - fulfilment
+  - delivery
+  - store
+  - post_purchase
+  - returns
+  - loyalty
+  - support
+  - unknown

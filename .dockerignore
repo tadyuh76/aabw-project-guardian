@@ -1,0 +1,11 @@
+.env
+.venv
+.pytest_cache
+**/__pycache__
+**/*.pyc
+.runtime
+data/*.duckdb*
+data/live/
+data/live_data_manifest.json
+web/node_modules
+.git

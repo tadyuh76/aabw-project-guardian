@@ -1,0 +1,233 @@
+version: guardian-source-registry.v1
+market_scope: vn
+business_unit_scope: retail
+sources:
+  - source_id: guardian_web
+    owner_brand: guardian
+    default_crawl: true
+    source_group: owned
+    source_platform: guardian_ecommerce
+    canonical_url: https://www.guardian.com.vn
+    verified_account_ids: []
+    acquisition_mode: serp_discovery_plus_authorized_backend_export
+    tinyfish_policy: allowed_public_catalog_only
+    permission_status: backend_export_required_for_reviews
+    blocked_paths: [/review/, /rest/, /graphql]
+    search_queries:
+      - id: guardian_web_products
+        query: 'site:guardian.com.vn Guardian ("sản phẩm" OR "chăm sóc da" OR "trang điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_web_reviews
+        query: 'site:guardian.com.vn Guardian ("đánh giá" OR "đã mua hàng") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+
+  - source_id: guardian_shopee_hcm
+    owner_brand: guardian
+    default_crawl: false
+    source_group: marketplace
+    source_platform: shopee
+    canonical_url: https://shopee.vn/shop/152872415
+    verified_account_ids: ["152872415", guardian_officialstore, guardianvn.official]
+    acquisition_mode: serp_discovery_plus_authorized_seller_api
+    tinyfish_policy: written_permission_required
+    permission_status: seller_credentials_required
+    search_queries:
+      - id: guardian_shopee_hcm
+        query: 'site:shopee.vn ("Guardian HCM Official Store" OR guardian_officialstore OR guardianvn.official)'
+      - id: guardian_shopee_hcm_products
+        query: 'site:shopee.vn "guardianvn.official" ("đánh giá" OR "sản phẩm")'
+
+  - source_id: guardian_shopee_hn
+    owner_brand: guardian
+    default_crawl: false
+    source_group: marketplace
+    source_platform: shopee
+    canonical_url: https://shopee.vn/shop/412741369
+    verified_account_ids: ["412741369", guardianhn_officialstore]
+    acquisition_mode: serp_discovery_plus_authorized_seller_api
+    tinyfish_policy: written_permission_required
+    permission_status: seller_credentials_required
+    search_queries:
+      - id: guardian_shopee_hn
+        query: 'site:shopee.vn ("Guardian Hà Nội Official Store" OR guardianhn_officialstore)'
+      - id: guardian_shopee_hn_products
+        query: 'site:shopee.vn/guardianhn_officialstore ("đánh giá" OR "sản phẩm") Guardian'
+
+  - source_id: guardian_lazada
+    owner_brand: guardian
+    default_crawl: false
+    source_group: marketplace
+    source_platform: lazada
+    canonical_url: https://www.lazada.vn/shop/guardian/
+    verified_account_ids: [guardian]
+    acquisition_mode: serp_discovery_plus_authorized_seller_api
+    tinyfish_policy: allowed_public_enrichment_only
+    permission_status: seller_credentials_required_for_complete_reviews
+    search_queries:
+      - id: guardian_lazada_shop
+        query: 'site:lazada.vn/shop/guardian "Guardian Việt Nam"'
+      - id: guardian_lazada_products
+        query: 'site:lazada.vn/products "Guardian Việt Nam"'
+      - id: guardian_lazada_reviews
+        query: 'site:lazada.vn/products ("Guardian Việt Nam" OR "Guardian Official Store") ("đánh giá" OR "nhận xét")'
+
+  - source_id: guardian_tiktok_shop
+    owner_brand: guardian
+    default_crawl: false
+    source_group: marketplace
+    source_platform: tiktok_shop
+    canonical_url: https://www.tiktok.com/@guardianvietnam
+    verified_account_ids: [guardianvietnam, guardianvn, GuardianVietnamOfficial]
+    acquisition_mode: serp_discovery_plus_authorized_seller_export
+    tinyfish_policy: written_permission_required
+    permission_status: seller_export_or_partner_access_required
+    search_queries:
+      - id: guardian_tiktok_shop
+        query: 'site:shop.tiktok.com/vn/pdp ("Guardian Việt Nam" OR guardianvietnam)'
+      - id: guardian_tiktok_profile_shop
+        query: 'site:tiktok.com/@guardianvietnam ("TikTok Shop" OR "giỏ hàng")'
+
+  - source_id: guardian_grabmart
+    owner_brand: guardian
+    default_crawl: true
+    source_group: marketplace
+    source_platform: grabmart
+    canonical_url: https://www.grab.com/vn/download/?shortlink=GMxGuardian
+    verified_account_ids:
+      - 5-CZKYAYAKTFEYEN
+      - 5-CZKYAYAKR3EJTJ
+      - 5-CZKYAYAKTETJRX
+      - 5-CZKYAYAKTNLEAE
+      - 5-CZKYAYAKTY6KTN
+      - 5-CZKYAYAKJ6XDTT
+      - 5-CZKYAYAKMB33VT
+      - 5-CZKYAYAKLFACR2
+      - 5-CZKYAYAKL3AZVE
+      - 5-CZKYAYAKLKWHJJ
+      - 5-CZKYAYAKMAMFA2
+      - 5-CZKYAYAKLVKCNE
+      - 5-CZKYAYAKLJ6UPA
+      - 5-CZKYAYAKJ73CR2
+      - 5-CZKYAYAKL3VZE2
+      - 5-CZKYAYAKRAJ2JJ
+      - 5-CZKYAYAKNN42EX
+      - 5-CZKYAYAKNULHNE
+      - 5-CZKYAYAKRGNJL2
+      - 5-CZKYAYAKNFL3CA
+      - 5-CZKYAYAKNFJYSE
+      - 5-CZKYAYAKPFABNT
+      - 5-CZKYAYAKNLM3TX
+      - 5-CZKYAYAKNXV2G2
+      - 5-CZKYAYAKPFNYV2
+      - 5-CZKYAYAKRKJGV2
+      - 5-CZKYAYAKR62XRJ
+      - 5-CZKYAYAKSEKEE6
+      - 5-CZKYAYAKRN3CVJ
+      - 5-CZKYAYAKSFT2SA
+      - 5-CZKYAYAKRU3JEE
+      - 5-CZKYAYAKTEN1NA
+      - 5-CZMWCYLTAFLVN2
+      - 5-CZN1E6EXLNAGAN
+      - 5-CZN1E6EXLBDJGT
+      - 5-CZN1E6EXGPUBNJ
+      - 5-CZMWCYLKWFMBE6
+      - 5-CZN1E6EXGKEBVN
+      - 5-CZN1E6EXJ3EDRE
+      - 5-CZN1E6EXGKDKVN
+      - 5-CZN1E6EXJJEZV2
+      - 5-CZN1E6EXHAL3TA
+      - 5-CZN1E6EXE4KJTX
+      - 5-CZN1E6EXLUXTA2
+      - 5-CZN1E6EXL7AHAE
+      - 5-CZN1E6EXL32FEE
+      - 5-CZN1E6EXLPUVCT
+      - 5-CZN1E6EXGY2GLN
+      - 5-CZN1E6EXE631DA
+      - 5-CZN1E6EXG7EHJN
+      - 5-CZN1E6EXJPABT6
+      - 5-CZN1E6EXJXWVTA
+      - 5-CZN1E6EXHGLKTJ
+      - 5-CZN1E6EXKANGTE
+      - 5-CZN1E6EXE3M3C6
+      - 5-CZN1E6EXJ6CABA
+      - 5-CZN1E6EXGF3GGN
+      - 5-CZN1E6EXFCLVC6
+      - 5-CZN1E6EXGAKFG6
+      - 5-CZN1E6EXLTM2JJ
+      - 5-CZN1E6EXJAUVGT
+    acquisition_mode: verified_store_registry_plus_authorized_merchant_export
+    tinyfish_policy: authorized_export_required
+    permission_status: merchant_export_required
+    search_queries:
+      - id: guardian_grabmart
+        query: 'site:grab.com/vn Guardian GrabMart -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+
+  - source_id: guardian_public_social
+    owner_brand: guardian
+    default_crawl: true
+    source_group: social
+    source_platform: public_social
+    canonical_url: https://www.instagram.com/guardianvietnam/
+    verified_account_ids: [guardianvietnam]
+    acquisition_mode: serp_discovery_then_tinyfish_public_fetch
+    tinyfish_policy: allowed_public_fetch
+    permission_status: public_best_effort_not_exhaustive
+    search_queries:
+      - id: guardian_facebook_vi
+        query: 'site:facebook.com ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_instagram_vi
+        query: 'site:instagram.com ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_threads_vi
+        query: '(site:threads.com OR site:threads.net) inurl:/post/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_tiktok_video_vi
+        query: 'site:tiktok.com inurl:/video/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_youtube_vi
+        query: '(site:youtube.com/watch OR site:youtube.com/shorts) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_reddit_vi
+        query: 'site:reddit.com inurl:/comments/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+
+  - source_id: hasaki_public_social
+    owner_brand: hasaki
+    default_crawl: true
+    source_group: social
+    source_platform: public_social
+    canonical_url: https://www.instagram.com/hasakibeauty/
+    verified_account_ids: [hasakibeauty, hasaki.vn]
+    acquisition_mode: serp_discovery_then_tinyfish_public_fetch
+    tinyfish_policy: allowed_public_fetch
+    permission_status: public_best_effort_not_exhaustive
+    search_queries:
+      - id: hasaki_facebook_vi
+        query: 'site:facebook.com (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_instagram_vi
+        query: 'site:instagram.com (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_threads_vi
+        query: '(site:threads.com OR site:threads.net) inurl:/post/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_tiktok_video_vi
+        query: 'site:tiktok.com inurl:/video/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_youtube_vi
+        query: '(site:youtube.com/watch OR site:youtube.com/shorts) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_reddit_vi
+        query: 'site:reddit.com inurl:/comments/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+
+  - source_id: watsons_public_social
+    owner_brand: watsons
+    default_crawl: true
+    source_group: social
+    source_platform: public_social
+    canonical_url: https://www.instagram.com/watsonsvietnam/
+    verified_account_ids: [watsonsvietnam, watsonsvn]
+    acquisition_mode: serp_discovery_then_tinyfish_public_fetch
+    tinyfish_policy: allowed_public_fetch
+    permission_status: public_best_effort_not_exhaustive
+    search_queries:
+      - id: watsons_facebook_vi
+        query: 'site:facebook.com ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_instagram_vi
+        query: 'site:instagram.com ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_threads_vi
+        query: '(site:threads.com OR site:threads.net) inurl:/post/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_tiktok_video_vi
+        query: 'site:tiktok.com inurl:/video/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_youtube_vi
+        query: '(site:youtube.com/watch OR site:youtube.com/shorts) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_reddit_vi
+        query: 'site:reddit.com inurl:/comments/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
