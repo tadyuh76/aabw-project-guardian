@@ -1,5 +1,5 @@
-import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { ArrowSquareOut, FunnelSimple, MagnifyingGlass, Star } from "@phosphor-icons/react";
+import { Badge, Box, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
+import { ArrowSquareOut, FunnelSimple, MagnifyingGlass } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { DashboardData, DashboardEvidence } from "../api/types";
@@ -10,7 +10,18 @@ interface ReviewExplorerProps {
 }
 
 type TimeFrame = "all" | "7d" | "30d" | "90d" | "1y";
-type SortMode = "newest" | "oldest" | "platform" | "sentiment" | "product";
+type SortMode = "newest" | "oldest" | "platform" | "problem" | "sentiment" | "product";
+type ProblemCategory =
+  | "Leaking"
+  | "Poor packaging"
+  | "Seal quality"
+  | "Product leakage"
+  | "Wrong item received"
+  | "Broken cap"
+  | "Delivery damage"
+  | "Packaging deformation"
+  | "Late delivery"
+  | "Skin irritation";
 
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "5", md: "6" } } as const;
 
@@ -26,8 +37,22 @@ const sortOptions: Array<{ value: SortMode; label: string }> = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
   { value: "platform", label: "Platform A-Z" },
+  { value: "problem", label: "Problem A-Z" },
   { value: "sentiment", label: "Sentiment" },
   { value: "product", label: "Product A-Z" },
+];
+
+const problemMatchers: Array<{ category: ProblemCategory; patterns: RegExp[] }> = [
+  { category: "Wrong item received", patterns: [/wrong\s+(item|product)/i, /incorrect\s+(item|product)/i, /received\s+wrong/i] },
+  { category: "Broken cap", patterns: [/broken\s+cap/i, /cap\s+(is\s+)?broken/i, /cracked\s+cap/i, /damaged\s+cap/i] },
+  { category: "Late delivery", patterns: [/late\s+delivery/i, /delivery\s+(was\s+)?late/i, /\bdelayed\b/i, /slow\s+delivery/i] },
+  { category: "Skin irritation", patterns: [/\birritat/i, /\brash\b/i, /\bbreakout/i, /\ballerg/i, /\bsting/i, /\bburning\b/i] },
+  { category: "Product leakage", patterns: [/product\s+leak/i, /leak(?:ed|ing)?\s+(product|bottle|inside|out)/i, /\bspill(?:ed|ing)?\b/i] },
+  { category: "Leaking", patterns: [/\bleak(?:ed|ing|s)?\b/i] },
+  { category: "Seal quality", patterns: [/\bseal(?:ed|ing)?\b/i, /tamper/i, /safety\s+seal/i] },
+  { category: "Delivery damage", patterns: [/delivery\s+damage/i, /shipping\s+damage/i, /damaged\s+(during\s+)?delivery/i, /arrived\s+damaged/i] },
+  { category: "Packaging deformation", patterns: [/\bdeform/i, /\bdent(?:ed)?\b/i, /\bcrush(?:ed)?\b/i, /box\s+(was\s+)?bent/i] },
+  { category: "Poor packaging", patterns: [/poor\s+packaging/i, /bad\s+packaging/i, /pack(?:ed|aging)\s+poorly/i, /\bpackaging\b/i] },
 ];
 
 function humanize(value: string): string {
@@ -41,9 +66,9 @@ function parseTime(value: string | null): number | null {
 }
 
 function formatDate(value: string | null): string {
-  if (!value) return "Unknown date";
+  if (!value) return "Unknown";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return "Unknown";
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
@@ -67,15 +92,42 @@ function NativeSelect({ label, value, onChange, children }: { label: string; val
 }
 
 function reviewSearchText(item: DashboardEvidence, productName: string): string {
+  const problem = categorizeProblem(item);
   return [
     item.text,
     item.sourcePlatform,
     item.sourceGroup,
     productName,
+    problem,
     item.sentiment,
     item.topic,
     item.subtopic,
   ].filter(Boolean).join(" ").toLocaleLowerCase();
+}
+
+function categorizeProblem(item: DashboardEvidence): ProblemCategory {
+  const source = [item.topic, item.subtopic, item.text].filter(Boolean).join(" ");
+  return problemMatchers.find((matcher) => matcher.patterns.some((pattern) => pattern.test(source)))?.category ?? "Poor packaging";
+}
+
+function isSocialSource(item: DashboardEvidence): boolean {
+  const group = item.sourceGroup.toLocaleLowerCase();
+  const platform = item.sourcePlatform.toLocaleLowerCase();
+  return group === "social" || ["facebook", "instagram", "tiktok", "youtube"].some((name) => platform === name);
+}
+
+function SourceLink({ href, children }: { href: string | null; children: ReactNode }) {
+  if (!href) return <>{children}</>;
+  return (
+    <Box asChild color="ink" _hover={{ color: "accent", textDecoration: "underline" }}>
+      <a href={href} target="_blank" rel="noreferrer">
+        <Flex as="span" align="center" gap="1.5">
+          {children}
+          <ArrowSquareOut size={15} />
+        </Flex>
+      </a>
+    </Box>
+  );
 }
 
 export function ReviewExplorer({ data }: ReviewExplorerProps) {
@@ -113,6 +165,7 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
         if (sortMode === "newest") return bTime - aTime || a.id.localeCompare(b.id);
         if (sortMode === "oldest") return aTime - bTime || a.id.localeCompare(b.id);
         if (sortMode === "platform") return a.sourcePlatform.localeCompare(b.sourcePlatform) || bTime - aTime;
+        if (sortMode === "problem") return categorizeProblem(a).localeCompare(categorizeProblem(b)) || bTime - aTime;
         if (sortMode === "sentiment") return (a.sentiment ?? "").localeCompare(b.sentiment ?? "") || bTime - aTime;
         const aProduct = a.productId ? productsById.get(a.productId)?.name ?? "" : "";
         const bProduct = b.productId ? productsById.get(b.productId)?.name ?? "" : "";
@@ -158,10 +211,10 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
           </Stack>
         ) : (
           <Box overflowX="auto">
-            <Box as="table" width="full" minW="960px" borderCollapse="collapse">
+            <Box as="table" width="full" minW="900px" borderCollapse="collapse">
               <Box as="thead" bg="subtle">
                 <Box as="tr">
-                  {["Review", "Product", "Platform", "Sentiment", "Date", "URL"].map((label) => (
+                  {["Review", "Problem", "Product", "Platform", "Sentiment", "Date"].map((label) => (
                     <Box as="th" key={label} px="4" py="3" textAlign="left" fontSize="sm" color="muted" fontWeight="750">{label}</Box>
                   ))}
                 </Box>
@@ -169,31 +222,33 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
               <Box as="tbody">
                 {reviews.map((item) => {
                   const product = item.productId ? productsById.get(item.productId) : undefined;
+                  const social = isSocialSource(item);
+                  const sourceGroup = humanize(cleanDisplayText(item.sourceGroup));
                   return (
                     <Box as="tr" key={item.id} borderTopWidth="1px" borderColor="border">
                       <Box as="td" px="4" py="4" maxW="430px">
-                        <Text fontWeight="650" lineClamp={3}>{cleanDisplayText(item.text)}</Text>
-                        <Flex gap="2" mt="2" wrap="wrap">
-                          {item.topic && <Badge variant="subtle">{humanize(cleanDisplayText(item.topic))}</Badge>}
-                          {item.confidence !== null && <Badge variant="outline">{Math.round(item.confidence * 100)}% confidence</Badge>}
-                        </Flex>
+                        <SourceLink href={item.sourceUrl}>
+                          <Text as="span" fontWeight="650" lineClamp={3}>{cleanDisplayText(item.text)}</Text>
+                        </SourceLink>
                       </Box>
                       <Box as="td" px="4" py="4">
-                        <Text fontWeight="650">{cleanDisplayText(product?.shortName ?? product?.name ?? "Unknown product")}</Text>
-                        {product?.sku && <Text color="muted" fontSize="sm">{product.sku}</Text>}
+                        <Text fontWeight="700">{categorizeProblem(item)}</Text>
                       </Box>
-                      <Box as="td" px="4" py="4"><Text>{cleanDisplayText(item.sourcePlatform)}</Text><Text color="muted" fontSize="sm">{humanize(cleanDisplayText(item.sourceGroup))}</Text></Box>
-                      <Box as="td" px="4" py="4"><Badge colorPalette={sentimentPalette(item.sentiment)} variant="subtle">{humanize(cleanDisplayText(item.sentiment ?? "unknown"))}</Badge></Box>
-                      <Box as="td" px="4" py="4"><Text>{formatDate(item.timestamp)}</Text></Box>
                       <Box as="td" px="4" py="4">
-                        {item.sourceUrl ? (
-                          <Button asChild size="sm" variant="outline" colorPalette="orange">
-                            <a href={item.sourceUrl} target="_blank" rel="noreferrer"><Star size={15} weight="fill" /> View product <ArrowSquareOut size={15} /></a>
-                          </Button>
+                        {social ? (
+                          <Text color="muted">Null</Text>
                         ) : (
-                          <Text color="muted" fontSize="sm">No URL</Text>
+                          <>
+                            <SourceLink href={item.sourceUrl}>
+                              <Text as="span" fontWeight="650">{cleanDisplayText(product?.shortName ?? product?.name ?? "Unknown product")}</Text>
+                            </SourceLink>
+                            {product?.sku && <Text color="muted" fontSize="sm">{product.sku}</Text>}
+                          </>
                         )}
                       </Box>
+                      <Box as="td" px="4" py="4"><Text>{cleanDisplayText(item.sourcePlatform)}</Text>{sourceGroup !== "Social" && <Text color="muted" fontSize="sm">{sourceGroup}</Text>}</Box>
+                      <Box as="td" px="4" py="4"><Badge colorPalette={sentimentPalette(item.sentiment)} variant="subtle">{humanize(cleanDisplayText(item.sentiment ?? "unknown"))}</Badge></Box>
+                      <Box as="td" px="4" py="4"><Text>{formatDate(item.timestamp)}</Text></Box>
                     </Box>
                   );
                 })}

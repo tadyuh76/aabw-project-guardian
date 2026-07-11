@@ -157,7 +157,7 @@ describe("App dashboard states", () => {
     expect(api.fetchDashboard).not.toHaveBeenCalled();
   });
 
-  it("opens reviews at /reviews with platform, time-frame, sort, search, and product URL controls", async () => {
+  it("opens reviews at /reviews with platform, time-frame, sort, search, and source links", async () => {
     window.history.replaceState(null, "", "/reviews");
     api.fetchDashboard.mockResolvedValue(dashboardFixture({
       evidence: [
@@ -189,6 +189,20 @@ describe("App dashboard states", () => {
           subtopic: null,
           sentiment: "negative",
         },
+        {
+          id: "feedback-3",
+          productId: "cerave-473",
+          text: "Facebook post mentioned skin irritation.",
+          sourceGroup: "social",
+          sourcePlatform: "Facebook",
+          sourceUrl: "https://www.facebook.com/example-review",
+          timestamp: null,
+          confidence: 0.74,
+          stance: "support",
+          topic: "skin irritation",
+          subtopic: null,
+          sentiment: "negative",
+        },
       ],
     }));
     const user = userEvent.setup();
@@ -199,13 +213,28 @@ describe("App dashboard states", () => {
     expect(screen.getByRole("combobox", { name: "Filter reviews by platform" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Filter reviews by time frame" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Sort reviews" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Problem" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "URL" })).not.toBeInTheDocument();
+    expect(screen.getByText("Seal quality")).toBeInTheDocument();
+    expect(screen.queryByText("91% confidence")).not.toBeInTheDocument();
+    expect(screen.queryByText("Packaging")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /The cleanser arrived securely packed/i })).toHaveAttribute("href", "https://shopee.vn/product/cerave-473");
+    expect(screen.getAllByRole("link", { name: /CeraVe Foaming Cleanser/i }).some((link) => link.getAttribute("href") === "https://shopee.vn/product/cerave-473")).toBe(true);
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Filter reviews by platform" }), "Watsons");
     expect(screen.getByText("Watsons delivery was late.")).toBeInTheDocument();
+    expect(screen.getByText("Late delivery")).toBeInTheDocument();
     expect(screen.queryByText("The cleanser arrived securely packed.")).not.toBeInTheDocument();
 
     await user.clear(screen.getByRole("textbox", { name: "Search reviews" }));
     await user.type(screen.getByRole("textbox", { name: "Search reviews" }), "delivery");
-    expect(screen.getByRole("link", { name: /view product/i })).toHaveAttribute("href", "https://www.watsons.vn/product/cerave-473");
+    expect(screen.getByRole("link", { name: /Watsons delivery was late/i })).toHaveAttribute("href", "https://www.watsons.vn/product/cerave-473");
+
+    await user.clear(screen.getByRole("textbox", { name: "Search reviews" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter reviews by platform" }), "Facebook");
+    expect(screen.getByText("Null")).toBeInTheDocument();
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(screen.getByText("Skin irritation")).toBeInTheDocument();
+    expect(screen.queryByText("Social")).not.toBeInTheDocument();
   });
 });
