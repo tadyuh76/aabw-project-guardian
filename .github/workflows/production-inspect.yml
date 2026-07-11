@@ -34,6 +34,7 @@ jobs:
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd '${DEPLOY_PATH}' && docker compose stop app >/dev/null && docker compose run --rm --no-deps --entrypoint python app - <<'PY'
           import json
+          from pathlib import Path
           from guardian_voc.config import get_settings
           from guardian_voc.db import Database
 
@@ -115,6 +116,12 @@ jobs:
               ORDER BY source_platform
               '''
           )
+          manifest_path = Path(settings.voc_data_dir) / 'live_data_manifest.json'
+          manifest = {}
+          if manifest_path.exists():
+              manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest_stages = manifest.get('stages') or {}
+          manifest_discover = manifest_stages.get('discover') or {}
           print(json.dumps({
               'last_run': {
                   **{
@@ -135,6 +142,15 @@ jobs:
               'extraction_status': extraction_status,
               'discovery_by_source': latest_discovery,
               'social_feedback_by_platform': feedback,
+              'manifest_discover': {
+                  key: manifest_discover.get(key)
+                  for key in (
+                      'searches', 'available_before', 'available_after',
+                      'events', 'unique_results', 'snapshot_results',
+                      'eligible_for_fetch'
+                  )
+              },
+              'manifest_discover_errors': manifest_discover.get('errors') or [],
           }, sort_keys=True, default=str))
           PY
           status=\$?
