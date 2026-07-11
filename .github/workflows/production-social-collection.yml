@@ -91,7 +91,7 @@ jobs:
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=20 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_PATH}' && token=\$(cat .runtime/admin-token) && curl --fail --silent --show-error --max-time 21000 -H 'Content-Type: application/json' -H \"X-Admin-Token: \${token}\" --data '{\"source_ids\":[\"guardian_public_social\",\"hasaki_public_social\",\"watsons_public_social\"],\"pages_per_query\":3,\"fetch_limit\":500,\"extraction_limit\":500,\"lookback_days\":365,\"refresh\":false}' http://127.0.0.1:8000/api/v1/live-collections > .runtime/last-social-collection.json"
+            "cd '${DEPLOY_PATH}' && token=\$(cat .runtime/admin-token) && curl --fail --silent --show-error --max-time 21000 -H 'Content-Type: application/json' -H \"X-Admin-Token: \${token}\" --data '{\"source_ids\":[\"guardian_public_social\",\"hasaki_public_social\",\"watsons_public_social\"],\"pages_per_query\":3,\"fetch_limit\":500,\"extraction_limit\":500,\"lookback_days\":365,\"refresh\":true}' http://127.0.0.1:8000/api/v1/live-collections > .runtime/last-social-collection.json"
 
       - name: Report redacted server failure context
         if: failure()
@@ -108,4 +108,4 @@ jobs:
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_PATH}' && python3 -c 'import json; p=json.load(open(\".runtime/last-social-collection.json\")); assert p[\"status\"] in {\"completed\", \"partial\"}, p[\"status\"]; print(json.dumps({k:p.get(k) for k in (\"pipeline_run_id\",\"status\",\"records_seen\",\"records_inserted\",\"records_skipped\",\"records_failed\")}, sort_keys=True))' && curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/ready >/dev/null"
+            "cd '${DEPLOY_PATH}' && python3 -c 'import json; p=json.load(open(\".runtime/last-social-collection.json\")); assert p[\"status\"] in {\"completed\", \"partial\"}, p[\"status\"]; s=(p.get(\"stage_results\") or {}).get(\"ingest\") or {}; c=s.get(\"collection\") or {}; out={k:p.get(k) for k in (\"pipeline_run_id\",\"status\",\"records_seen\",\"records_inserted\",\"records_skipped\",\"records_failed\")}; out.update({k:c.get(k) for k in (\"searches\",\"discovered\",\"fetch_attempted\",\"extraction_attempted\")}); print(json.dumps(out, sort_keys=True))' && curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/ready >/dev/null"
