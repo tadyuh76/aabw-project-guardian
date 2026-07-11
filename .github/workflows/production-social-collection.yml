@@ -41,7 +41,7 @@ jobs:
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "umask 077; install -d -m 700 '${DEPLOY_PATH}/.runtime'; cat > '${DEPLOY_PATH}/.runtime/serp-api-key'; chmod 640 '${DEPLOY_PATH}/.runtime/serp-api-key'; chown 0:1000 '${DEPLOY_PATH}/.runtime/serp-api-key'"
+            "umask 077; install -d -m 700 '${DEPLOY_PATH}/.runtime'; cat > '${DEPLOY_PATH}/.runtime/serp-api-key'; chmod 600 '${DEPLOY_PATH}/.runtime/serp-api-key'"
 
       - name: Enable all three sources and restart safely
         run: |
