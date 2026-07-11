@@ -1,4 +1,4 @@
-import { Box, Button, Flex, Grid, Heading, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Flex, Heading, Spinner, Stack, Text } from "@chakra-ui/react";
 import { CheckCircle, FileCsv, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import {
@@ -229,7 +229,7 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
     ? "Importing..."
     : busy === "finishing"
       ? "Finishing..."
-      : "Import reviewed data";
+      : "Import data";
 
   const handleDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
@@ -286,7 +286,8 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
               <Flex
                 key={value}
                 as="label"
-                align="flex-start"
+                align="center"
+                justify="center"
                 gap="2.5"
                 flex={{ base: "1 1 190px", xl: "1 1 0" }}
                 minW={{ base: "180px", xl: "0" }}
@@ -311,10 +312,10 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
                   disabled={locked}
                   onChange={() => { setProfile(value); resetResult(); }}
                 />
-                <Flex mt="1" w="4" h="4" align="center" justify="center" borderRadius="full" borderWidth="2px" borderColor={selected ? "accent" : "muted"} flexShrink="0">
+                <Flex w="4" h="4" align="center" justify="center" borderRadius="full" borderWidth="2px" borderColor={selected ? "accent" : "muted"} flexShrink="0">
                   {selected && <Box w="1.5" h="1.5" borderRadius="full" bg="accent" />}
                 </Flex>
-                <Box minW="0">
+                <Box minW="0" textAlign="center">
                   <Text fontSize="sm" fontWeight="700" lineHeight="1.25">{PROFILE_LABELS[value]}</Text>
                   <Text color={selected ? "accent" : "muted"} fontSize="xs" lineHeight="1.35">Last import: {importTime(lastImportByProfile[value] ?? null)}</Text>
                 </Box>
@@ -324,11 +325,12 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
         </Flex>
       </Stack>
 
-      <Grid templateColumns={{ base: "1fr", xl: "minmax(320px, 420px) minmax(0, 1fr)" }} gap="6" alignItems="start">
+      <Stack gap="4" w="full">
         <Flex
           as="label"
           position="relative"
-          minH="220px"
+          w="full"
+          minH={{ base: "230px", md: "270px" }}
           px={{ base: "5", md: "6" }}
           py="7"
           direction="column"
@@ -350,7 +352,7 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
           <Flex w="14" h="14" align="center" justify="center" borderRadius="control" bg="canvas" color="accent" borderWidth="1px" borderColor="border">
             <FileCsv size={31} weight={file ? "fill" : "regular"} />
           </Flex>
-          <Stack gap="1" maxW="360px">
+          <Stack gap="1" maxW="480px" align="center">
             <Heading size="md" letterSpacing="0" wordBreak="break-word">{file?.name || "Choose CSV or XLSX file"}</Heading>
             <Text color="muted" fontSize="sm">{file ? `${(file.size / 1_000).toFixed(0)} KB selected` : "Click to browse or drag the export here"}</Text>
           </Stack>
@@ -367,85 +369,71 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
           />
         </Flex>
 
+        <Button w="full" h="52px" colorPalette="orange" disabled={locked || !canImport} onClick={handleImport}>
+          {busy && <Spinner size="xs" />}
+          {buttonLabel}
+        </Button>
+
+        {previewBusy && <Flex align="center" justify="center" gap="2" color="muted" fontSize="sm" role="status"><Spinner size="xs" />Previewing file...</Flex>}
+        {config.agentic_detection_enabled === false && <Text color="muted" fontSize="sm" textAlign="center">Automatic detection is unavailable.</Text>}
+      </Stack>
+
+      {preview && (
         <Stack gap="4" minW="0">
-          <Flex align="center" justify="space-between" gap="3" wrap="wrap">
-            <Box>
-              <Heading size="md" letterSpacing="0">Data to import</Heading>
-              <Text color="muted" fontSize="sm">
-                {preview
-                  ? `${preview.valid_rows.toLocaleString()} valid rows, ${preview.invalid_rows.toLocaleString()} issues`
-                  : file
-                    ? "Checking the selected export before import."
-                    : "Select a file to preview rows before importing."}
-              </Text>
-            </Box>
-            <Button minW={{ base: "full", sm: "220px" }} h="46px" colorPalette="orange" disabled={locked || !canImport} onClick={handleImport}>
-              {busy && <Spinner size="xs" />}
-              {buttonLabel}
-            </Button>
+          <Flex gap="6" wrap="wrap" justify="center">
+            <Box textAlign="center"><Text fontSize="xl" fontWeight="750">{preview.total_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">rows found</Text></Box>
+            <Box textAlign="center"><Text fontSize="xl" fontWeight="750">{preview.valid_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">ready</Text></Box>
+            <Box textAlign="center"><Text fontSize="xl" fontWeight="750">{preview.invalid_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">flagged</Text></Box>
           </Flex>
 
-          {previewBusy && <Flex align="center" gap="2" color="muted" fontSize="sm" role="status"><Spinner size="xs" />Previewing file...</Flex>}
-          {config.agentic_detection_enabled === false && <Text color="muted" fontSize="sm">Automatic detection is unavailable.</Text>}
+          {mappingEntries.length > 0 && (
+            <Flex gap="2" wrap="wrap" justify="center">
+              {mappingEntries.map(([target, source]) => (
+                <Box key={target} px="2.5" py="1.5" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface" fontSize="xs">
+                  <Text as="span" color="muted">{shortColumnLabel(target)}: </Text>{source}
+                </Box>
+              ))}
+            </Flex>
+          )}
 
-          {preview && (
-            <Stack gap="4" borderTopWidth="1px" borderColor="border" pt="4">
-              <Flex gap="6" wrap="wrap">
-                <Box><Text fontSize="xl" fontWeight="750">{preview.total_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">rows found</Text></Box>
-                <Box><Text fontSize="xl" fontWeight="750">{preview.valid_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">ready</Text></Box>
-                <Box><Text fontSize="xl" fontWeight="750">{preview.invalid_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">flagged</Text></Box>
-              </Flex>
-
-              {mappingEntries.length > 0 && (
-                <Flex gap="2" wrap="wrap">
-                  {mappingEntries.map(([target, source]) => (
-                    <Box key={target} px="2.5" py="1.5" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface" fontSize="xs">
-                      <Text as="span" color="muted">{shortColumnLabel(target)}: </Text>{source}
-                    </Box>
-                  ))}
-                </Flex>
-              )}
-
-              {previewColumns.length > 0 ? (
-                <Box overflowX="auto" borderWidth="1px" borderColor="border" borderRadius="control">
-                  <Box as="table" w="full" minW="720px" fontSize="sm" borderCollapse="collapse">
-                    <Box as="thead" bg="subtle">
-                      <Box as="tr">
-                        {previewColumns.map((column) => <Box as="th" key={column} px="3" py="2.5" textAlign="left" fontWeight="700">{shortColumnLabel(column)}</Box>)}
-                      </Box>
-                    </Box>
-                    <Box as="tbody">
-                      {preview.samples.map((sample, index) => (
-                        <Box as="tr" key={`${preview.file_sha256}-${index}`} borderTopWidth="1px" borderColor="border">
-                          {previewColumns.map((column) => (
-                            <Box as="td" key={column} px="3" py="2.5" verticalAlign="top" maxW={column === "text" ? "360px" : "220px"}>
-                              <Text lineClamp={column === "text" ? 3 : 2}>{previewValue(sample[column])}</Text>
-                            </Box>
-                          ))}
+          {previewColumns.length > 0 ? (
+            <Box overflowX="auto" borderWidth="1px" borderColor="border" borderRadius="control">
+              <Box as="table" w="full" minW="720px" fontSize="sm" borderCollapse="collapse">
+                <Box as="thead" bg="subtle">
+                  <Box as="tr">
+                    {previewColumns.map((column) => <Box as="th" key={column} px="3" py="2.5" textAlign="left" fontWeight="700">{shortColumnLabel(column)}</Box>)}
+                  </Box>
+                </Box>
+                <Box as="tbody">
+                  {preview.samples.map((sample, index) => (
+                    <Box as="tr" key={`${preview.file_sha256}-${index}`} borderTopWidth="1px" borderColor="border">
+                      {previewColumns.map((column) => (
+                        <Box as="td" key={column} px="3" py="2.5" verticalAlign="top" maxW={column === "text" ? "360px" : "220px"}>
+                          <Text lineClamp={column === "text" ? 3 : 2}>{previewValue(sample[column])}</Text>
                         </Box>
                       ))}
                     </Box>
-                  </Box>
-                </Box>
-              ) : (
-                <Text color="muted" fontSize="sm">No sample rows are available for this file.</Text>
-              )}
-
-              {preview.issues.length > 0 && (
-                <Stack gap="2">
-                  <Text fontSize="sm" fontWeight="700">Rows needing attention</Text>
-                  {preview.issues.slice(0, 5).map((issue, index) => (
-                    <Flex key={`${issue.row_number}-${issue.code}-${index}`} gap="2" fontSize="sm" color="muted">
-                      <Text flexShrink="0" fontWeight="700" color="ink">Row {issue.row_number || index + 1}</Text>
-                      <Text>{issue.message}</Text>
-                    </Flex>
                   ))}
-                </Stack>
-              )}
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            <Text color="muted" fontSize="sm" textAlign="center">No sample rows are available for this file.</Text>
+          )}
+
+          {preview.issues.length > 0 && (
+            <Stack gap="2">
+              <Text fontSize="sm" fontWeight="700">Rows needing attention</Text>
+              {preview.issues.slice(0, 5).map((issue, index) => (
+                <Flex key={`${issue.row_number}-${issue.code}-${index}`} gap="2" fontSize="sm" color="muted">
+                  <Text flexShrink="0" fontWeight="700" color="ink">Row {issue.row_number || index + 1}</Text>
+                  <Text>{issue.message}</Text>
+                </Flex>
+              ))}
             </Stack>
           )}
         </Stack>
-      </Grid>
+      )}
 
       {busy && <Flex align="center" gap="2" color="muted" fontSize="sm" role="status"><Spinner size="xs" />{buttonLabel}</Flex>}
       {run?.status === "completed" && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="success" bg="surface" role="status"><CheckCircle size={19} weight="fill" /><Box><Text fontWeight="700">Import complete</Text><Text color="muted" fontSize="sm">{run.records_inserted.toLocaleString()} new - {run.records_skipped.toLocaleString()} skipped - {run.records_failed.toLocaleString()} failed</Text></Box></Flex>}

@@ -109,10 +109,12 @@ describe("ReviewImportPanel", () => {
     await user.upload(fileInput, file);
 
     expect(await screen.findByText("Great")).toBeInTheDocument();
-    expect(screen.getByText("2 valid rows, 0 issues")).toBeInTheDocument();
+    expect(screen.getByText("rows found")).toBeInTheDocument();
+    expect(screen.queryByText("Data to import")).not.toBeInTheDocument();
+    expect(screen.queryByText("Select a file to preview rows before importing.")).not.toBeInTheDocument();
     expect(api.commitReviewImport).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Import reviewed data" }));
+    await user.click(screen.getByRole("button", { name: "Import data" }));
 
     await waitFor(() => expect(screen.getAllByText("Finishing...").length).toBeGreaterThan(0));
     expect(api.detectReviewImport).toHaveBeenCalledWith(file, "shopee", expect.any(AbortSignal));
@@ -136,7 +138,7 @@ describe("ReviewImportPanel", () => {
 
     await user.upload(await screen.findByLabelText("CSV review export"), new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" }));
     await screen.findByText("Great");
-    await user.click(screen.getByRole("button", { name: "Import reviewed data" }));
+    await user.click(screen.getByRole("button", { name: "Import data" }));
 
     expect(await screen.findByText("Some reviews could not be imported")).toBeInTheDocument();
     expect(screen.getByText("1 imported - 1 failed")).toBeInTheDocument();
@@ -159,7 +161,7 @@ describe("ReviewImportPanel", () => {
     expect(profile).not.toBeDisabled();
     act(() => resolveDetection?.(preview));
     await screen.findByText("Great");
-    await user.click(screen.getByRole("button", { name: "Import reviewed data" }));
+    await user.click(screen.getByRole("button", { name: "Import data" }));
 
     await waitFor(() => expect(api.commitReviewImport).toHaveBeenCalled());
     expect(fileInput).toBeDisabled();
