@@ -1,5 +1,5 @@
 import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { ArrowSquareOut, CalendarBlank, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import { ArrowSquareOut, CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
@@ -61,6 +61,103 @@ function Section({ title, action, children }: { title: string; action?: ReactNod
   );
 }
 
+function parseDisplayDate(value: string): Date | null {
+  const trimmed = value.trim();
+  const displayMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  const day = displayMatch ? Number(displayMatch[1]) : isoMatch ? Number(isoMatch[3]) : null;
+  const month = displayMatch ? Number(displayMatch[2]) : isoMatch ? Number(isoMatch[2]) : null;
+  const year = displayMatch ? Number(displayMatch[3]) : isoMatch ? Number(isoMatch[1]) : null;
+  if (day === null || month === null || year === null) return null;
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+}
+
+function formatDisplayDate(date: Date): string {
+  return [
+    String(date.getDate()).padStart(2, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getFullYear()),
+  ].join("/");
+}
+
+function normalizeDateInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function monthStart(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function CalendarDateField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const selectedDate = parseDisplayDate(value);
+  const [open, setOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState(() => monthStart(selectedDate ?? new Date()));
+  const monthLabel = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(viewMonth);
+  const firstDay = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+  const leadingBlanks = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+  const cells = Array.from({ length: leadingBlanks + daysInMonth }, (_, index) => (
+    index < leadingBlanks ? null : new Date(viewMonth.getFullYear(), viewMonth.getMonth(), index - leadingBlanks + 1)
+  ));
+  const openCalendar = () => {
+    setViewMonth(monthStart(selectedDate ?? new Date()));
+    setOpen(true);
+  };
+
+  return (
+    <Box position="relative">
+      <Flex align="center" gap="2" px="3" h="40px" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface">
+        <CalendarBlank size={16} />
+        <Input
+          type="text"
+          inputMode="numeric"
+          aria-label={label}
+          placeholder="dd/mm/yyyy"
+          value={value}
+          onFocus={openCalendar}
+          onClick={openCalendar}
+          onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}
+          onChange={(event) => {
+            const next = normalizeDateInput(event.target.value);
+            onChange(next);
+            const parsed = parseDisplayDate(next);
+            if (parsed) setViewMonth(monthStart(parsed));
+          }}
+          border="0"
+          px="0"
+          h="36px"
+          width="126px"
+          _focusVisible={{ outline: "none", boxShadow: "none" }}
+        />
+      </Flex>
+      {open && (
+        <Box position="absolute" zIndex="dropdown" top="calc(100% + 8px)" left="0" width="286px" p="3" bg="surface" borderWidth="1px" borderColor="border" borderRadius="panel" boxShadow="xl">
+          <Flex align="center" justify="space-between" mb="3">
+            <Button size="xs" variant="ghost" aria-label="Previous month" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}><CaretLeft size={15} /></Button>
+            <Text fontWeight="750">{monthLabel}</Text>
+            <Button size="xs" variant="ghost" aria-label="Next month" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}><CaretRight size={15} /></Button>
+          </Flex>
+          <Grid gridTemplateColumns="repeat(7, 1fr)" gap="1">
+            {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => <Text key={`${day}-${index}`} color="muted" fontSize="xs" fontWeight="700" textAlign="center">{day}</Text>)}
+            {cells.map((date, index) => {
+              const selected = Boolean(date && selectedDate && date.toDateString() === selectedDate.toDateString());
+              return date ? (
+                <Button key={date.toISOString()} size="xs" minW="0" variant={selected ? "solid" : "ghost"} colorPalette="orange" onClick={() => { onChange(formatDisplayDate(date)); setOpen(false); }}>
+                  {date.getDate()}
+                </Button>
+              ) : <Box key={`blank-${index}`} h="8" />;
+            })}
+          </Grid>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: { value: DatePreset; onChange: (value: DatePreset) => void; customRange: { from: string; to: string }; onCustomRangeChange: (value: { from: string; to: string }) => void }) {
   const presets: Array<{ value: DatePreset; label: string }> = [
     { value: "7d", label: "7D" },
@@ -69,24 +166,7 @@ function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: 
     { value: "all", label: "All" },
     { value: "custom", label: "Custom" },
   ];
-  const customDateField = (label: string, field: "from" | "to") => (
-    <Flex align="center" gap="2" px="3" h="40px" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface">
-      <CalendarBlank size={16} />
-      <Input
-        type="text"
-        inputMode="numeric"
-        aria-label={label}
-        placeholder="dd/mm/yyyy"
-        value={customRange[field]}
-        onChange={(event) => onCustomRangeChange({ ...customRange, [field]: event.target.value })}
-        border="0"
-        px="0"
-        h="36px"
-        width="126px"
-        _focusVisible={{ outline: "none", boxShadow: "none" }}
-      />
-    </Flex>
-  );
+  const customDateField = (label: string, field: "from" | "to") => <CalendarDateField label={label} value={customRange[field]} onChange={(next) => onCustomRangeChange({ ...customRange, [field]: next })} />;
 
   return (
     <Flex align="center" gap="2" wrap="wrap">
