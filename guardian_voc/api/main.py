@@ -452,6 +452,14 @@ def get_run(
     return value
 
 
+@app.get("/api", include_in_schema=False)
+@app.get("/api/{full_path:path}", include_in_schema=False)
+def unknown_api_route(full_path: str = "") -> None:
+    """Keep API failures JSON even when the frontend bundle is absent."""
+
+    raise HTTPException(status_code=404, detail="API route not found")
+
+
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 if WEB_DIST.is_dir():
     assets = WEB_DIST / "assets"
@@ -460,8 +468,6 @@ if WEB_DIST.is_dir():
 
     @app.get("/{full_path:path}", response_class=FileResponse, include_in_schema=False)
     def web_application(full_path: str):
-        if full_path == "api" or full_path.startswith("api/"):
-            raise HTTPException(status_code=404, detail="API route not found")
         requested = (WEB_DIST / full_path).resolve()
         if (
             full_path
