@@ -1,3 +1,4 @@
+import { Box, Button, Flex, Grid, Heading, Input, Spinner, Stack, Text } from "@chakra-ui/react";
 import { ArrowSquareOut, CheckCircle, FileCsv, Key, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -158,99 +159,78 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
   };
 
   const buttonLabel = busy === "checking"
-    ? "Checking file…"
+    ? "Checking file..."
     : busy === "importing"
-      ? "Importing reviews…"
+      ? "Importing..."
       : busy === "finishing"
-        ? "Finishing import…"
+        ? "Finishing..."
         : "Import reviews";
 
   if (!config && !configError) {
-    return <section className="review-import-card" id="review-import"><p className="import-loading" role="status">Loading importer…</p></section>;
+    return <Flex minH="120px" align="center" justify="center" gap="3" role="status"><Spinner size="sm" color="accent" /><Text color="muted">Loading importer...</Text></Flex>;
   }
 
   if (configError) {
-    return <section className="review-import-card" id="review-import">
-      <div className="import-message import-error" role="alert">
-        <WarningCircle size={18} /><strong>Importer unavailable</strong><span>{configError}</span>
-        <button type="button" onClick={() => setConfigAttempt((value) => value + 1)}>Retry</button>
-      </div>
-    </section>;
+    return (
+      <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="danger" bg="surface" role="alert">
+        <WarningCircle size={18} />
+        <Box flex="1"><Text fontWeight="700">Importer unavailable</Text><Text color="muted">{configError}</Text></Box>
+        <Button size="sm" variant="outline" onClick={() => setConfigAttempt((value) => value + 1)}>Retry</Button>
+      </Flex>
+    );
   }
 
   if (!config?.enabled) {
-    return <section className="review-import-card" id="review-import"><div className="import-message import-warning">Review imports are disabled.</div></section>;
+    return <Text color="muted">Review imports are disabled.</Text>;
   }
 
   const sellerUrl = profile ? (config.seller_urls ?? {})[profile] : undefined;
   const locked = busy !== null;
+  const fieldStyle = { width: "full", height: "44px", px: "3", bg: "canvas", borderWidth: "1px", borderColor: "border", borderRadius: "control" } as const;
 
   return (
-    <section className="review-import-card" id="review-import" aria-labelledby="review-import-title">
-      <div className="import-card-head">
-        <div className="import-card-title">
-          <span className="review-import-panel__icon"><UploadSimple size={20} weight="bold" /></span>
-          <span><h3 id="review-import-title">Import reviews</h3><p>Choose the source and upload its export. Guardian handles the format.</p></span>
-        </div>
-        <span className="import-last-run"><b>Last import</b>{importTime(run?.completed_at ?? config.last_import_at)}</span>
-      </div>
+    <Stack as="section" aria-labelledby="review-import-title" gap="5" bg="surface" borderWidth="1px" borderColor="border" borderRadius="panel" p={{ base: "5", md: "6" }}>
+      <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap="4">
+        <Flex gap="3" align="center">
+          <Flex w="10" h="10" align="center" justify="center" borderRadius="control" bg="orange.100" color="orange.700"><UploadSimple size={20} weight="bold" /></Flex>
+          <Heading id="review-import-title" size="lg" letterSpacing="0">Import reviews</Heading>
+        </Flex>
+        <Text color="muted" fontSize="sm">Last import: {importTime(run?.completed_at ?? config.last_import_at)}</Text>
+      </Flex>
 
-      <div className="simple-import-grid">
-        <label className="simple-import-field">
-          <span>Marketplace</span>
-          <select
-            aria-label="Source profile"
-            value={profile}
-            disabled={locked}
-            onChange={(event) => { setProfile(event.target.value as ReviewImportProfile); resetResult(); }}
-          >
-            {config.profiles.map((value) => <option key={value} value={value}>{PROFILE_LABELS[value]}</option>)}
-          </select>
-        </label>
+      <Grid gridTemplateColumns={{ base: "1fr", lg: "minmax(180px, .55fr) minmax(300px, 1.45fr)" }} gap="4">
+        <Box as="label">
+          <Text mb="2" fontSize="sm" fontWeight="650">Marketplace</Text>
+          <Box asChild {...fieldStyle}>
+            <select aria-label="Source profile" value={profile} disabled={locked} onChange={(event) => { setProfile(event.target.value as ReviewImportProfile); resetResult(); }}>
+              {config.profiles.map((value) => <option key={value} value={value}>{PROFILE_LABELS[value]}</option>)}
+            </select>
+          </Box>
+        </Box>
+        <Flex as="label" position="relative" minH="76px" px="4" align="center" gap="3" borderWidth="1px" borderStyle="dashed" borderColor={file ? "accent" : "border"} borderRadius="control" bg={file ? "orange.50" : "canvas"} _dark={{ bg: file ? "#24150d" : "canvas" }} cursor="pointer">
+          <FileCsv size={25} weight={file ? "fill" : "regular"} />
+          <Box minW="0">
+            <Text fontWeight="700" truncate>{file?.name || "Choose CSV or XLSX file"}</Text>
+            <Text color="muted" fontSize="sm">{file ? `${(file.size / 1_000).toFixed(0)} KB` : "Browse file"}</Text>
+          </Box>
+          <input className="visually-hidden" aria-label="CSV review export" type="file" accept={config.accepted_extensions.join(",") || ".csv,.xlsx"} disabled={locked} onChange={(event) => { setFile(event.target.files?.[0] ?? null); resetResult(); }} />
+        </Flex>
+      </Grid>
 
-        <label className={`simple-file-picker ${file ? "has-file" : ""}`}>
-          <FileCsv size={24} weight={file ? "fill" : "regular"} />
-          <span><b>{file?.name || "Choose CSV or XLSX file"}</b><small>{file ? `${(file.size / 1_000).toFixed(0)} KB · Ready to import` : "Click to browse your computer"}</small></span>
-          <input
-            aria-label="CSV review export"
-            type="file"
-            accept={config.accepted_extensions.join(",") || ".csv,.xlsx"}
-            disabled={locked}
-            onChange={(event) => { setFile(event.target.files?.[0] ?? null); resetResult(); }}
-          />
-        </label>
-      </div>
-
-      <div className="simple-import-footer">
-        <div className="simple-access-key">
+      <Flex align={{ base: "stretch", lg: "center" }} direction={{ base: "column", lg: "row" }} gap="3">
+        <Flex flex="1" maxW={{ lg: "360px" }} align="center" gap="2" px="3" bg="canvas" borderWidth="1px" borderColor="border" borderRadius="control">
           <Key size={16} />
-          <input
-            aria-label="Admin token"
-            type="password"
-            autoComplete="off"
-            value={token}
-            disabled={locked}
-            onChange={(event) => { setToken(event.target.value); resetResult(); }}
-            placeholder="Admin access key"
-          />
-        </div>
-        {sellerUrl && <a className="seller-center-link" href={sellerUrl} target="_blank" rel="noreferrer">Get export from {PROFILE_LABELS[profile as ReviewImportProfile]} <ArrowSquareOut size={14} /></a>}
-        <button className="primary-button simple-import-submit" type="button" disabled={locked || !file || !token.trim()} onClick={handleImport}>
-          {buttonLabel}
-        </button>
-      </div>
+          <Input aria-label="Admin token" type="password" autoComplete="off" value={token} disabled={locked} onChange={(event) => { setToken(event.target.value); resetResult(); }} placeholder="Admin access key" border="0" outline="0" />
+        </Flex>
+        {sellerUrl && <Flex asChild align="center" gap="1" color="accent" fontSize="sm" fontWeight="650"><a href={sellerUrl} target="_blank" rel="noreferrer">Seller center <ArrowSquareOut size={14} /></a></Flex>}
+        <Button ml={{ lg: "auto" }} colorPalette="orange" disabled={locked || !file || !token.trim()} onClick={handleImport}>{busy && <Spinner size="xs" />}{buttonLabel}</Button>
+      </Flex>
 
-      {config.agentic_detection_enabled === false && <p className="simple-import-note">Automatic format detection is unavailable; known marketplace columns will still be imported.</p>}
-      {busy && <div className="simple-import-progress" role="status"><i /><span>{buttonLabel}</span></div>}
-      {run?.status === "completed" && <div className="import-message import-success" role="status">
-        <CheckCircle size={19} weight="fill" /><strong>Import complete</strong>
-        <span>{run.records_inserted.toLocaleString()} new reviews · {run.records_skipped.toLocaleString()} already known · {run.records_failed.toLocaleString()} failed</span>
-      </div>}
-      {run?.status === "partial" && <div className="import-message import-warning" role="status">
-        <WarningCircle size={19} /><strong>Some reviews could not be imported</strong>
-        <span>{run.records_inserted.toLocaleString()} imported · {run.records_failed.toLocaleString()} failed</span>
-      </div>}
-      {error && <div className="import-message import-error" role="alert"><WarningCircle size={18} /><span>{error}</span></div>}
-    </section>
+      {config.agentic_detection_enabled === false && <Text color="muted" fontSize="sm">Automatic detection is unavailable.</Text>}
+      {busy && <Flex align="center" gap="2" color="muted" fontSize="sm" role="status"><Spinner size="xs" />{buttonLabel}</Flex>}
+      {run?.status === "completed" && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="success" bg="canvas" role="status"><CheckCircle size={19} weight="fill" /><Box><Text fontWeight="700">Import complete</Text><Text color="muted" fontSize="sm">{run.records_inserted.toLocaleString()} new - {run.records_skipped.toLocaleString()} skipped - {run.records_failed.toLocaleString()} failed</Text></Box></Flex>}
+      {run?.status === "partial" && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="orange.500" bg="canvas" role="status"><WarningCircle size={19} /><Box><Text fontWeight="700">Some reviews could not be imported</Text><Text color="muted" fontSize="sm">{run.records_inserted.toLocaleString()} imported - {run.records_failed.toLocaleString()} failed</Text></Box></Flex>}
+      {error && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="danger" bg="canvas" role="alert"><WarningCircle size={18} /><Text>{error}</Text></Flex>}
+    </Stack>
   );
 }

@@ -1,15 +1,6 @@
-import {
-  ArrowRight,
-  ChatCircleDots,
-  Database,
-  Drop,
-  Info,
-  Package,
-  Pulse,
-  Star,
-  TrendDown,
-  WarningCircle,
-} from "@phosphor-icons/react";
+import { Badge, Box, Button, Flex, Grid, Heading, Stack, Text } from "@chakra-ui/react";
+import { ArrowRight, ChatCircleDots, Package, Pulse, Star, TrendDown, WarningCircle } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductTheme } from "../api/types";
 import { ProductFilter } from "./ProductFilter";
@@ -17,7 +8,7 @@ import { ProductFilter } from "./ProductFilter";
 interface DashboardProps { data: DashboardData; }
 
 function productName(product: DashboardProduct): string {
-  return product.shortName ?? product.name ?? `Unidentified product · ${product.id}`;
+  return product.shortName ?? product.name ?? `Unidentified product - ${product.id}`;
 }
 
 function ratio(numerator: number, denominator: number): number | null {
@@ -25,19 +16,7 @@ function ratio(numerator: number, denominator: number): number | null {
 }
 
 function percent(value: number | null, digits = 1): string {
-  return value === null ? "—" : new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: digits }).format(value);
-}
-
-function dateLabel(value: string | null, options: { exclusiveEnd?: boolean; timeZone?: string | null } = {}): string {
-  if (!value) return "Date unavailable";
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return value;
-  const displayDate = options.exclusiveEnd ? new Date(date.getTime() - 1) : date;
-  try {
-    return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: options.timeZone ?? undefined }).format(displayDate);
-  } catch {
-    return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(displayDate);
-  }
+  return value === null ? "-" : new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: digits }).format(value);
 }
 
 function humanize(value: string): string {
@@ -50,25 +29,47 @@ function aggregateThemes(products: DashboardProduct[], key: "negativeFeedback" |
   return [...counts.entries()].map(([label, count]) => ({ label, subtopic: null, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
+const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "5", md: "6" } } as const;
+
+function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <Box {...panelProps}>
+      <Flex align="center" justify="space-between" gap="4" mb="5">
+        <Heading size="md" letterSpacing="0">{title}</Heading>
+        {action}
+      </Flex>
+      {children}
+    </Box>
+  );
+}
+
 function HorizontalBars({ items, tone, empty }: { items: Array<{ label: string; count: number }>; tone: "rating" | "feedback" | "problem"; empty: string }) {
   const max = Math.max(1, ...items.map((item) => item.count));
-  if (!items.length) return <p className="pulse-empty">{empty}</p>;
+  const color = tone === "rating" ? "#d97706" : tone === "feedback" ? "#c2410c" : "#2563eb";
+  if (!items.length) return <Text color="muted">{empty}</Text>;
   return (
-    <div className={`pulse-bars pulse-bars--${tone}`}>
+    <Stack gap="3">
       {items.map((item) => (
-        <div className="pulse-bar" key={item.label}>
-          <span>{item.label}</span>
-          <i><b style={{ width: `${Math.max(2, (item.count / max) * 100)}%` }} /></i>
-          <strong>{item.count.toLocaleString()}</strong>
-        </div>
+        <Grid key={item.label} gridTemplateColumns="minmax(120px, 1fr) minmax(90px, 2fr) 52px" gap="3" alignItems="center">
+          <Text fontSize="sm" fontWeight="600">{item.label}</Text>
+          <Box h="8px" bg="subtle" borderRadius="full" overflow="hidden">
+            <Box h="full" borderRadius="full" bg={color} width={`${Math.max(2, (item.count / max) * 100)}%`} />
+          </Box>
+          <Text textAlign="right" fontSize="sm" fontWeight="700">{item.count.toLocaleString()}</Text>
+        </Grid>
       ))}
-    </div>
+    </Stack>
   );
+}
+
+function hasUsefulInsight(data: DashboardData): boolean {
+  if (!data.primaryInsight) return false;
+  const title = data.primaryInsight.title.trim();
+  return Boolean(title && !/^ai auto summary$/i.test(title));
 }
 
 export function Dashboard({ data }: DashboardProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>(() => data.products.map((product) => product.id));
-
   useEffect(() => setSelectedIds(data.products.map((product) => product.id)), [data]);
 
   const selectedProducts = useMemo(() => data.products.filter((product) => selectedIds.includes(product.id)), [data.products, selectedIds]);
@@ -92,55 +93,127 @@ export function Dashboard({ data }: DashboardProps) {
   const problems = aggregateThemes(selectedProducts, "problems").slice(0, 5).map((item) => ({ ...item, label: humanize(item.label) }));
   const productsToWatch = [...selectedProducts].sort((a, b) => (ratio(b.current.complaints, b.current.feedback) ?? 0) - (ratio(a.current.complaints, a.current.feedback) ?? 0)).slice(0, 3);
   const heroProduct = productsToWatch[0];
-  const incompleteMetadata = selectedProducts.filter((product) => !product.metadataComplete);
+  const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
 
   return (
-    <>
-      {data.dataState === "partial" && <section className="truth-banner truth-banner--partial" role="status"><WarningCircle size={21} weight="fill" /><div><strong>Partial dashboard</strong><p>{data.messages[0] ?? "The backend returned usable data with incomplete coverage."}</p></div></section>}
-
-      <section className="portfolio-toolbar" aria-label="Product portfolio scope">
-        <div><span className="eyebrow">Live portfolio view</span><strong>Guardian customer feedback intelligence</strong><small>{dateLabel(data.windows.currentStart, { timeZone: data.windows.businessTimezone })} — {dateLabel(data.windows.currentEnd, { exclusiveEnd: true, timeZone: data.windows.businessTimezone })}</small></div>
+    <Stack gap="6">
+      <Flex align={{ base: "stretch", md: "center" }} justify="space-between" direction={{ base: "column", md: "row" }} gap="4">
+        <Flex gap="3" wrap="wrap" align="center">
+          <Badge size="lg" colorPalette="orange" variant="subtle">{selectedProducts.length} products</Badge>
+          <Badge size="lg" colorPalette="gray" variant="outline">{totals.feedback.toLocaleString()} feedback</Badge>
+        </Flex>
         <ProductFilter products={data.products} selectedIds={selectedIds} onChange={setSelectedIds} />
-      </section>
+      </Flex>
 
       {selectedProducts.length === 0 ? (
-        <section className="empty-cohort"><Package size={28} /><h2>No products selected</h2><p>Select one or more products to build the Customer Pulse view.</p><button className="primary-button" type="button" onClick={() => setSelectedIds(data.products.map((product) => product.id))}>Show all products</button></section>
+        <Stack {...panelProps} align="flex-start" gap="4">
+          <Package size={28} />
+          <Heading size="lg">No products selected</Heading>
+          <Button colorPalette="orange" onClick={() => setSelectedIds(data.products.map((product) => product.id))}>Show products</Button>
+        </Stack>
       ) : (
-        <div className="pulse-overview">
-          <section className="pulse-hero" aria-labelledby="pulse-title">
-            <span className="pulse-hero__badge"><Star size={28} weight="fill" /></span>
-            <div><span className="eyebrow">Executive summary · Current server window</span><h2 id="pulse-title">{data.primaryInsight?.title ?? "Customer feedback portfolio is ready for review"}</h2><p>{data.primaryInsight?.summary ?? `${totals.feedback.toLocaleString()} verified feedback items across ${selectedProducts.length} selected products.`}</p></div>
-            {heroProduct && <button type="button" onClick={() => setSelectedIds([heroProduct.id])}>Focus top risk <ArrowRight size={16} weight="bold" /></button>}
-            <span className="pulse-hero__art" aria-hidden="true"><Drop size={58} weight="duotone" /></span>
-          </section>
+        <>
+          {insight && (
+            <Grid as="section" aria-labelledby="pulse-title" {...panelProps} bg="orange.50" _dark={{ bg: "#24150d" }} gridTemplateColumns={{ base: "1fr", md: "auto 1fr auto" }} alignItems="center" gap="5">
+              <Flex w="12" h="12" align="center" justify="center" borderRadius="full" bg="orange.100" color="orange.700"><Pulse size={25} weight="fill" /></Flex>
+              <Box>
+                <Heading id="pulse-title" size="lg" letterSpacing="0">{insight.title}</Heading>
+                {insight.summary && <Text color="muted" mt="2">{insight.summary}</Text>}
+              </Box>
+              {heroProduct && <Button variant="outline" colorPalette="orange" onClick={() => setSelectedIds([heroProduct.id])}>Focus <ArrowRight size={16} /></Button>}
+            </Grid>
+          )}
 
-          <section className="pulse-kpis" aria-label="Executive portfolio metrics">
-            <article className="pulse-kpi pulse-kpi--blue"><span><ChatCircleDots size={24} weight="duotone" /></span><div><small>Feedback analyzed</small><strong>{totals.feedback.toLocaleString()}</strong><em>current server window</em></div></article>
-            <article className="pulse-kpi pulse-kpi--green"><span><Star size={24} weight="fill" /></span><div><small>Average rating</small><strong>{averageRating === null ? "—" : averageRating.toFixed(2)}<i>/ 5</i></strong><em>{weightedRatings.count.toLocaleString()} rated reviews</em></div></article>
-            <article className="pulse-kpi pulse-kpi--orange"><span><TrendDown size={24} weight="bold" /></span><div><small>Complaints</small><strong>{totals.complaints.toLocaleString()}</strong><em>{percent(ratio(totals.complaints, totals.feedback))} of feedback</em></div></article>
-            <article className="pulse-kpi pulse-kpi--red"><span><WarningCircle size={24} weight="fill" /></span><div><small>Products at risk</small><strong>{atRisk.length}</strong><em>need executive attention</em></div></article>
-          </section>
+          <Grid as="section" aria-label="Portfolio metrics" gridTemplateColumns={{ base: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
+            {[
+              [<ChatCircleDots size={22} key="i" />, "Feedback", totals.feedback.toLocaleString()],
+              [<Star size={22} weight="fill" key="i" />, "Rating", averageRating === null ? "-" : `${averageRating.toFixed(2)} / 5`],
+              [<TrendDown size={22} key="i" />, "Complaints", totals.complaints.toLocaleString()],
+              [<WarningCircle size={22} weight="fill" key="i" />, "At risk", atRisk.length],
+            ].map(([icon, label, value]) => (
+              <Flex key={String(label)} {...panelProps} gap="3" align="center">
+                <Box color="accent">{icon}</Box>
+                <Box minW="0">
+                  <Text color="muted" fontSize="sm">{label}</Text>
+                  <Text fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.1" fontWeight="750" letterSpacing="0">{value}</Text>
+                </Box>
+              </Flex>
+            ))}
+          </Grid>
 
-          <section className="pulse-chart-grid">
-            <article className="pulse-card"><header><div><span className="eyebrow">Customer selection</span><h3>Star rating distribution</h3></div><small>{averageRating === null ? "No average" : `${averageRating.toFixed(2)} avg.`}</small></header><p>Actual star selections in the current window</p><HorizontalBars items={ratingDistribution} tone="rating" empty="No star ratings were supplied for this selection." /></article>
-            <article className="pulse-card"><header><div><span className="eyebrow">Voice of customer</span><h3>Top 5 negative feedback</h3></div><small>{totals.complaints.toLocaleString()} complaints</small></header><p>High-level complaint topics from server classification</p><HorizontalBars items={negativeFeedback} tone="feedback" empty="No classified complaint topics are available." /></article>
-            <article className="pulse-card"><header><div><span className="eyebrow">Operational diagnosis</span><h3>Top 5 product problems</h3></div><small>Prioritized</small></header><p>Specific subtopics teams can act on</p><HorizontalBars items={problems} tone="problem" empty="No specific problem subtopics are available." /></article>
-          </section>
+          <Grid gridTemplateColumns={{ base: "1fr", xl: "repeat(3, 1fr)" }} gap="4">
+            <Section title="Star ratings">
+              <HorizontalBars items={ratingDistribution} tone="rating" empty="No ratings returned." />
+            </Section>
+            <Section title="Negative topics">
+              <HorizontalBars items={negativeFeedback} tone="feedback" empty="No complaint topics returned." />
+            </Section>
+            <Section title="Product problems">
+              <HorizontalBars items={problems} tone="problem" empty="No problem topics returned." />
+            </Section>
+          </Grid>
 
-          {incompleteMetadata.length > 0 && <section className="metadata-notice" role="note"><Info size={20} weight="fill" /><div><strong>Product catalog details are incomplete</strong><p>{incompleteMetadata.length} selected product group(s) only include metadata supplied by ingestion.</p></div></section>}
+          <Grid gridTemplateColumns={{ base: "1fr", xl: "1.1fr .9fr" }} gap="4">
+            <Section title="Products to watch">
+              <Stack gap="0" divideY="1px" divideColor="border">
+                {productsToWatch.map((product, index) => (
+                  <Button key={product.id} variant="ghost" h="auto" py="4" px="0" borderRadius="0" justifyContent="stretch" onClick={() => setSelectedIds([product.id])}>
+                    <Grid width="full" gridTemplateColumns="32px minmax(0,1fr) auto" gap="3" textAlign="left" alignItems="center">
+                      <Text color="muted" fontWeight="700">{index + 1}</Text>
+                      <Box minW="0">
+                        <Text fontWeight="700" whiteSpace="normal">{productName(product)}</Text>
+                        <Text color="muted" fontSize="sm" whiteSpace="normal">{humanize(product.problems[0]?.label ?? "No dominant problem")}</Text>
+                      </Box>
+                      <Text color="danger" fontWeight="750">{percent(ratio(product.current.complaints, product.current.feedback), 0)}</Text>
+                    </Grid>
+                  </Button>
+                ))}
+              </Stack>
+            </Section>
 
-          <section className="pulse-lower-grid">
-            <article className="pulse-card products-watch"><header><div><span className="eyebrow">Priority queue</span><h3>Products to watch</h3></div><small>Complaint rate</small></header><div className="watch-list">{productsToWatch.map((product, index) => <button className="watch-product" type="button" key={product.id} onClick={() => setSelectedIds([product.id])}><span className="watch-product__icon"><Package size={23} weight="duotone" /></span><span><small>0{index + 1} · {product.category ?? "Category unavailable"}</small><strong>{productName(product)}</strong><em>{humanize(product.problems[0]?.label ?? "No dominant problem")}</em></span><b>{percent(ratio(product.current.complaints, product.current.feedback), 0)}<i> complaint rate</i></b></button>)}</div></article>
-            <article className="pulse-card benchmark-card"><header><div><span className="eyebrow">Competitive context</span><h3>Global comparable benchmark</h3></div><small>Portfolio-wide</small></header><p className="benchmark-scope-note">This benchmark covers the complete matched portfolio cohort{selectedProducts.length !== data.products.length ? "; the current product selection is narrower" : ""}.</p>{!data.benchmark?.comparable ? <p className="pulse-empty">{data.benchmark?.reason ?? "Comparison not available."}</p> : <div className="benchmark-ratings">{data.benchmark.brands.map((brand) => <div key={brand.brand}><span>{humanize(brand.brand)}</span><i><b style={{ width: `${((brand.rating ?? 0) / 5) * 100}%` }} /></i><strong>{brand.rating === null ? "—" : brand.rating.toFixed(2)}</strong></div>)}</div>}</article>
-          </section>
+            <Section title="Benchmark">
+              {!data.benchmark?.comparable ? (
+                <Text color="muted">{data.benchmark?.reason ?? "Comparison not available."}</Text>
+              ) : (
+                <Stack gap="4">
+                  {data.benchmark.brands.map((brand) => (
+                    <Grid key={brand.brand} gridTemplateColumns="90px 1fr 44px" gap="3" alignItems="center">
+                      <Text fontSize="sm" fontWeight="600">{humanize(brand.brand)}</Text>
+                      <Box h="8px" bg="subtle" borderRadius="full" overflow="hidden">
+                        <Box h="full" bg="accent" borderRadius="full" width={`${((brand.rating ?? 0) / 5) * 100}%`} />
+                      </Box>
+                      <Text fontWeight="700">{brand.rating === null ? "-" : brand.rating.toFixed(2)}</Text>
+                    </Grid>
+                  ))}
+                </Stack>
+              )}
+            </Section>
+          </Grid>
 
-          <section className="pulse-card evidence-panel"><header><div><span className="eyebrow">Customer evidence</span><h3>Reported excerpts</h3></div><small>{selectedEvidence.length} returned</small></header>{selectedEvidence.length ? <div className="evidence-list">{selectedEvidence.slice(0, 6).map((item) => <blockquote key={item.id}><p>“{item.text}”</p><footer>{item.sourcePlatform} · {humanize(item.sourceGroup)}{item.timestamp ? ` · ${dateLabel(item.timestamp)}` : ""}</footer></blockquote>)}</div> : <p className="pulse-empty">No redacted evidence excerpts were returned for this selection.</p>}</section>
+          <Section title="Evidence" action={<Badge variant="outline">{selectedEvidence.length}</Badge>}>
+            {selectedEvidence.length ? (
+              <Grid gridTemplateColumns={{ base: "1fr", lg: "repeat(2, 1fr)" }} gap="4">
+                {selectedEvidence.slice(0, 6).map((item) => (
+                  <Box as="blockquote" key={item.id} p="4" bg="subtle" borderRadius="control">
+                    <Text>"{item.text}"</Text>
+                    <Text as="footer" mt="3" color="muted" fontSize="sm">{item.sourcePlatform} - {humanize(item.sourceGroup)}</Text>
+                  </Box>
+                ))}
+              </Grid>
+            ) : (
+              <Text color="muted">No evidence returned.</Text>
+            )}
+          </Section>
 
-          {data.primaryInsight && <section className="primary-insight pulse-decision"><div className="primary-insight__icon"><Pulse size={25} weight="fill" /></div><div><span className="eyebrow">Executive action</span><div className="primary-insight__labels">{data.primaryInsight.label && <span className={`decision-label decision-label--${data.primaryInsight.label}`}>{humanize(data.primaryInsight.label)} decision</span>}{data.primaryInsight.status && <span className="workflow-status">Workflow: {humanize(data.primaryInsight.status)}</span>}</div><h2>Recommended next steps</h2>{data.primaryInsight.recommendedActions.length > 0 && <ul>{data.primaryInsight.recommendedActions.map((action) => <li key={action}>{action}</li>)}</ul>}</div></section>}
-
-          {data.messages.length > (data.dataState === "partial" ? 1 : 0) && <section className="server-notes"><Database size={19} /><div><strong>Backend data notes</strong><ul>{data.messages.slice(data.dataState === "partial" ? 1 : 0).map((message) => <li key={message}>{message}</li>)}</ul></div></section>}
-        </div>
+          {insight && insight.recommendedActions.length > 0 && (
+            <Section title="Actions">
+              <Stack as="ul" gap="2" pl="5" color="muted">
+                {insight.recommendedActions.map((action) => <li key={action}>{action}</li>)}
+              </Stack>
+            </Section>
+          )}
+        </>
       )}
-    </>
+    </Stack>
   );
 }

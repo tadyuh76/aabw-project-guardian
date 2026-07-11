@@ -26,20 +26,17 @@ describe("App dashboard states", () => {
     render(<App />);
 
     expect(await screen.findByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
-    expect(screen.getByText(/05 Jul 2026 — 11 Jul 2026/)).toBeInTheDocument();
     expect(screen.getByText("Packaging complaints declined")).toBeInTheDocument();
-    expect(screen.getByText("Improving decision")).toBeInTheDocument();
-    expect(screen.getByText("Workflow: Monitoring")).toBeInTheDocument();
     expect(screen.getByText("The cleanser arrived securely packed.", { exact: false })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Star rating distribution" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Top 5 negative feedback" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Star ratings" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Negative topics" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Product problems" })).toBeInTheDocument();
     expect(screen.getByText("128")).toBeInTheDocument();
     expect(screen.getByText("Product Quality")).toBeInTheDocument();
     expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
   });
 
-  it("shows the backend partial message with the usable data", async () => {
+  it("keeps partial backend copy out of the dashboard", async () => {
     api.fetchDashboard.mockResolvedValue(dashboardFixture({
       dataState: "partial",
       overallHealth: "partial",
@@ -47,25 +44,23 @@ describe("App dashboard states", () => {
     }));
     render(<App />);
 
-    expect(await screen.findByText("Partial dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Only marketplace sources completed in this window.")).toBeInTheDocument();
-    expect(screen.getByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
+    expect(await screen.findByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
+    expect(screen.queryByText("Only marketplace sources completed in this window.")).not.toBeInTheDocument();
   });
 
-  it("shows non-blocking exclusions as notes without a partial banner", async () => {
+  it("does not render backend notes as visible dashboard copy", async () => {
     api.fetchDashboard.mockResolvedValue(dashboardFixture({
       dataState: "ready",
       messages: ["Some Guardian feedback has no trustworthy occurrence date and is excluded from period metrics."],
     }));
     render(<App />);
 
-    expect(await screen.findByText("Backend data notes")).toBeInTheDocument();
-    expect(screen.getByText(/Some Guardian feedback has no trustworthy occurrence date/)).toBeInTheDocument();
-    expect(screen.queryByText("Partial dashboard")).not.toBeInTheDocument();
-    expect(screen.getByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
+    expect(await screen.findByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
+    expect(screen.queryByText("Backend data notes")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Some Guardian feedback has no trustworthy occurrence date/)).not.toBeInTheDocument();
   });
 
-  it("keeps the peer benchmark explicitly portfolio-wide after product filtering", async () => {
+  it("keeps the benchmark visible after product filtering", async () => {
     const fixture = dashboardFixture();
     const first = fixture.products[0]!;
     api.fetchDashboard.mockResolvedValue({
@@ -80,10 +75,10 @@ describe("App dashboard states", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(await screen.findByText("Global comparable benchmark")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Benchmark" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Change product scope/ }));
     await user.click(screen.getByRole("checkbox", { name: /Second Product/ }));
-    expect(screen.getByText(/current product selection is narrower/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Benchmark" })).toBeInTheDocument();
   });
 
   it("shows an honest empty state without product fixtures", async () => {
@@ -110,7 +105,6 @@ describe("App dashboard states", () => {
     render(<App />);
 
     expect(await screen.findByText("Dashboard data could not be loaded")).toBeInTheDocument();
-    expect(screen.getByText("No cached fixture or fabricated fallback is being shown.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry dashboard" }));
     expect(await screen.findByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
     expect(api.fetchDashboard).toHaveBeenCalledTimes(2);

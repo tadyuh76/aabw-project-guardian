@@ -1,8 +1,10 @@
+import { ChakraProvider } from "@chakra-ui/react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WaitForRunOptions } from "../api/client";
 import type { ImportPreviewResponse, RunResponse } from "../api/types";
+import { system } from "../theme";
 
 const api = vi.hoisted(() => ({
   fetchImportConfig: vi.fn(),
@@ -15,6 +17,11 @@ const api = vi.hoisted(() => ({
 vi.mock("../api/client", () => api);
 
 import { ReviewImportPanel } from "./ReviewImportPanel";
+
+function renderPanel(onImported = vi.fn()) {
+  render(<ChakraProvider value={system}><ReviewImportPanel onImported={onImported} /></ChakraProvider>);
+  return onImported;
+}
 
 const preview: ImportPreviewResponse = {
   profile: "shopee",
@@ -84,7 +91,7 @@ describe("ReviewImportPanel", () => {
     });
     const onImported = vi.fn();
     const user = userEvent.setup();
-    render(<ReviewImportPanel onImported={onImported} />);
+    renderPanel(onImported);
 
     const token = await screen.findByLabelText("Admin token");
     const file = new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" });
@@ -92,7 +99,7 @@ describe("ReviewImportPanel", () => {
     await user.type(token, "secret-admin-token");
     await user.click(screen.getByRole("button", { name: "Import reviews" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Finishing import…");
+    expect(await screen.findByRole("status")).toHaveTextContent("Finishing...");
     expect(api.detectReviewImport).toHaveBeenCalledWith(file, "shopee", "secret-admin-token", expect.any(AbortSignal));
     expect(api.commitReviewImport).toHaveBeenCalledWith(file, "shopee", "secret-admin-token", expect.any(AbortSignal), preview.mapping);
     act(() => pollOptions?.onUpdate?.(running));
@@ -111,14 +118,14 @@ describe("ReviewImportPanel", () => {
     });
     const onImported = vi.fn();
     const user = userEvent.setup();
-    render(<ReviewImportPanel onImported={onImported} />);
+    renderPanel(onImported);
 
     await user.upload(await screen.findByLabelText("CSV review export"), new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" }));
     await user.type(screen.getByLabelText("Admin token"), "secret-admin-token");
     await user.click(screen.getByRole("button", { name: "Import reviews" }));
 
     expect(await screen.findByText("Some reviews could not be imported")).toBeInTheDocument();
-    expect(screen.getByText("1 imported · 1 failed")).toBeInTheDocument();
+    expect(screen.getByText("1 imported - 1 failed")).toBeInTheDocument();
     expect(onImported).toHaveBeenCalledTimes(1);
   });
 
@@ -126,7 +133,7 @@ describe("ReviewImportPanel", () => {
     let resolveDetection: ((value: ImportPreviewResponse) => void) | undefined;
     api.detectReviewImport.mockReturnValue(new Promise((resolve) => { resolveDetection = resolve; }));
     const user = userEvent.setup();
-    render(<ReviewImportPanel onImported={vi.fn()} />);
+    renderPanel();
 
     const token = await screen.findByLabelText("Admin token");
     const fileInput = screen.getByLabelText("CSV review export");
