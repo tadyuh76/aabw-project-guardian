@@ -1,5 +1,5 @@
 import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CalendarBlank, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import { ArrowSquareOut, CalendarBlank, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
@@ -107,17 +107,6 @@ function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: 
   );
 }
 
-function ChangeBadge({ value }: { value: number | null }) {
-  if (value === null) return <Badge colorPalette="gray" variant="subtle">New</Badge>;
-  const improved = value < 0;
-  return (
-    <Badge colorPalette={improved ? "green" : value > 0 ? "red" : "gray"} variant="subtle">
-      {value > 0 ? <ArrowUp size={12} /> : value < 0 ? <ArrowDown size={12} /> : null}
-      {Math.abs(value).toFixed(0)}%
-    </Badge>
-  );
-}
-
 function RatingBars({ items }: { items: Array<{ label: string; count: number }> }) {
   const max = Math.max(1, ...items.map((item) => item.count));
   return (
@@ -133,27 +122,52 @@ function RatingBars({ items }: { items: Array<{ label: string; count: number }> 
   );
 }
 
-function IssueBars({ items, mode, empty }: { items: ProductTheme[]; mode: DateMode; empty: string }) {
-  const displayed = items.map((item) => ({ ...item, displayCount: mode === "current" ? item.count : item.count + item.baselineCount }));
+function ProblemCategoryChart({ items, mode, empty }: { items: ProductTheme[]; mode: DateMode; empty: string }) {
+  const displayed = items.map((item) => ({
+    ...item,
+    displayCount: mode === "current" ? item.count : item.count + item.baselineCount,
+  }));
   const max = Math.max(1, ...displayed.map((item) => item.displayCount));
   if (!displayed.some((item) => item.displayCount > 0)) return <Text color="muted">{empty}</Text>;
+  const width = 420;
+  const rowHeight = 36;
+  const top = 10;
+  const right = 42;
+  const labelWidth = 138;
+  const barWidth = width - labelWidth - right;
+  const height = top * 2 + displayed.length * rowHeight;
   return (
-    <Stack gap="4">
-      {displayed.map((item, index) => (
-        <Box key={item.label}>
-          <Flex justify="space-between" align="center" gap="3" mb="2">
-            <Text fontWeight="650" lineClamp="1">{humanize(item.label)}</Text>
-            <Flex align="center" gap="2" flexShrink="0">
-              <ChangeBadge value={item.percentageChange} />
-              <Text fontWeight="750" minW="32px" textAlign="right">{item.displayCount.toLocaleString()}</Text>
-            </Flex>
-          </Flex>
-          <Box h="10px" bg="subtle" borderRadius="full" overflow="hidden">
-            <Box h="full" borderRadius="full" bg={chartColors[(index + 1) % chartColors.length]} width={`${Math.max(2, (item.displayCount / max) * 100)}%`} />
-          </Box>
-        </Box>
-      ))}
-    </Stack>
+    <Box overflowX="auto">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Top product problem categories" style={{ width: "100%", minWidth: "300px", display: "block" }}>
+        {[0.5, 1].map((tick) => (
+          <line
+            key={tick}
+            x1={labelWidth + tick * barWidth}
+            y1="0"
+            x2={labelWidth + tick * barWidth}
+            y2={height}
+            stroke="var(--chakra-colors-border)"
+            strokeDasharray="4 6"
+          />
+        ))}
+        {displayed.map((item, index) => {
+          const y = top + index * rowHeight;
+          const bar = Math.max(4, (item.displayCount / max) * barWidth);
+          const label = humanize(item.label);
+          return (
+            <g key={item.label}>
+              <text x="0" y={y + 21} fill="var(--chakra-colors-ink)" fontSize="13" fontWeight="650">
+                {label.length > 22 ? `${label.slice(0, 21)}…` : label}
+              </text>
+              <rect x={labelWidth} y={y + 8} width={bar} height="16" rx="4" fill={chartColors[(index + 1) % chartColors.length]} />
+              <text x={labelWidth + bar + 8} y={y + 21} fill="var(--chakra-colors-ink)" fontSize="13" fontWeight="750">
+                {item.displayCount.toLocaleString()}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </Box>
   );
 }
 
@@ -174,8 +188,8 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
   const platforms = Object.keys(platformColors).filter((platform) => points.some((point) => point.platform === platform));
   const dates = [...new Set(points.map((point) => point.date))].sort();
   if (!platforms.length || dates.length < 2) return <Text color="muted">A dated platform rating series is not available yet.</Text>;
-  const width = 820;
-  const height = 290;
+  const width = 560;
+  const height = 250;
   const left = 48;
   const right = 18;
   const top = 18;
@@ -188,7 +202,7 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
   return (
     <Stack gap="4">
       <Box overflowX="auto">
-        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Historical and predicted average ratings by marketplace" style={{ width: "100%", minWidth: "620px", display: "block" }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Historical and predicted average ratings by marketplace" style={{ width: "100%", minWidth: "320px", display: "block" }}>
           <rect x={predictionX} y="0" width={width - predictionX} height={height - bottom + 12} fill="var(--chakra-colors-subtle)" opacity="0.72" />
           {[1, 2, 3, 4, 5].map((rating) => <g key={rating}><line x1={left} y1={y(rating)} x2={width - right} y2={y(rating)} stroke="var(--chakra-colors-border)" /><text x={left - 12} y={y(rating) + 5} textAnchor="end" fill="var(--chakra-colors-muted)" fontSize="13">{rating}.0</text></g>)}
           {firstPrediction && <text x={predictionX + 12} y="18" fill="var(--chakra-colors-muted)" fontSize="13" fontWeight="600">PREDICTED</text>}
@@ -205,6 +219,34 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
       <Flex gap="5" wrap="wrap">
         {platforms.map((platform) => <Flex key={platform} align="center" gap="2"><Box w="10px" h="10px" borderRadius="full" bg={platformColors[platform]} /><Text fontWeight="600">{platform}</Text></Flex>)}
       </Flex>
+    </Stack>
+  );
+}
+
+function SocialExperienceScore({ benchmark }: { benchmark: DashboardData["benchmark"] }) {
+  if (!benchmark?.comparable) return <Text color="muted">{cleanDisplayText(benchmark?.reason ?? "Comparison not available.")}</Text>;
+  return (
+    <Stack gap="5">
+      {benchmark.brands.map((brand, index) => {
+        const totalMentions = brand.feedback ?? 0;
+        const positiveMentions = brand.positive ?? 0;
+        const negativeMentions = Math.max(0, totalMentions - positiveMentions - (brand.neutral ?? 0));
+        const score = totalMentions ? 50 + 50 * ((positiveMentions - negativeMentions) / totalMentions) : null;
+        return (
+          <Box key={brand.brand}>
+            <Flex justify="space-between" mb="2" gap="3">
+              <Text fontWeight="650">{humanize(brand.brand)}</Text>
+              <Text fontWeight="780">{score === null ? "-" : score.toFixed(1)}</Text>
+            </Flex>
+            <Box h="12px" bg="subtle" borderRadius="full" overflow="hidden">
+              <Box h="full" bg={chartColors[index % chartColors.length]} borderRadius="full" width={`${Math.max(0, Math.min(100, score ?? 0))}%`} />
+            </Box>
+          </Box>
+        );
+      })}
+      <Text color="muted" fontSize="sm">
+        So sánh hiệu suất cạnh tranh bằng Net Sentiment Score = 50 + 50 * ((Positive Mentions - Negative Mentions) / Total Mentions) để đo lường sự hài lòng của khách hàng và phản ánh thái độ của họ.
+      </Text>
     </Stack>
   );
 }
@@ -311,11 +353,10 @@ export function Dashboard({ data }: DashboardProps) {
   const ratingDistribution = [5, 4, 3, 2, 1].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
   const displayedIssueCount = (item: ProductTheme) => dateMode === "current" ? item.count : item.count + item.baselineCount;
   const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
-  const negativeFeedback = aggregateThemes(selectedProducts, "negativeFeedback").sort(periodIssueSort).slice(0, 5);
   const problems = aggregateThemes(selectedProducts, "problems").sort(periodIssueSort).slice(0, 5);
   const ratingTrend = aggregateRatingTrend(selectedProducts);
   const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
-  const weeklyMessage = weeklySummaryMessage({ insight, feedback: totals.feedback, positive: totals.positive, neutral: totals.neutral, issue: problems[0] ?? negativeFeedback[0] });
+  const weeklyMessage = weeklySummaryMessage({ insight, feedback: totals.feedback, positive: totals.positive, neutral: totals.neutral, issue: problems[0] });
 
   const metrics = [
     { icon: <ChatCircleDots size={34} />, label: "Reviews", value: totals.feedback.toLocaleString(), iconBg: "#eff6ff", darkIconBg: "#10233f", color: "#2563eb" },
@@ -349,24 +390,11 @@ export function Dashboard({ data }: DashboardProps) {
           </Flex>)}
         </Grid>
 
-        <Grid gridTemplateColumns={{ base: "1fr", xl: "repeat(3, minmax(0, 1fr))" }} gap="4">
+        <Grid gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
           <Section title="Rating distribution"><RatingBars items={ratingDistribution} /></Section>
-          <Section title="Top 5 negative feedback"><IssueBars items={negativeFeedback} mode={dateMode} empty="No negative feedback in this period." /></Section>
-          <Section title="Top 5 product problems"><IssueBars items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
-        </Grid>
-
-        <Grid gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.55fr) minmax(320px, .75fr)" }} gap="4">
+          <Section title="Top 5 product problems"><ProblemCategoryChart items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
           <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
-          <Section title="Competitive sentiment">
-            {!data.benchmark?.comparable ? <Text color="muted">{cleanDisplayText(data.benchmark?.reason ?? "Comparison not available.")}</Text> : <Stack gap="5">
-              {data.benchmark.brands.map((brand, index) => {
-                const negativeMentions = Math.max(0, (brand.feedback ?? 0) - (brand.positive ?? 0) - (brand.neutral ?? 0));
-                const score = brand.feedback ? 50 + 50 * (((brand.positive ?? 0) - negativeMentions) / brand.feedback) : null;
-                return <Box key={brand.brand}><Flex justify="space-between" mb="2"><Text fontWeight="650">{humanize(brand.brand)}</Text><Text fontWeight="780">{score === null ? "-" : score.toFixed(1)}</Text></Flex><Box h="12px" bg="subtle" borderRadius="full" overflow="hidden"><Box h="full" bg={chartColors[index % chartColors.length]} borderRadius="full" width={`${score ?? 0}%`} /></Box></Box>;
-              })}
-              <Text color="muted">Net Sentiment Score · 0-100</Text>
-            </Stack>}
-          </Section>
+          <Section title="Social experience score"><SocialExperienceScore benchmark={data.benchmark} /></Section>
         </Grid>
 
         {selectedEvidence.length > 0 && <Section title="Recent review signals" action={<Badge variant="subtle" colorPalette="orange">{selectedEvidence.length}</Badge>}><Stack gap="0" divideY="1px" divideColor="border">{selectedEvidence.slice(0, 4).map((item) => <Grid key={item.id} py="4" gridTemplateColumns={{ base: "1fr", md: "130px minmax(0, 1fr) auto" }} gap="4" alignItems="start"><Text fontWeight="650">{humanize(cleanDisplayText(item.sourcePlatform))}</Text><Text>“{cleanDisplayText(item.text)}”</Text><Flex gap="2" align="center" justify={{ base: "flex-start", md: "flex-end" }}><Badge colorPalette={item.sentiment === "positive" ? "green" : item.sentiment === "negative" ? "red" : "gray"} variant="subtle">{humanize(item.sentiment ?? "neutral")}</Badge>{item.sourceUrl && <Button asChild size="xs" variant="ghost" aria-label="Open source"><a href={item.sourceUrl} target="_blank" rel="noreferrer"><ArrowSquareOut weight="bold" /></a></Button>}</Flex></Grid>)}</Stack></Section>}

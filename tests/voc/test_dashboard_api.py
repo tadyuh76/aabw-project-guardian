@@ -246,7 +246,13 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
     ]
     shopee_trend = [item for item in product.rating_trend if item.platform == "Shopee"]
     assert len([item for item in shopee_trend if not item.predicted]) == 2
-    assert len([item for item in shopee_trend if item.predicted]) == 2
+    assert len([item for item in shopee_trend if item.predicted]) == 1
+    assert {item.platform for item in product.rating_trend} == {
+        "TikTok Shop",
+        "Shopee",
+        "Lazada",
+        "GrabMart",
+    }
     assert [item.model_dump() for item in product.negative_feedback] == [
         {
             "label": "product_quality_authenticity",

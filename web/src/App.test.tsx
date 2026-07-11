@@ -39,13 +39,13 @@ describe("App dashboard states", () => {
     expect(await screen.findByText("Packaging complaints declined")).toBeInTheDocument();
     expect(screen.getByText("The cleanser arrived securely packed.", { exact: false })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Top 5 negative feedback" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Top 5 negative feedback" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating trend & forecast" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products to watch" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
     expect(screen.getByText("128")).toBeInTheDocument();
-    expect(screen.getByText("Product Quality")).toBeInTheDocument();
     expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
     expect(screen.queryByText("Demo", { exact: true })).not.toBeInTheDocument();
   });
@@ -95,10 +95,10 @@ describe("App dashboard states", () => {
     render(<App />);
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
-    expect(await screen.findByRole("heading", { name: "Competitive sentiment" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Change product group/ }));
     await user.click(screen.getByRole("button", { name: /Chăm sóc da mặt/ }));
-    expect(screen.getByRole("heading", { name: "Competitive sentiment" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
   });
 
   it("shows an honest empty state without product fixtures", async () => {
