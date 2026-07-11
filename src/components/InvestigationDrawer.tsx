@@ -16,15 +16,22 @@ import {
   type deriveDashboard,
 } from "../data/dashboard";
 
+export type ActionStatus = "Open" | "Investigating" | "Acting" | "Monitoring" | "Resolved";
+
 export type CreatedAction = {
   id: string;
   signalId: string;
   productIds: ProductId[];
   scopeLabel: string;
+  title: string;
   owner: string;
+  priority: "Critical" | "High" | "Medium";
   dueDate: string;
-  status: "Open";
+  status: ActionStatus;
+  expectedOutcome: string;
+  monitoringSignal: string;
   createdAt: string;
+  updatedAt: string;
 };
 
 type DashboardData = ReturnType<typeof deriveDashboard>;
@@ -36,8 +43,9 @@ type InvestigationDrawerProps = {
 };
 
 export function InvestigationDrawer({ data, onClose, onCreateAction }: InvestigationDrawerProps) {
-  const [owner, setOwner] = useState("E-commerce Operations");
-  const [dueDate, setDueDate] = useState("2026-07-13");
+  const recommendation = data.recommendedAction;
+  const [owner, setOwner] = useState(recommendation?.owner ?? "Customer Experience");
+  const [dueDate, setDueDate] = useState(recommendation?.dueDate ?? "2026-07-15");
   const [created, setCreated] = useState(false);
   const drawerRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -81,15 +89,22 @@ export function InvestigationDrawer({ data, onClose, onCreateAction }: Investiga
   }, [onClose]);
 
   const createAction = () => {
+    if (!recommendation) return;
+    const monitoringSignal = `${recommendation.monitoringMetric} ≤ ${formatPercent(recommendation.successTargetShare)} after ${recommendation.monitoringWindowHours} hours`;
     onCreateAction({
       id: `ACT-${Date.now()}`,
       signalId: "SIG-PACKAGING-72H",
       productIds: data.selectedProducts.map((product) => product.id),
       scopeLabel: data.scopeLabel,
+      title: recommendation.title,
       owner,
+      priority: recommendation.priority,
       dueDate,
       status: "Open",
+      expectedOutcome: recommendation.expectedOutcome,
+      monitoringSignal,
       createdAt: "11 Jul 2026, 09:15",
+      updatedAt: "11 Jul 2026, 09:15",
     });
     setCreated(true);
   };
@@ -230,41 +245,53 @@ export function InvestigationDrawer({ data, onClose, onCreateAction }: Investiga
           <section className="drawer-section action-form">
             <div className="section-heading section-heading--compact">
               <div>
-                <span className="eyebrow">Recommended action</span>
-                <h3>Audit seal and protective-wrap process</h3>
+                <span className="eyebrow">Recommended corrective action</span>
+                <h3>{recommendation?.title ?? "Collect more independent evidence"}</h3>
               </div>
               <ClipboardText size={20} aria-hidden="true" />
             </div>
             <p className="drawer-copy">
-              Review the packaging batch for the selected products and monitor complaint share for 48 hours.
+              {recommendation?.summary ?? "No action can be assigned until the issue has enough independent support."}
             </p>
-            <div className="form-row">
-              <label>
-                Owner
-                <select value={owner} onChange={(event) => setOwner(event.target.value)}>
-                  <option>E-commerce Operations</option>
-                  <option>Quality Assurance</option>
-                  <option>Customer Experience</option>
-                </select>
-              </label>
-              <label>
-                Due date
-                <span className="input-with-icon">
-                  <CalendarBlank size={16} aria-hidden="true" />
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(event) => setDueDate(event.target.value)}
-                  />
-                </span>
-              </label>
-            </div>
-            <div className="monitoring-target">
-              <span>Success signal</span>
-              <strong>
-                Complaint share ≤ {formatPercent((data.baselineShare ?? 0) * 1.2)} after 48 hours
-              </strong>
-            </div>
+            {recommendation && (
+              <>
+                <p className="action-rationale"><strong>Why this action:</strong> {recommendation.rationale}</p>
+                <div className="form-row">
+                  <label>
+                    Owner
+                    <select value={owner} onChange={(event) => setOwner(event.target.value)}>
+                      {recommendation.ownerOptions.map((option) => <option key={option}>{option}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Due date
+                    <span className="input-with-icon">
+                      <CalendarBlank size={16} aria-hidden="true" />
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(event) => setDueDate(event.target.value)}
+                      />
+                    </span>
+                  </label>
+                </div>
+                <div className="monitoring-target">
+                  <span>Expected outcome</span>
+                  <strong>{recommendation.expectedOutcome}</strong>
+                </div>
+                <div className="monitoring-target">
+                  <span>Success signal</span>
+                  <strong>
+                    {recommendation.monitoringMetric} ≤ {formatPercent(recommendation.successTargetShare)} after {recommendation.monitoringWindowHours} hours
+                  </strong>
+                </div>
+                <div className="action-lifecycle" aria-label="Action lifecycle">
+                  {(["Open", "Investigating", "Acting", "Monitoring", "Resolved"] as const).map((status, index) => (
+                    <span className={index === 0 ? "is-current" : ""} key={status}>{status}</span>
+                  ))}
+                </div>
+              </>
+            )}
 
             {created ? (
               <div className="action-success" role="status">
@@ -275,7 +302,7 @@ export function InvestigationDrawer({ data, onClose, onCreateAction }: Investiga
                 </span>
               </div>
             ) : (
-              <button className="primary-button" type="button" onClick={createAction}>
+              <button className="primary-button" type="button" onClick={createAction} disabled={!recommendation}>
                 Create action <ArrowRight size={17} weight="bold" />
               </button>
             )}

@@ -9,13 +9,13 @@ import {
   Clock,
   Cube,
   DeviceMobile,
+  FilePdf,
   GlobeHemisphereWest,
   Headset,
   Moon,
   Package,
   Pulse,
   ShieldCheck,
-  SidebarSimple,
   SquaresFour,
   Storefront,
   Sun,
@@ -23,10 +23,11 @@ import {
   TrendUp,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { InvestigationDrawer, type CreatedAction } from "./components/InvestigationDrawer";
+import type { ActionStatus, CreatedAction } from "./components/InvestigationDrawer";
 import { ProductFilter } from "./components/ProductFilter";
 import { FocusedDashboard } from "./components/FocusedDashboard";
 import { PortfolioOverview } from "./components/PortfolioOverview";
+import { CompetitiveBenchmark } from "./components/CompetitiveBenchmark";
 import {
   PRODUCTS,
   SOURCE_LABELS,
@@ -39,10 +40,7 @@ import {
   type ProductId,
   type SourceKey,
 } from "./data/dashboard";
-
-const NAV_ITEMS = [
-  { label: "Command Center", icon: ShieldCheck, active: true },
-];
+import { openExecutiveReport, type ExecutiveReportType } from "./reportExport";
 
 const SOURCE_ICONS: Record<SourceKey, typeof DeviceMobile> = {
   app: DeviceMobile,
@@ -52,6 +50,8 @@ const SOURCE_ICONS: Record<SourceKey, typeof DeviceMobile> = {
 };
 
 type Theme = "light" | "dark";
+type AppView = "overview" | "benchmark";
+const ACTION_STATUSES: ActionStatus[] = ["Open", "Investigating", "Acting", "Monitoring", "Resolved"];
 
 function loadTheme(): Theme {
   try {
@@ -66,10 +66,10 @@ function loadActions(): CreatedAction[] {
     const value = localStorage.getItem("guardian-demo-actions");
     const parsed: unknown = value ? JSON.parse(value) : [];
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is CreatedAction => {
-      if (!item || typeof item !== "object") return false;
+    return parsed.flatMap((item): CreatedAction[] => {
+      if (!item || typeof item !== "object") return [];
       const candidate = item as Partial<CreatedAction>;
-      return (
+      const isValid =
         typeof candidate.id === "string" &&
         typeof candidate.signalId === "string" &&
         Array.isArray(candidate.productIds) &&
@@ -77,9 +77,26 @@ function loadActions(): CreatedAction[] {
         typeof candidate.scopeLabel === "string" &&
         typeof candidate.owner === "string" &&
         typeof candidate.dueDate === "string" &&
-        candidate.status === "Open" &&
-        typeof candidate.createdAt === "string"
-      );
+        typeof candidate.createdAt === "string";
+      if (!isValid) return [];
+      const status = ACTION_STATUSES.includes(candidate.status as ActionStatus)
+        ? candidate.status as ActionStatus
+        : "Open";
+      return [{
+        id: candidate.id as string,
+        signalId: candidate.signalId as string,
+        productIds: candidate.productIds as ProductId[],
+        scopeLabel: candidate.scopeLabel as string,
+        title: candidate.title ?? "Audit packaging and seal process",
+        owner: candidate.owner as string,
+        priority: candidate.priority ?? "High",
+        dueDate: candidate.dueDate as string,
+        status,
+        expectedOutcome: candidate.expectedOutcome ?? "Reduce preventable packaging complaints.",
+        monitoringSignal: candidate.monitoringSignal ?? "Recheck complaint share after the due date.",
+        createdAt: candidate.createdAt as string,
+        updatedAt: candidate.updatedAt ?? candidate.createdAt as string,
+      }];
     });
   } catch {
     return [];
@@ -96,13 +113,15 @@ function formatGap(value: number | null) {
 }
 
 export function App() {
+  const [activeView, setActiveView] = useState<AppView>(() =>
+    window.location.pathname === "/benchmark" ? "benchmark" : "overview",
+  );
   const [selectedIds, setSelectedIds] = useState<ProductId[]>(() =>
     parseProductSelection(window.location.search),
   );
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [actions, setActions] = useState<CreatedAction[]>(loadActions);
+  const [reportError, setReportError] = useState("");
   const data = useMemo(() => deriveDashboard(selectedIds), [selectedIds]);
 
   useLayoutEffect(() => {
@@ -121,6 +140,14 @@ export function App() {
   }, [selectedIds]);
 
   useEffect(() => {
+    const handlePopState = () => {
+      setActiveView(window.location.pathname === "/benchmark" ? "benchmark" : "overview");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem("guardian-demo-actions", JSON.stringify(actions));
     } catch {
@@ -132,14 +159,37 @@ export function App() {
     setSelectedIds(normalizeProductIds(ids));
   };
 
-  const createAction = (action: CreatedAction) => {
-    setActions((current) => [
-      action,
-      ...current.filter(
-        (item) =>
-          item.signalId !== action.signalId || item.productIds.join(",") !== action.productIds.join(","),
-      ),
-    ]);
+  const navigateTo = (view: AppView) => {
+    const pathname = view === "benchmark" ? "/benchmark" : "/";
+    window.history.pushState(null, "", `${pathname}${window.location.search}`);
+    setActiveView(view);
+  };
+
+  const openDashboard = () => {
+    navigateTo("overview");
+    changeProducts(PRODUCTS.map((product) => product.id));
+  };
+
+  const investigateFromBenchmark = (id: ProductId) => {
+    navigateTo("overview");
+    changeProducts([id]);
+  };
+
+  const exportReport = () => {
+    const reportType: ExecutiveReportType = selectedIds.length === PRODUCTS.length ? "portfolio" : "focused";
+    setReportError("");
+    if (!openExecutiveReport(data, reportType)) {
+      setReportError("Allow pop-ups for this site, then try exporting the report again.");
+    }
+  };
+
+  const advanceActionStatus = (actionId: string) => {
+    setActions((current) => current.map((action) => {
+      if (action.id !== actionId) return action;
+      const currentIndex = ACTION_STATUSES.indexOf(action.status);
+      const nextStatus = ACTION_STATUSES[Math.min(currentIndex + 1, ACTION_STATUSES.length - 1)];
+      return { ...action, status: nextStatus, updatedAt: "11 Jul 2026, 09:15" };
+    }));
   };
 
   const topHypothesis = data.hypotheses[0];
@@ -150,47 +200,21 @@ export function App() {
   const hasSeededAlert = data.status === "critical" || data.status === "watch";
 
   return (
-    <div className={`app-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
-      <aside className="sidebar">
-        <div className="brand">
-          <ShieldCheck size={25} weight="fill" aria-hidden="true" />
-          <span>Guardian</span>
-        </div>
-
-        <nav className="sidebar-nav" aria-label="Primary navigation">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.label}
-                className={`nav-item ${item.active ? "is-active" : ""}`}
-                type="button"
-                aria-current={item.active ? "page" : undefined}
-                aria-disabled={!item.active}
-                tabIndex={item.active ? 0 : -1}
-              >
-                <Icon size={20} weight={item.active ? "fill" : "regular"} aria-hidden="true" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="sidebar-footer">
-          <button
-            className="nav-item sidebar-collapse"
-            type="button"
-            onClick={() => setSidebarCollapsed((value) => !value)}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <SidebarSimple size={20} aria-hidden="true" />
-            <span>Collapse</span>
-          </button>
-        </div>
-      </aside>
-
+    <div className="app-shell">
       <header className="topbar">
-        <h1>Command Center</h1>
+        <h1>
+          <button className="topbar-home" type="button" onClick={openDashboard}>
+            Command Center
+          </button>
+        </h1>
+        <nav className="topnav-tabs" aria-label="Primary navigation">
+          <button className={activeView === "overview" ? "is-active" : ""} type="button" onClick={() => navigateTo("overview")}>
+            Overview
+          </button>
+          <button className={activeView === "benchmark" ? "is-active" : ""} type="button" onClick={() => navigateTo("benchmark")}>
+            Competitive Benchmark
+          </button>
+        </nav>
         <div className="topbar-actions">
           <button
             className="theme-toggle"
@@ -223,18 +247,27 @@ export function App() {
             <span className="eyebrow">Current view</span>
             <strong>Guardian customer feedback portfolio</strong>
           </div>
-          <ProductFilter selectedIds={selectedIds} onChange={changeProducts} />
+          <div className="portfolio-toolbar__actions">
+            <ProductFilter selectedIds={selectedIds} onChange={changeProducts} />
+            <button className="export-report-button" type="button" onClick={exportReport} disabled={!data.selectedProducts.length}>
+              <FilePdf size={17} weight="bold" aria-hidden="true" />
+              Export report
+            </button>
+          </div>
         </section>
-        {data.selectedProducts.length > 0 && (
+        {reportError && <p className="report-export-error" role="alert">{reportError}</p>}
+        {activeView === "benchmark" && data.selectedProducts.length > 0 && (
+          <CompetitiveBenchmark data={data} onInvestigateProduct={investigateFromBenchmark} />
+        )}
+        {activeView === "benchmark" && data.selectedProducts.length === 0 && (
+          <EmptyCohort onShowAll={() => changeProducts(PRODUCTS.map((product) => product.id))} />
+        )}
+        {activeView === "overview" && data.selectedProducts.length > 0 && (
           selectedIds.length === PRODUCTS.length ? (
             <PortfolioOverview
               data={data}
-              onOpenIncident={(ids) => changeProducts(ids)}
               onSelectProduct={(id) => changeProducts([id])}
-              onInvestigateProduct={(id) => {
-                changeProducts([id]);
-                setDrawerOpen(true);
-              }}
+              onInvestigateProduct={(id) => changeProducts([id])}
             />
           ) : (
             <>
@@ -243,24 +276,13 @@ export function App() {
               </button>
               <FocusedDashboard
                 data={data}
-                onInvestigate={(ids) => {
-                  changeProducts(ids);
-                  setDrawerOpen(true);
-                }}
                 onSelectProduct={(id) => changeProducts([id])}
               />
             </>
           )
         )}
-        <details className="detail-drawer">
-          <summary>
-            <span>
-              <strong>Detailed evidence and activity</strong>
-              <small>Open the original investigation workspace</small>
-            </span>
-            <ArrowRight size={17} />
-          </summary>
-          <div className="detail-drawer__grid">
+        {activeView === "overview" && data.selectedProducts.length === 0 && (
+          <>
         <section className="main-column">
           {data.selectedProducts.length === 0 ? (
             <EmptyCohort onShowAll={() => changeProducts(PRODUCTS.map((product) => product.id))} />
@@ -449,15 +471,6 @@ export function App() {
                   {topHypothesis?.summary ??
                     "The selected cohort is too small to form a defensible hypothesis."}
                 </p>
-                <button
-                  className="investigate-button"
-                  type="button"
-                  onClick={() => topHypothesis && setDrawerOpen(true)}
-                  disabled={!topHypothesis}
-                >
-                  {topHypothesis ? "Investigate signal" : "Not enough evidence"}
-                  {topHypothesis && <ArrowRight size={17} weight="bold" />}
-                </button>
               </section>
 
               <section className="evidence-breakdown">
@@ -525,10 +538,18 @@ export function App() {
                     <article className="action-row" key={action.id}>
                       <span className="action-row__icon action-row__icon--success"><CheckCircle size={18} /></span>
                       <span>
-                        <strong>Audit packaging and seal process</strong>
-                        <small>{action.owner} · Due {action.dueDate}</small>
+                        <strong>{action.title}</strong>
+                        <small>{action.owner} · Due {action.dueDate} · {action.monitoringSignal}</small>
                       </span>
-                      <em>{action.status}</em>
+                      <button
+                        className="action-status-control"
+                        type="button"
+                        onClick={() => advanceActionStatus(action.id)}
+                        disabled={action.status === "Resolved"}
+                        aria-label={`Advance ${action.title} from ${action.status}`}
+                      >
+                        {action.status}
+                      </button>
                     </article>
                   ))}
                   {!hasSeededAlert && visibleActions.length === 0 && (
@@ -547,17 +568,10 @@ export function App() {
             </div>
           )}
         </aside>
-          </div>
-        </details>
+          </>
+        )}
       </main>
 
-      {drawerOpen && data.selectedProducts.length > 0 && (
-        <InvestigationDrawer
-          data={data}
-          onClose={() => setDrawerOpen(false)}
-          onCreateAction={createAction}
-        />
-      )}
     </div>
   );
 }

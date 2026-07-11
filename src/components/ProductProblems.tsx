@@ -1,8 +1,34 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowSquareOut, X } from "@phosphor-icons/react";
-import { Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  ReferenceLine,
+  Sector,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { PieSectorShapeProps } from "recharts";
-import { SOURCE_LABELS, type Product, type SourceKey } from "../data/dashboard";
+import {
+  FEEDBACK_WINDOWS,
+  FEEDBACK_WINDOW_LABELS,
+  SOURCE_LABELS,
+  projectProductToPreviousWindow,
+  projectProductToWindow,
+  type FeedbackWindow,
+  type Product,
+  type SourceKey,
+} from "../data/dashboard";
+import { TimeRangeSelect } from "./TimeRangeSelect";
 
 const FALLBACK_PROBLEMS = [
   "Delivery damage",
@@ -19,8 +45,15 @@ const FALLBACK_PROBLEMS = [
 
 const SOURCE_ORDER: SourceKey[] = ["app", "marketplace", "service", "social"];
 const PROBLEM_COLORS = ["#e33b36", "#f67e2a", "#d28a32", "#9d6db0", "#7650a0", "#388da0", "#197b8a", "#4d9364", "#7b8f52", "#8a7c70"];
+const SHOW_LEGACY_PROBLEM_PIE = false; // Keep the original share view available while time comparison is prioritized.
 
-type Problem = { label: string; count: number };
+export type ProblemReviewSelection = { label: string; count: number };
+type Problem = ProblemReviewSelection;
+type ProblemTooltipProps = {
+  active?: boolean;
+  payload?: Array<{ payload: Problem }>;
+  total: number;
+};
 type Review = {
   id: string;
   source: SourceKey;
@@ -29,6 +62,176 @@ type Review = {
   text: string;
   problem: string;
 };
+
+type MonthlySentiment = {
+  month: string;
+  year: number;
+  positive: number;
+  neutral: number;
+  negative: number;
+  reviews: number;
+};
+
+const MONTHS = [
+  { month: "Aug", year: 2024 },
+  { month: "Sep", year: 2024 },
+  { month: "Oct", year: 2024 },
+  { month: "Nov", year: 2024 },
+  { month: "Dec", year: 2024 },
+  { month: "Jan", year: 2025 },
+  { month: "Feb", year: 2025 },
+  { month: "Mar", year: 2025 },
+  { month: "Apr", year: 2025 },
+  { month: "May", year: 2025 },
+  { month: "Jun", year: 2025 },
+  { month: "Jul", year: 2025 },
+  { month: "Aug", year: 2025 },
+  { month: "Sep", year: 2025 },
+  { month: "Oct", year: 2025 },
+  { month: "Nov", year: 2025 },
+  { month: "Dec", year: 2025 },
+  { month: "Jan", year: 2026 },
+  { month: "Feb", year: 2026 },
+  { month: "Mar", year: 2026 },
+  { month: "Apr", year: 2026 },
+  { month: "May", year: 2026 },
+  { month: "Jun", year: 2026 },
+  { month: "Jul", year: 2026 },
+];
+const SENTIMENT_RANGES = [
+  { value: "3m", label: "Last 3 months", months: 3 },
+  { value: "6m", label: "Last 6 months", months: 6 },
+  { value: "12m", label: "Last 12 months", months: 12 },
+] as const;
+type SentimentRange = (typeof SENTIMENT_RANGES)[number]["value"];
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function buildMonthlySentiment(product: Product): MonthlySentiment[] {
+  const complaintRate = product.current.reviews
+    ? (product.current.complaints / product.current.reviews) * 100
+    : 0;
+  const currentNegative = clamp(Math.round(10 + complaintRate * 0.62), 8, 32);
+  const startingNegative = clamp(
+    Math.round(currentNegative + product.sentimentDelta * 0.45),
+    6,
+    34,
+  );
+  const productSeed = product.id.split("").reduce((total, character) => total + character.charCodeAt(0), 0);
+
+  return MONTHS.map(({ month, year }, index) => {
+    const progress = index / (MONTHS.length - 1);
+    const wobble = index === MONTHS.length - 1 ? 0 : ((productSeed + index) % 3) - 1;
+    const negative = clamp(
+      Math.round(startingNegative + (currentNegative - startingNegative) * progress + wobble),
+      5,
+      36,
+    );
+    const neutral = clamp(15 + ((productSeed + index * 2) % 3) - 1, 12, 18);
+    const reviews = Math.max(24, Math.round(product.current.reviews * (0.62 + index * (0.38 / (MONTHS.length - 1)))));
+    return { month, year, positive: 100 - neutral - negative, neutral, negative, reviews };
+  });
+}
+
+function SentimentTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string; payload: MonthlySentiment }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="sentiment-tooltip" role="status">
+      <strong>{label} {payload[0].payload.year} · {payload[0].payload.reviews} reviews</strong>
+      {payload.slice().reverse().map((item) => (
+        <span key={item.name}><i style={{ background: item.color }} />{item.name} <b>{item.value}%</b></span>
+      ))}
+    </div>
+  );
+}
+
+function MonthlySentimentChart({ product, compareMode }: { product: Product; compareMode: boolean }) {
+  const [range, setRange] = useState<SentimentRange>("6m");
+  const visibleMonths = SENTIMENT_RANGES.find((option) => option.value === range)?.months ?? 6;
+  const data = useMemo(() => buildMonthlySentiment(product)
+    .slice(-(compareMode ? visibleMonths * 2 : visibleMonths))
+    .map((item) => ({
+      ...item,
+      axisLabel: compareMode ? `${item.month} '${String(item.year).slice(-2)}` : item.month,
+    })), [compareMode, product, visibleMonths]);
+  const latest = data.at(-1)!;
+  const previous = data.at(-2)!;
+  const currentPeriod = data.slice(-visibleMonths);
+  const previousPeriod = compareMode ? data.slice(0, visibleMonths) : [];
+  const averageNegative = (items: MonthlySentiment[]) => items.reduce((total, item) => total + item.negative, 0) / Math.max(items.length, 1);
+  const negativeChange = compareMode
+    ? averageNegative(currentPeriod) - averageNegative(previousPeriod)
+    : latest.negative - previous.negative;
+  const rangeLabel = SENTIMENT_RANGES.find((option) => option.value === range)?.label ?? "Last 6 months";
+
+  return (
+    <section className="product-sentiment" aria-labelledby="product-sentiment-title">
+      <div className="product-sentiment__head">
+        <div>
+          <span className="step-label">Customer sentiment</span>
+          <h3 id="product-sentiment-title">Monthly sentiment trend</h3>
+          <p>How customer tone has shifted for this product over the selected period.</p>
+        </div>
+        <div className="product-sentiment__controls">
+          <TimeRangeSelect
+            ariaLabel="Filter sentiment trend by time"
+            value={range}
+            options={SENTIMENT_RANGES}
+            onChange={setRange}
+          />
+          {compareMode && <span className="comparison-mode-label">Current vs previous {range}</span>}
+          <div className="product-sentiment__summary" aria-label={`Latest sentiment: ${latest.positive}% positive, ${latest.neutral}% neutral and ${latest.negative}% negative`}>
+            <span><i className="is-positive" />Positive <strong>{latest.positive}%</strong></span>
+            <span><i className="is-neutral" />Neutral <strong>{latest.neutral}%</strong></span>
+            <span><i className="is-negative" />Negative <strong>{latest.negative}%</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="product-sentiment__chart"
+        role="img"
+        aria-label={`Line chart of monthly sentiment for ${product.shortName} over ${rangeLabel.toLowerCase()}${compareMode ? ` compared with the previous ${visibleMonths} months` : ""}`}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 16, right: 18, bottom: 0, left: -18 }}>
+            <CartesianGrid vertical={false} stroke="var(--border-soft)" />
+            <XAxis dataKey="axisLabel" interval="preserveStartEnd" axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 10 }} />
+            <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} unit="%" axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 9 }} />
+            <Tooltip content={<SentimentTooltip />} cursor={{ stroke: "var(--control-border-strong)", strokeDasharray: "4 4" }} />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: 10, color: "var(--muted)" }} />
+            {compareMode && currentPeriod[0] && (
+              <ReferenceLine
+                x={currentPeriod[0].axisLabel}
+                stroke="var(--control-border-strong)"
+                strokeDasharray="4 4"
+                label={{ value: "Current period", position: "insideTopRight", fill: "var(--muted)", fontSize: 9 }}
+              />
+            )}
+            <Line type="monotone" dataKey="positive" name="Positive" stroke="#4d9364" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: "var(--surface)" }} activeDot={{ r: 5 }} />
+            <Line type="monotone" dataKey="neutral" name="Neutral" stroke="#aeb5ba" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: "var(--surface)" }} activeDot={{ r: 5 }} />
+            <Line type="monotone" dataKey="negative" name="Negative" stroke="#d93431" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: "var(--surface)" }} activeDot={{ r: 5 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="product-sentiment__footer">
+        <span><strong>{negativeChange > 0 ? "+" : ""}{negativeChange.toFixed(compareMode ? 1 : 0)}pp</strong> negative sentiment vs {compareMode ? "previous period" : previous.month}</span>
+        <span>{latest.reviews} classified reviews in Jul · Synthetic demo</span>
+      </div>
+    </section>
+  );
+}
 
 function buildProblems(product: Product): Problem[] {
   const seen = new Set(product.themes.map((theme) => theme.label.toLowerCase()));
@@ -66,29 +269,149 @@ function buildReviews(product: Product, problem: Problem): Review[] {
   });
 }
 
-export function ProductProblems({ product }: { product: Product }) {
-  const problems = useMemo(() => buildProblems(product), [product]);
+// Retained as the formatted tooltip source if this chart later moves to a layout
+// with dedicated tooltip space. The compact donut intentionally uses its center.
+function ProblemTooltip({ active, payload, total }: ProblemTooltipProps) {
+  const problem = payload?.[0]?.payload;
+  if (!active || !problem) return null;
+  return (
+    <div className="problem-pie-tooltip" role="status">
+      <strong>{problem.label}</strong>
+      <span>{problem.count} mentions · {Math.round((problem.count / total) * 100)}%</span>
+    </div>
+  );
+}
+
+export function ProductProblems({
+  product,
+  compareMode = false,
+  requestedProblem = null,
+  onRequestedProblemClose,
+}: {
+  product: Product;
+  compareMode?: boolean;
+  requestedProblem?: ProblemReviewSelection | null;
+  onRequestedProblemClose?: () => void;
+}) {
+  const [problemWindow, setProblemWindow] = useState<FeedbackWindow>("72h");
+  const scopedProduct = useMemo(
+    () => projectProductToWindow(product, problemWindow),
+    [problemWindow, product],
+  );
+  const problems = useMemo(() => buildProblems(scopedProduct), [scopedProduct]);
+  const previousProduct = useMemo(
+    () => projectProductToPreviousWindow(product, problemWindow),
+    [problemWindow, product],
+  );
+  const previousProblems = useMemo(() => buildProblems(previousProduct), [previousProduct]);
+  const previousProblemMap = useMemo(
+    () => new Map(previousProblems.map((problem) => [problem.label, problem.count])),
+    [previousProblems],
+  );
+  const problemComparisonData = problems.map((problem) => ({
+    label: problem.label,
+    current: problem.count,
+    previous: previousProblemMap.get(problem.label) ?? 0,
+  }));
   const [activeProblem, setActiveProblem] = useState<Problem | null>(null);
+  const [hoveredProblem, setHoveredProblem] = useState<Problem | null>(null);
   const [sourceFilter, setSourceFilter] = useState<SourceKey | "all">("all");
   const [activeReview, setActiveReview] = useState<Review | null>(null);
-  const reviews = useMemo(() => activeProblem ? buildReviews(product, activeProblem) : [], [activeProblem, product]);
+  const reviews = useMemo(() => activeProblem ? buildReviews(scopedProduct, activeProblem) : [], [activeProblem, scopedProduct]);
   const visibleReviews = sourceFilter === "all" ? reviews : reviews.filter((review) => review.source === sourceFilter);
   const problemTotal = problems.reduce((total, problem) => total + problem.count, 0);
   const pieData = problems.map((problem, index) => ({ ...problem, fill: PROBLEM_COLORS[index], index }));
+
+  useEffect(() => {
+    if (!requestedProblem) return;
+    setActiveProblem(requestedProblem);
+    setActiveReview(null);
+    setSourceFilter("all");
+  }, [requestedProblem]);
 
   const close = () => {
     setActiveProblem(null);
     setActiveReview(null);
     setSourceFilter("all");
+    onRequestedProblemClose?.();
   };
+
+  const problemActions = (
+    <div className="product-problem-legend" aria-label="Top problem legend and actions">
+      {problems.map((problem, index) => (
+        <button
+          type="button"
+          key={problem.label}
+          onMouseEnter={() => setHoveredProblem(problem)}
+          onMouseLeave={() => setHoveredProblem(null)}
+          onFocus={() => setHoveredProblem(problem)}
+          onBlur={() => setHoveredProblem(null)}
+          onClick={() => setActiveProblem(problem)}
+          aria-label={`Investigate ${problem.label}`}
+        >
+          <i style={{ background: PROBLEM_COLORS[index] }} />
+          <span><strong>{problem.label}</strong><small>{problem.count} mentions</small></span>
+          <em>{Math.round((problem.count / problemTotal) * 100)}%</em>
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <>
       <section className="product-problems" aria-labelledby="product-problems-title">
         <div className="product-problems__head">
-          <div><span className="step-label">Product issue landscape</span><h3 id="product-problems-title">Top 10 problems</h3></div>
-          <span>{product.shortName} · Synthetic demo</span>
+          <div>
+            <span className="step-label">Product issue landscape</span>
+            <h3 id="product-problems-title">Top 10 problems</h3>
+            <p>Number of customer feedback mentions classified into each problem.</p>
+          </div>
+          <div className="product-problems__controls">
+            <TimeRangeSelect
+              ariaLabel="Filter top problems by time"
+              value={problemWindow}
+              options={FEEDBACK_WINDOWS.map((value) => ({ value, label: FEEDBACK_WINDOW_LABELS[value] }))}
+              onChange={setProblemWindow}
+            />
+            {compareMode && <span className="comparison-mode-label">Current vs previous period</span>}
+            <span>{product.shortName} · Synthetic demo</span>
+          </div>
         </div>
+        {!SHOW_LEGACY_PROBLEM_PIE || compareMode ? (
+          <>
+          <div
+            className="product-problem-comparison"
+            role="img"
+            aria-label={`Top 10 problems measured in customer mentions for ${FEEDBACK_WINDOW_LABELS[problemWindow].toLowerCase()}${compareMode ? " compared with the previous matching period" : " shown as a horizontal bar chart"}`}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={problemComparisonData} layout="vertical" margin={{ top: 14, right: 42, bottom: 28, left: 12 }} barCategoryGap="22%">
+                <CartesianGrid horizontal={false} stroke="var(--border-soft)" />
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "var(--muted)", fontSize: 9 }}
+                  label={{ value: "Customer mentions", position: "insideBottom", offset: -14, fill: "var(--muted)", fontSize: 10 }}
+                />
+                <YAxis type="category" dataKey="label" width={130} axisLine={false} tickLine={false} tick={{ fill: "var(--text)", fontSize: 9 }} />
+                <Tooltip cursor={{ fill: "var(--hover-bg)" }} />
+                {compareMode && <Legend iconType="circle" wrapperStyle={{ fontSize: 10, color: "var(--muted)" }} />}
+                {compareMode && (
+                  <Bar dataKey="previous" name="Previous period" fill="#aeb5ba" radius={[0, 4, 4, 0]}>
+                    <LabelList dataKey="previous" position="right" fill="var(--muted)" fontSize={9} />
+                  </Bar>
+                )}
+                <Bar dataKey="current" name="Current period" fill="#e33b36" radius={[0, 4, 4, 0]}>
+                  <LabelList dataKey="current" position="right" fill="var(--text)" fontSize={9} fontWeight={700} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {problemActions}
+          </>
+        ) : (
         <div className="product-problem-visual">
           <div
             className="product-problem-pie"
@@ -120,6 +443,10 @@ export function ProductProblems({ product }: { product: Product }) {
                         role="button"
                         tabIndex={0}
                         aria-label={`Investigate ${problems[index].label}`}
+                        onMouseEnter={() => setHoveredProblem(problems[index])}
+                        onMouseLeave={() => setHoveredProblem(null)}
+                        onFocus={() => setHoveredProblem(problems[index])}
+                        onBlur={() => setHoveredProblem(null)}
                         onClick={() => setActiveProblem(problems[index])}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") setActiveProblem(problems[index]);
@@ -128,23 +455,22 @@ export function ProductProblems({ product }: { product: Product }) {
                     );
                   }}
                 />
-                <Tooltip formatter={(value, _name, item) => [`${value} mentions`, item.payload.label]} />
+                <Tooltip content={() => null} cursor={false} />
               </PieChart>
             </ResponsiveContainer>
-            <div className="product-problem-pie__center"><strong>{problemTotal}</strong><span>Top 10 mentions</span><small>Click a slice</small></div>
+            <div className="product-problem-pie__center" aria-live="polite">
+              <strong>{hoveredProblem?.count ?? problemTotal}</strong>
+              <span>{hoveredProblem?.label ?? "Top 10 mentions"}</span>
+              <small>{hoveredProblem ? `${Math.round((hoveredProblem.count / problemTotal) * 100)}% of mentions` : "Click a slice"}</small>
+            </div>
           </div>
-          <div className="product-problem-legend" aria-label="Top problem legend and actions">
-            {problems.map((problem, index) => (
-              <button type="button" key={problem.label} onClick={() => setActiveProblem(problem)} aria-label={`Investigate ${problem.label}`}>
-                <i style={{ background: PROBLEM_COLORS[index] }} />
-                <span><strong>{problem.label}</strong><small>{problem.count} mentions</small></span>
-                <em>{Math.round((problem.count / problemTotal) * 100)}%</em>
-              </button>
-            ))}
-          </div>
+          {problemActions}
         </div>
-        <p className="data-caveat">Slice share is normalized across Top 10 problem mentions. Problems combine seeded themes with deterministic demo taxonomy; production ranking should use classified review-level records.</p>
+        )}
+        <p className="data-caveat">Bars rank problem mentions for the selected period; comparison mode adds the previous same-length period. Problems combine seeded themes with deterministic demo taxonomy; production ranking should use classified review-level records.</p>
       </section>
+
+      <MonthlySentimentChart product={product} compareMode={compareMode} />
 
       {activeProblem && (
         <div className="source-review-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && close()}>

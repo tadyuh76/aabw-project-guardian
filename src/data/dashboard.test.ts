@@ -41,6 +41,14 @@ describe("deriveDashboard", () => {
     expect(data.affectedProducts.map((product) => product.id)).toEqual(["P-UV01"]);
     expect(data.evidence.every((item) => item.productId === "P-UV01")).toBe(true);
     expect(data.hypotheses[0]?.id).toBe("H-PUMP");
+    expect(data.recommendedAction).toMatchObject({
+      playbookId: "PB-PACKAGING-SEAL",
+      owner: "E-commerce Operations",
+      priority: "Critical",
+      monitoringWindowHours: 48,
+    });
+    expect(data.recommendedAction?.successTargetShare).toBeCloseTo(4.5714, 3);
+    expect(data.recommendedAction?.steps).toHaveLength(3);
   });
 
   it("aggregates multiple products by counts instead of averaging shares", () => {
@@ -61,6 +69,7 @@ describe("deriveDashboard", () => {
     expect(data.affectedProducts).toEqual([]);
     expect(data.evidence).toEqual([]);
     expect(data.hypotheses).toEqual([]);
+    expect(data.recommendedAction).toBeNull();
   });
 
   it("keeps derived surfaces inside the selected cohort", () => {

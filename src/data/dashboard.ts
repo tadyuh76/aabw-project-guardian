@@ -37,6 +37,18 @@ export type Product = {
 
 export type SourceKey = "app" | "marketplace" | "service" | "social";
 
+export const FEEDBACK_WINDOWS = ["24h", "72h", "7d", "30d"] as const;
+
+export type FeedbackWindow = (typeof FEEDBACK_WINDOWS)[number];
+export type FeedbackPeriod = "current" | "previous";
+
+export const FEEDBACK_WINDOW_LABELS: Record<FeedbackWindow, string> = {
+  "24h": "Last 24 hours",
+  "72h": "Last 72 hours",
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+};
+
 export const SOURCE_LABELS: Record<SourceKey, string> = {
   app: "Guardian App",
   marketplace: "Marketplace",
@@ -481,10 +493,157 @@ const HYPOTHESES: HypothesisFixture[] = [
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 const percent = (part: number, whole: number) => (whole === 0 ? null : (part / whole) * 100);
 
+function scaleCount(value: number, ratio: number) {
+  if (value === 0) return 0;
+  return Math.max(1, Math.round(value * ratio));
+}
+
+function projectProductCounts(
+  product: Product,
+  complaints: number,
+  reviews: number,
+  sentimentScale: number,
+): Product {
+  const complaintRatio = product.current.complaints
+    ? complaints / product.current.complaints
+    : 0;
+
+  return {
+    ...product,
+    current: { complaints, reviews },
+    sentimentDelta: Math.round(product.sentimentDelta * sentimentScale),
+    sources: Object.fromEntries(
+      (Object.keys(product.sources) as SourceKey[]).map((source) => [
+        source,
+        scaleCount(product.sources[source], complaintRatio),
+      ]),
+    ) as Record<SourceKey, number>,
+    themes: product.themes.map((theme) => ({
+      ...theme,
+      count: scaleCount(theme.count, complaintRatio),
+    })),
+  };
+}
+
+export function projectProductToWindow(product: Product, window: FeedbackWindow): Product {
+  if (window === "72h") return product;
+
+  const days = window === "24h" ? 1 : window === "7d" ? 7 : 30;
+  const currentDays = Math.min(days, 3);
+  const baselineDays = Math.max(0, days - 3);
+  const currentReviewRatio = currentDays / 3;
+  const currentComplaintRatio = window === "24h" ? 0.42 : currentReviewRatio;
+  const reviews = Math.max(
+    1,
+    Math.round(
+      product.current.reviews * currentReviewRatio
+      + (product.baseline.reviews / 28) * baselineDays,
+    ),
+  );
+  const complaints = Math.min(
+    reviews,
+    Math.max(
+      0,
+      Math.round(
+        product.current.complaints * currentComplaintRatio
+        + (product.baseline.complaints / 28) * baselineDays,
+      ),
+    ),
+  );
+  return projectProductCounts(product, complaints, reviews, Math.min(1, 3 / days));
+}
+
+export function projectProductToPreviousWindow(product: Product, window: FeedbackWindow): Product {
+  const days = window === "24h" ? 1 : window === "72h" ? 3 : window === "7d" ? 7 : 30;
+  const reviews = Math.max(1, Math.round((product.baseline.reviews / 28) * days));
+  const complaints = Math.min(
+    reviews,
+    Math.max(0, Math.round((product.baseline.complaints / 28) * days)),
+  );
+  return projectProductCounts(product, complaints, reviews, Math.min(1, 3 / days));
+}
+
 export type DashboardStatus = "critical" | "watch" | "improving";
 
-export function deriveDashboard(selectedIds: ProductId[]) {
-  const selectedProducts = PRODUCTS.filter((product) => selectedIds.includes(product.id));
+export type ActionPriority = "Critical" | "High" | "Medium";
+
+export type RecommendedAction = {
+  playbookId: string;
+  title: string;
+  summary: string;
+  steps: string[];
+  rationale: string;
+  owner: string;
+  ownerOptions: string[];
+  priority: ActionPriority;
+  dueDate: string;
+  expectedOutcome: string;
+  monitoringMetric: string;
+  monitoringWindowHours: number;
+  successTargetShare: number | null;
+};
+
+const ACTION_PLAYBOOKS: Record<
+  string,
+  Omit<
+    RecommendedAction,
+    "rationale" | "priority" | "dueDate" | "monitoringWindowHours" | "successTargetShare"
+  >
+> = {
+  "H-PUMP": {
+    playbookId: "PB-PACKAGING-SEAL",
+    title: "Audit pump-neck seal and protective-wrap process",
+    summary: "Inspect the affected packaging batch, confirm seal and cap-fit tolerances, and verify the e-commerce protective-wrap handoff.",
+    steps: [
+      "Inspect the affected packaging batch and isolate suspect units.",
+      "Confirm pump-neck seal and cap-fit tolerances with Quality Assurance.",
+      "Verify the e-commerce protective-wrap checkpoint before fulfilment.",
+    ],
+    owner: "E-commerce Operations",
+    ownerOptions: ["E-commerce Operations", "Quality Assurance", "Customer Experience"],
+    expectedOutcome: "Stop preventable leakage before the next affected orders leave fulfilment.",
+    monitoringMetric: "Complaint share",
+  },
+  "H-FULFILL": {
+    playbookId: "PB-FULFILMENT-WRAP",
+    title: "Standardize protective wrapping for affected orders",
+    summary: "Review packing-station compliance and add a protective-wrap checkpoint for the affected product cohort.",
+    steps: [
+      "Review packing-station compliance for the affected fulfilment window.",
+      "Add a protective-wrap checkpoint for this product cohort.",
+      "Sample the next outbound orders before releasing the batch.",
+    ],
+    owner: "E-commerce Operations",
+    ownerOptions: ["E-commerce Operations", "Quality Assurance", "Customer Experience"],
+    expectedOutcome: "Reduce delivery-related packaging damage in the next fulfilment window.",
+    monitoringMetric: "Delivery-damage complaint share",
+  },
+  "H-STORAGE": {
+    playbookId: "PB-CUSTOMER-HANDLING",
+    title: "Validate handling guidance with affected customers",
+    summary: "Contact a representative customer sample and verify whether post-delivery handling contributes to the reported issue.",
+    steps: [
+      "Contact a representative sample of affected customers.",
+      "Verify storage and handling conditions after delivery.",
+      "Separate confirmed product defects from handling-related reports.",
+    ],
+    owner: "Customer Experience",
+    ownerOptions: ["Customer Experience", "Customer Service", "E-commerce Operations"],
+    expectedOutcome: "Separate product defects from handling issues before operational escalation.",
+    monitoringMetric: "Validated issue share",
+  },
+};
+
+export function deriveDashboard(
+  selectedIds: ProductId[],
+  window: FeedbackWindow = "72h",
+  period: FeedbackPeriod = "current",
+) {
+  const selectedProducts = PRODUCTS
+    .filter((product) => selectedIds.includes(product.id))
+    .map((product) => period === "previous"
+      ? projectProductToPreviousWindow(product, window)
+      : projectProductToWindow(product, window));
   const currentComplaints = sum(selectedProducts.map((product) => product.current.complaints));
   const currentReviews = sum(selectedProducts.map((product) => product.current.reviews));
   const baselineComplaints = sum(selectedProducts.map((product) => product.baseline.complaints));
@@ -578,6 +737,20 @@ export function deriveDashboard(selectedIds: ProductId[]) {
     return { retailer, complaints, reviews, share: percent(complaints, reviews) };
   });
 
+  const topHypothesis = hypotheses[0];
+  const playbook = topHypothesis ? ACTION_PLAYBOOKS[topHypothesis.id] : undefined;
+  const recommendedAction: RecommendedAction | null =
+    playbook && status !== "improving"
+      ? {
+          ...playbook,
+          rationale: `${topHypothesis.title} is the highest-supported hypothesis, with ${topHypothesis.support} supporting and ${topHypothesis.contradict} contradicting signals.`,
+          priority: status === "critical" ? "Critical" : status === "watch" ? "High" : "Medium",
+          dueDate: status === "critical" ? "2026-07-13" : "2026-07-15",
+          monitoringWindowHours: status === "critical" ? 48 : 96,
+          successTargetShare: baselineShare === null ? null : baselineShare * 1.2,
+        }
+      : null;
+
   const selectedNames = selectedProducts.map((product) => product.shortName);
   const scopeLabel =
     selectedProducts.length === PRODUCTS.length
@@ -614,6 +787,7 @@ export function deriveDashboard(selectedIds: ProductId[]) {
     evidence,
     activities,
     hypotheses,
+    recommendedAction,
     competitors,
   };
 }

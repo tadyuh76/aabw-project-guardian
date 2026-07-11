@@ -102,8 +102,6 @@ final result: passed
 
 final result: passed
 
----
-
 ## Minimal decision-first dashboard and border reduction — Current final QA
 
 - Source visual truth: `/Users/bao/Library/Metadata/CoreSpotlight/PasteboardHistory/2026-07-11_14-32-34.png` plus the approved decision-first hierarchy in the current task.
@@ -269,3 +267,27 @@ final result: passed
 - Verified: search filtering, all-product state, affected two-SKU incident isolation, 18/18 tests, production build and zero browser console errors.
 
 final result: passed
+
+---
+
+# All-products analytical dashboard — Visual QA pending (11 Jul 2026)
+
+- Source visual truth: `/var/folders/yw/cw8hv8gs6pgghzc7l2m18x8w0000gn/T/codex-clipboard-cc82e986-fd44-4d2c-a43f-1023161214c1.png`
+- Supporting product-table reference: `/var/folders/yw/cw8hv8gs6pgghzc7l2m18x8w0000gn/T/codex-clipboard-ee25d8dd-6ee5-4080-afcf-e79939271aee.png`
+- Implementation screenshot: blocked; no local app server was already running and starting one requires explicit user approval under the local workflow.
+- Intended viewport: 1440 × 900 desktop, light theme, all products, synthetic demo data.
+- Full-view comparison evidence: blocked until the updated app can be rendered in the browser.
+- Focused region comparison evidence: blocked for KPI strip, complete product table, chart cards and incident banner for the same reason.
+
+## Findings
+
+- Automated interaction coverage passes: 20/20 tests.
+- Production TypeScript/Vite build passes.
+- Browser-rendered spacing, chart-label collisions, responsive reflow and console state remain unverified.
+
+## Comparison history
+
+- Initial implementation added the all-products KPI strip, retained the complete product table, added six portfolio charts, and converted the incident card to a full-width action banner.
+- No visual-fix iteration has run because browser capture is not yet available.
+
+final result: blocked

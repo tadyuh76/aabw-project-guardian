@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -33,6 +33,7 @@ function complaintRate(product: DashboardData["selectedProducts"][number]) {
 }
 
 export function DashboardCharts({ data, signalLabel }: { data: DashboardData; signalLabel?: string }) {
+  const [activeThemeIndex, setActiveThemeIndex] = useState(0);
   const productRates = useMemo(
     () => data.affectedProducts.slice(0, 7).map((product) => ({
       name: product.shortName,
@@ -69,6 +70,7 @@ export function DashboardCharts({ data, signalLabel }: { data: DashboardData; si
   );
 
   const themeTotal = themeMix.reduce((total, theme) => total + theme.count, 0);
+  const activeTheme = themeMix[activeThemeIndex] ?? themeMix[0];
 
   return (
     <section className="analytics-section" aria-labelledby="analytics-title">
@@ -109,13 +111,30 @@ export function DashboardCharts({ data, signalLabel }: { data: DashboardData; si
           <div className="analytics-chart analytics-chart--pie" role="img" aria-label="Donut chart showing issue theme composition">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={themeMix} dataKey="count" nameKey="label" innerRadius={50} outerRadius={76} paddingAngle={2}>
-                  {themeMix.map((theme, index) => <Cell key={theme.label} fill={PALETTE[index % PALETTE.length]} />)}
+                <Pie
+                  data={themeMix}
+                  dataKey="count"
+                  nameKey="label"
+                  innerRadius={50}
+                  outerRadius={76}
+                  paddingAngle={2}
+                  onMouseEnter={(_, index) => setActiveThemeIndex(index)}
+                  onMouseLeave={() => setActiveThemeIndex(0)}
+                >
+                  {themeMix.map((theme, index) => (
+                    <Cell
+                      key={theme.label}
+                      fill={PALETTE[index % PALETTE.length]}
+                      tabIndex={0}
+                      onFocus={() => setActiveThemeIndex(index)}
+                      onBlur={() => setActiveThemeIndex(0)}
+                    />
+                  ))}
                 </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value) => [`${value} mentions`, "Volume"]} />
+                <Tooltip content={() => null} cursor={false} />
               </PieChart>
             </ResponsiveContainer>
-            <div className="analytics-donut-label"><strong>{themeMix[0]?.count ?? 0}</strong><span>{themeMix[0]?.label ?? "No theme"}</span></div>
+            <div className="analytics-donut-label" aria-live="polite"><strong>{activeTheme?.count ?? 0}</strong><span>{activeTheme?.label ?? "No theme"}</span></div>
           </div>
           <div className="analytics-legend">
             {themeMix.map((theme, index) => <span key={theme.label}><i style={{ background: PALETTE[index % PALETTE.length] }} />{theme.label}</span>)}

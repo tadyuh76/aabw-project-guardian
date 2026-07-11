@@ -128,6 +128,7 @@ export function VisualDashboard({
   const [graphMode, setGraphMode] = useState<GraphMode>("2d");
   const [nodeFilter, setNodeFilter] = useState<NodeKind | "all">("all");
   const [selectedNode, setSelectedNode] = useState<{ name: string; kind: NodeKind } | null>(null);
+  const [activeThemeIndex, setActiveThemeIndex] = useState(0);
   const graphWrapRef = useRef<HTMLDivElement>(null);
   const [graphWidth, setGraphWidth] = useState(980);
   const canRenderCanvas = typeof navigator !== "undefined" && !navigator.userAgent.toLowerCase().includes("jsdom");
@@ -158,6 +159,8 @@ export function VisualDashboard({
   }, []);
 
   const issueTotal = Math.max(1, data.themes.reduce((sum, theme) => sum + theme.count, 0));
+  const issueThemes = data.themes.slice(0, 5);
+  const activeTheme = issueThemes[activeThemeIndex] ?? issueThemes[0];
   const maxProductComplaints = Math.max(1, ...data.affectedProducts.map((product) => product.current.complaints));
   const topHypothesis = data.hypotheses[0];
   const shouldAct = data.status === "critical" && Boolean(topHypothesis);
@@ -225,14 +228,31 @@ export function VisualDashboard({
         <div className="chart-frame chart-frame--donut">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data.themes.slice(0, 5)} dataKey="count" nameKey="label" innerRadius={58} outerRadius={88} paddingAngle={3}>
-                {data.themes.slice(0, 5).map((theme, index) => <Cell key={theme.label} fill={[COLORS.red, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.green][index]} />)}
+              <Pie
+                data={issueThemes}
+                dataKey="count"
+                nameKey="label"
+                innerRadius={58}
+                outerRadius={88}
+                paddingAngle={3}
+                onMouseEnter={(_, index) => setActiveThemeIndex(index)}
+                onMouseLeave={() => setActiveThemeIndex(0)}
+              >
+                {issueThemes.map((theme, index) => (
+                  <Cell
+                    key={theme.label}
+                    fill={[COLORS.red, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.green][index]}
+                    tabIndex={0}
+                    onFocus={() => setActiveThemeIndex(index)}
+                    onBlur={() => setActiveThemeIndex(0)}
+                  />
+                ))}
               </Pie>
-              <Tooltip contentStyle={{ background: "#141616", border: "1px solid #333", borderRadius: 8 }} />
+              <Tooltip content={() => null} cursor={false} />
               <Legend iconType="circle" verticalAlign="middle" align="right" layout="vertical" wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="donut-center"><strong>{data.themes[0]?.count ?? 0}</strong><span>top issue</span></div>
+          <div className="donut-center" aria-live="polite"><strong>{activeTheme?.count ?? 0}</strong><span>{activeTheme?.label ?? "top issue"}</span></div>
         </div>
       </section>
 
