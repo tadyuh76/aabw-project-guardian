@@ -41,8 +41,8 @@ jobs:
           db = Database(settings=settings, read_only=True)
           last = db.query_one(
               '''
-              SELECT id, status, trigger, records_seen, records_inserted,
-                     records_skipped, records_failed, stage_results
+              SELECT id, status, trigger, current_stage, started_at,
+                     completed_at, stage_results, error_summary
               FROM pipeline_runs
               ORDER BY started_at DESC LIMIT 1
               '''
@@ -88,11 +88,17 @@ jobs:
           )
           print(json.dumps({
               'last_run': {
-                  key: last.get(key)
-                  for key in (
-                      'id', 'status', 'trigger', 'records_seen',
-                      'records_inserted', 'records_skipped', 'records_failed'
-                  )
+                  **{
+                      key: last.get(key)
+                      for key in (
+                          'id', 'status', 'trigger', 'current_stage',
+                          'started_at', 'completed_at', 'error_summary'
+                      )
+                  },
+                  **{
+                      key: ingest.get(key)
+                      for key in ('seen', 'inserted', 'skipped', 'failed')
+                  },
               } if last else None,
               'collection': collection,
               'fetch_status': fetch_status,
