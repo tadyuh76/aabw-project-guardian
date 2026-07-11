@@ -134,6 +134,14 @@ def require_admin(
         raise HTTPException(status_code=401, detail="A valid admin token is required")
 
 
+def require_write_api(
+    request: Request,
+) -> None:
+    current: Settings = service_from_request(request).settings
+    if not current.voc_write_api_enabled:
+        raise HTTPException(status_code=403, detail="Write APIs are disabled")
+
+
 @app.get("/api/v1/health")
 def health(
     request: Request,
@@ -333,7 +341,7 @@ def import_history(
     return service.import_history()
 
 
-@app.post("/api/v1/imports/detect", dependencies=[Depends(require_admin)])
+@app.post("/api/v1/imports/detect", dependencies=[Depends(require_write_api)])
 async def detect_import_columns(
     service: Annotated[GuardianService, Depends(service_from_request)],
     file: Annotated[UploadFile, File()],
@@ -353,7 +361,7 @@ async def detect_import_columns(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@app.post("/api/v1/imports/preview", dependencies=[Depends(require_admin)])
+@app.post("/api/v1/imports/preview", dependencies=[Depends(require_write_api)])
 async def preview_import(
     service: Annotated[GuardianService, Depends(service_from_request)],
     file: Annotated[UploadFile, File()],
@@ -381,7 +389,7 @@ async def preview_import(
     "/api/v1/imports",
     response_model=RunResponse,
     status_code=202,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_write_api)],
 )
 async def commit_import(
     background_tasks: BackgroundTasks,

@@ -44,8 +44,6 @@ def test_review_csv_config_preview_commit_and_dedup(
         "review_id,review_text,rating,review_date,product_name,store_name\n"
         'guardian-review-1,"Guardian đóng gói kỹ, email a@example.com",5,2026-07-11,"Serum A","Guardian Official"\n'
     ).encode("utf-8")
-    headers = {"X-Admin-Token": "local-import-token"}
-
     with TestClient(api_main.app) as client:
         config = client.get("/api/v1/imports/config")
         assert config.status_code == 200
@@ -58,16 +56,15 @@ def test_review_csv_config_preview_commit_and_dedup(
             "grabmart",
         }
 
-        unauthenticated = client.post(
+        tokenless_preview = client.post(
             "/api/v1/imports/preview",
             data={"profile": "shopee"},
             files={"file": ("reviews.csv", csv_bytes, "text/csv")},
         )
-        assert unauthenticated.status_code == 401
+        assert tokenless_preview.status_code == 200
 
         preview = client.post(
             "/api/v1/imports/preview",
-            headers=headers,
             data={"profile": "shopee", "vietnamese_only": "true"},
             files={"file": ("reviews.csv", csv_bytes, "text/csv")},
         )
@@ -79,7 +76,6 @@ def test_review_csv_config_preview_commit_and_dedup(
 
         first = client.post(
             "/api/v1/imports",
-            headers=headers,
             data={"profile": "shopee", "vietnamese_only": "true"},
             files={"file": ("reviews.csv", csv_bytes, "text/csv")},
         )
@@ -108,7 +104,6 @@ def test_review_csv_config_preview_commit_and_dedup(
 
         replay = client.post(
             "/api/v1/imports",
-            headers=headers,
             data={"profile": "shopee", "vietnamese_only": "true"},
             files={"file": ("reviews.csv", csv_bytes, "text/csv")},
         )

@@ -74,7 +74,7 @@ describe("ReviewImportPanel", () => {
     });
   });
 
-  it("detects and imports with one button, then clears the access key", async () => {
+  it("detects and imports with one button", async () => {
     const running: RunResponse = {
       pipeline_run_id: "run-1", status: "running", stage: "classify",
       started_at: null, completed_at: null, records_seen: 2, records_inserted: 0,
@@ -93,19 +93,18 @@ describe("ReviewImportPanel", () => {
     const user = userEvent.setup();
     renderPanel(onImported);
 
-    const token = await screen.findByLabelText("Admin token");
+    const fileInput = await screen.findByLabelText("CSV review export");
+    expect(screen.queryByLabelText("Admin token")).not.toBeInTheDocument();
     const file = new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" });
-    await user.upload(screen.getByLabelText("CSV review export"), file);
-    await user.type(token, "secret-admin-token");
+    await user.upload(fileInput, file);
     await user.click(screen.getByRole("button", { name: "Import reviews" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Finishing...");
-    expect(api.detectReviewImport).toHaveBeenCalledWith(file, "shopee", "secret-admin-token", expect.any(AbortSignal));
-    expect(api.commitReviewImport).toHaveBeenCalledWith(file, "shopee", "secret-admin-token", expect.any(AbortSignal), preview.mapping);
+    expect(api.detectReviewImport).toHaveBeenCalledWith(file, "shopee", expect.any(AbortSignal));
+    expect(api.commitReviewImport).toHaveBeenCalledWith(file, "shopee", expect.any(AbortSignal), preview.mapping);
     act(() => pollOptions?.onUpdate?.(running));
     act(() => resolveTerminal?.(completed));
     expect(await screen.findByText("Import complete")).toBeInTheDocument();
-    await waitFor(() => expect(token).toHaveValue(""));
     expect(onImported).toHaveBeenCalledTimes(1);
   });
 
@@ -121,7 +120,6 @@ describe("ReviewImportPanel", () => {
     renderPanel(onImported);
 
     await user.upload(await screen.findByLabelText("CSV review export"), new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" }));
-    await user.type(screen.getByLabelText("Admin token"), "secret-admin-token");
     await user.click(screen.getByRole("button", { name: "Import reviews" }));
 
     expect(await screen.findByText("Some reviews could not be imported")).toBeInTheDocument();
@@ -129,20 +127,17 @@ describe("ReviewImportPanel", () => {
     expect(onImported).toHaveBeenCalledTimes(1);
   });
 
-  it("locks the three inputs while the file is being checked", async () => {
+  it("locks the file and marketplace inputs while the file is being checked", async () => {
     let resolveDetection: ((value: ImportPreviewResponse) => void) | undefined;
     api.detectReviewImport.mockReturnValue(new Promise((resolve) => { resolveDetection = resolve; }));
     const user = userEvent.setup();
     renderPanel();
 
-    const token = await screen.findByLabelText("Admin token");
-    const fileInput = screen.getByLabelText("CSV review export");
-    const profile = screen.getByLabelText("Source profile");
+    const fileInput = await screen.findByLabelText("CSV review export");
+    const profile = screen.getByLabelText("Shopee");
     await user.upload(fileInput, new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" }));
-    await user.type(token, "secret-admin-token");
     await user.click(screen.getByRole("button", { name: "Import reviews" }));
 
-    expect(token).toBeDisabled();
     expect(fileInput).toBeDisabled();
     expect(profile).toBeDisabled();
     act(() => resolveDetection?.(preview));

@@ -326,7 +326,6 @@ async function requestImport<T>(
   path: string,
   file: File,
   profile: ReviewImportProfile,
-  adminToken: string,
   signal?: AbortSignal,
   mapping?: ImportColumnMapping,
 ): Promise<T> {
@@ -344,7 +343,6 @@ async function requestImport<T>(
       method: "POST",
       headers: {
         Accept: "application/json",
-        "X-Admin-Token": adminToken,
       },
       body: form,
       signal: controller.signal,
@@ -388,29 +386,26 @@ export async function fetchImportConfig(signal?: AbortSignal): Promise<ImportCon
 export function previewReviewImport(
   file: File,
   profile: ReviewImportProfile,
-  adminToken: string,
   signal?: AbortSignal,
 ): Promise<ImportPreviewResponse> {
-  return requestImport("/api/v1/imports/preview", file, profile, adminToken, signal);
+  return requestImport("/api/v1/imports/preview", file, profile, signal);
 }
 
 export function detectReviewImport(
   file: File,
   profile: ReviewImportProfile,
-  adminToken: string,
   signal?: AbortSignal,
 ): Promise<ImportPreviewResponse> {
-  return requestImport("/api/v1/imports/detect", file, profile, adminToken, signal);
+  return requestImport("/api/v1/imports/detect", file, profile, signal);
 }
 
 export function commitReviewImport(
   file: File,
   profile: ReviewImportProfile,
-  adminToken: string,
   signal?: AbortSignal,
   mapping?: ImportColumnMapping,
 ): Promise<RunResponse> {
-  return requestImport("/api/v1/imports", file, profile, adminToken, signal, mapping);
+  return requestImport("/api/v1/imports", file, profile, signal, mapping);
 }
 
 export function fetchRun(runId: string, signal?: AbortSignal): Promise<RunResponse> {

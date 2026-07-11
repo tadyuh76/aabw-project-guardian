@@ -23,14 +23,17 @@ describe("App dashboard states", () => {
 
   it("renders only values from a successful dashboard response", async () => {
     api.fetchDashboard.mockResolvedValue(dashboardFixture());
+    const user = userEvent.setup();
     render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
     expect(await screen.findByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
     expect(screen.getByText("Packaging complaints declined")).toBeInTheDocument();
     expect(screen.getByText("The cleanser arrived securely packed.", { exact: false })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Star ratings" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Negative topics" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Product problems" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Top 5 negative feedback" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Rating trend & forecast" })).toBeInTheDocument();
     expect(screen.getByText("128")).toBeInTheDocument();
     expect(screen.getByText("Product Quality")).toBeInTheDocument();
     expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
@@ -42,7 +45,9 @@ describe("App dashboard states", () => {
       overallHealth: "partial",
       messages: ["Only marketplace sources completed in this window."],
     }));
+    const user = userEvent.setup();
     render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
     expect(await screen.findByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
     expect(screen.queryByText("Only marketplace sources completed in this window.")).not.toBeInTheDocument();
@@ -53,7 +58,9 @@ describe("App dashboard states", () => {
       dataState: "ready",
       messages: ["Some Guardian feedback has no trustworthy occurrence date and is excluded from period metrics."],
     }));
+    const user = userEvent.setup();
     render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
     expect(await screen.findByText("CeraVe Foaming Cleanser")).toBeInTheDocument();
     expect(screen.queryByText("Backend data notes")).not.toBeInTheDocument();
@@ -74,11 +81,12 @@ describe("App dashboard states", () => {
     });
     const user = userEvent.setup();
     render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
-    expect(await screen.findByRole("heading", { name: "Benchmark" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Competitive sentiment" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Change product scope/ }));
     await user.click(screen.getByRole("checkbox", { name: /Second Product/ }));
-    expect(screen.getByRole("heading", { name: "Benchmark" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Competitive sentiment" })).toBeInTheDocument();
   });
 
   it("shows an honest empty state without product fixtures", async () => {
@@ -90,7 +98,9 @@ describe("App dashboard states", () => {
       benchmark: null,
       messages: ["No time-eligible product feedback was found."],
     }));
+    const user = userEvent.setup();
     render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
     expect(await screen.findByRole("heading", { name: "No product-attributed feedback is available" })).toBeInTheDocument();
     expect(screen.getByText("No time-eligible product feedback was found.")).toBeInTheDocument();
@@ -103,6 +113,7 @@ describe("App dashboard states", () => {
       .mockResolvedValueOnce(dashboardFixture());
     const user = userEvent.setup();
     render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
     expect(await screen.findByText("Dashboard data could not be loaded")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry dashboard" }));

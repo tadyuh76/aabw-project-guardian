@@ -44,11 +44,11 @@ function GuardianPalmBrand({ compact = false }: { compact?: boolean }) {
 
 function AppContent() {
   const [theme, setTheme] = useState<Theme>(loadTheme);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("import");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
 
@@ -81,9 +81,9 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    void load();
+    if (activeTab === "dashboard" && !data) void load();
     return () => requestRef.current?.abort();
-  }, [load]);
+  }, [activeTab, data, load]);
 
   const isEmpty = data?.dataState === "empty";
   const hasNoProductGroups = data !== null && data.dataState !== "empty" && data.products.length === 0;
@@ -105,7 +105,7 @@ function AppContent() {
 
   return (
     <Grid minH="100vh" bg="canvas" gridTemplateColumns={{ base: "1fr", lg: `${sidebarWidth} minmax(0, 1fr)` }} transition="grid-template-columns .2s ease">
-      <Box asChild position="fixed" top="-20" left="4" zIndex="tooltip" px="4" py="2" bg="surface" _focus={{ top: "4" }}><a href="#main-content">Skip to dashboard</a></Box>
+      <Box asChild position="fixed" top="-20" left="4" zIndex="tooltip" px="4" py="2" bg="surface" _focus={{ top: "4" }}><a href="#main-content">Skip to content</a></Box>
 
       <Flex as="aside" display={{ base: "none", lg: "flex" }} position="sticky" top="0" h="100vh" direction="column" borderRightWidth="1px" borderColor="border" bg="surface" overflow="hidden">
         <Flex h="72px" px={sidebarCollapsed ? "5" : "6"} align="center" borderBottomWidth="1px" borderColor="border" color="accent">
@@ -129,19 +129,19 @@ function AppContent() {
               <Button role="tab" size="sm" variant={activeTab === "dashboard" ? "solid" : "ghost"} colorPalette="orange" onClick={() => setActiveTab("dashboard")} aria-selected={activeTab === "dashboard"}>Dashboard</Button>
               <Button role="tab" size="sm" variant={activeTab === "import" ? "solid" : "ghost"} colorPalette="orange" onClick={() => setActiveTab("import")} aria-selected={activeTab === "import"}>Import</Button>
             </Flex>
-            <Button size="sm" variant="outline" onClick={() => void load(true)} disabled={loading || refreshing} aria-label="Refresh dashboard"><ArrowClockwise size={17} className={refreshing ? "spin" : ""} />{refreshing ? "Refreshing" : "Refresh"}</Button>
+            {activeTab === "dashboard" && <Button size="sm" variant="outline" onClick={() => void load(true)} disabled={loading || refreshing} aria-label="Refresh dashboard"><ArrowClockwise size={17} className={refreshing ? "spin" : ""} />{refreshing ? "Refreshing" : "Refresh"}</Button>}
             <Button size="sm" variant="ghost" onClick={() => setTheme((value) => value === "light" ? "dark" : "light")} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}>
               {theme === "light" ? <Sun size={17} weight="fill" /> : <Moon size={17} weight="fill" />}<Box as="span" display={{ base: "none", md: "inline" }}>{theme === "light" ? "Light" : "Dark"}</Box>
             </Button>
-            <Flex display={{ base: "none", xl: "flex" }} align="center" gap="2" color="muted" fontSize="sm"><CalendarBlank size={17} />{timestampLabel(data?.lastUpdated ?? data?.asOf)}</Flex>
-            {data && <Flex align="center" gap="2" px="3" py="1.5" borderRadius="full" bg="subtle" color="muted" fontSize="sm" fontWeight="600"><Box w="2" h="2" borderRadius="full" bg={data.overallHealth === "healthy" ? "success" : "danger"} />{data.mode === "demo" ? "Demo" : data.overallHealth}</Flex>}
+            {activeTab === "dashboard" && <Flex display={{ base: "none", xl: "flex" }} align="center" gap="2" color="muted" fontSize="sm"><CalendarBlank size={17} />{timestampLabel(data?.lastUpdated ?? data?.asOf)}</Flex>}
+            {activeTab === "dashboard" && data && <Flex align="center" gap="2" px="3" py="1.5" borderRadius="full" bg="subtle" color="muted" fontSize="sm" fontWeight="600"><Box w="2" h="2" borderRadius="full" bg={data.overallHealth === "healthy" ? "success" : "danger"} />{data.mode === "demo" ? "Demo" : data.overallHealth}</Flex>}
           </Flex>
         </Flex>
 
         <Box as="main" id="main-content" maxW="1500px" mx="auto" px={{ base: "4", md: "7", xl: "10" }} py={{ base: "6", md: "8" }}>
-          {loading && !data && <Flex {...stateBox} aria-busy="true" aria-label="Loading dashboard" align="center" justify="center" gap="3"><Spinner color="accent" /><Text color="muted">Loading dashboard...</Text></Flex>}
-          {error && !data && <Stack {...stateBox} role="alert" align="flex-start" gap="4"><WarningCircle size={30} color="var(--chakra-colors-danger)" weight="fill" /><Heading size="xl">Dashboard data could not be loaded</Heading><Text color="muted">{error}</Text><Button colorPalette="orange" onClick={() => void load()}>Retry dashboard</Button></Stack>}
-          {data && error && <Flex mb="6" p="4" gap="3" borderLeftWidth="4px" borderColor="danger" bg="surface" role="alert"><WarningCircle size={20} /><Box><Text fontWeight="700">Refresh failed</Text><Text color="muted">{error}</Text></Box></Flex>}
+          {activeTab === "dashboard" && loading && !data && <Flex {...stateBox} aria-busy="true" aria-label="Loading dashboard" align="center" justify="center" gap="3"><Spinner color="accent" /><Text color="muted">Loading dashboard...</Text></Flex>}
+          {activeTab === "dashboard" && error && !data && <Stack {...stateBox} role="alert" align="flex-start" gap="4"><WarningCircle size={30} color="var(--chakra-colors-danger)" weight="fill" /><Heading size="xl">Dashboard data could not be loaded</Heading><Text color="muted">{error}</Text><Button colorPalette="orange" onClick={() => void load()}>Retry dashboard</Button></Stack>}
+          {activeTab === "dashboard" && data && error && <Flex mb="6" p="4" gap="3" borderLeftWidth="4px" borderColor="danger" bg="surface" role="alert"><WarningCircle size={20} /><Box><Text fontWeight="700">Refresh failed</Text><Text color="muted">{error}</Text></Box></Flex>}
           {activeTab === "dashboard" && data && (isEmpty || hasNoProductGroups) && <Stack {...stateBox} align="flex-start" gap="4"><Database size={30} /><Heading size="xl">{isEmpty ? "No product-attributed feedback is available" : "No Guardian product groups are available yet"}</Heading><Text color="muted">{messages[0] ?? "The backend has not returned enough product-linked records to build this dashboard."}</Text><Flex gap="6" wrap="wrap">{[[data.coverage.feedbackItems, "feedback items"], [data.coverage.analyzedItems, "analyzed"], [data.coverage.productAttributedItems, "product attributed"]].map(([value, label]) => <Box key={String(label)}><Text fontSize="xl" fontWeight="700">{Number(value).toLocaleString()}</Text><Text color="muted" fontSize="sm">{label}</Text></Box>)}</Flex></Stack>}
           {activeTab === "dashboard" && data && !isEmpty && !hasNoProductGroups && <Dashboard data={data} />}
           {activeTab === "import" && <ReviewImportPanel onImported={() => load(true)} />}

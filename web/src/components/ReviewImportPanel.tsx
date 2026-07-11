@@ -1,6 +1,6 @@
-import { Box, Button, Flex, Grid, Heading, Input, Spinner, Stack, Text } from "@chakra-ui/react";
-import { ArrowSquareOut, CheckCircle, FileCsv, Key, UploadSimple, WarningCircle } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { Box, Button, Flex, Heading, Spinner, Stack, Text } from "@chakra-ui/react";
+import { CheckCircle, FileCsv, UploadSimple, WarningCircle } from "@phosphor-icons/react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import {
   commitReviewImport,
   detectReviewImport,
@@ -39,7 +39,7 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
   const [configAttempt, setConfigAttempt] = useState(0);
   const [profile, setProfile] = useState<ReviewImportProfile | "">("");
   const [file, setFile] = useState<File | null>(null);
-  const [token, setToken] = useState("");
+  const [dragActive, setDragActive] = useState(false);
   const [run, setRun] = useState<RunResponse | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<"checking" | "importing" | "finishing" | null>(null);
@@ -69,7 +69,7 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
     setError("");
   };
 
-  const validate = (): { file: File; profile: ReviewImportProfile; token: string } | null => {
+  const validate = (): { file: File; profile: ReviewImportProfile } | null => {
     if (!file) {
       setError("Choose a CSV or XLSX review export.");
       return null;
@@ -86,11 +86,7 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
       setError("Choose where this export came from.");
       return null;
     }
-    if (!token.trim()) {
-      setError("Enter the admin access key.");
-      return null;
-    }
-    return { file, profile, token: token.trim() };
+    return { file, profile };
   };
 
   const finishRun = async (result: RunResponse) => {
@@ -100,7 +96,6 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
       return;
     }
     if (result.status === "completed") {
-      setToken("");
       await onImported();
       return;
     }
@@ -127,8 +122,8 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
     setBusy("checking");
     try {
       const preview = config?.agentic_detection_enabled
-        ? await detectReviewImport(input.file, input.profile, input.token, controller.signal)
-        : await previewReviewImport(input.file, input.profile, input.token, controller.signal);
+        ? await detectReviewImport(input.file, input.profile, controller.signal)
+        : await previewReviewImport(input.file, input.profile, controller.signal);
       if (preview.duplicate_file) {
         setError("This exact file was already imported. Choose a newer export.");
         return;
@@ -140,8 +135,8 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
 
       setBusy("importing");
       const queued = preview.mapping
-        ? await commitReviewImport(input.file, input.profile, input.token, controller.signal, preview.mapping)
-        : await commitReviewImport(input.file, input.profile, input.token, controller.signal);
+        ? await commitReviewImport(input.file, input.profile, controller.signal, preview.mapping)
+        : await commitReviewImport(input.file, input.profile, controller.signal);
       setRun(queued);
       if (queued.status === "queued" || queued.status === "running") {
         await pollRun(queued.pipeline_run_id, controller);
@@ -166,6 +161,18 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
         ? "Finishing..."
         : "Import reviews";
 
+  const handleFile = (nextFile: File | null) => {
+    setFile(nextFile);
+    resetResult();
+  };
+
+  const handleDrop = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setDragActive(false);
+    if (locked) return;
+    handleFile(event.dataTransfer.files?.[0] ?? null);
+  };
+
   if (!config && !configError) {
     return <Flex minH="120px" align="center" justify="center" gap="3" role="status"><Spinner size="sm" color="accent" /><Text color="muted">Loading importer...</Text></Flex>;
   }
@@ -184,46 +191,106 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
     return <Text color="muted">Review imports are disabled.</Text>;
   }
 
-  const sellerUrl = profile ? (config.seller_urls ?? {})[profile] : undefined;
   const locked = busy !== null;
-  const fieldStyle = { width: "full", height: "44px", px: "3", bg: "canvas", borderWidth: "1px", borderColor: "border", borderRadius: "control" } as const;
 
   return (
-    <Stack as="section" aria-labelledby="review-import-title" gap="5" bg="surface" borderWidth="1px" borderColor="border" borderRadius="panel" p={{ base: "5", md: "6" }}>
-      <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap="4">
-        <Flex gap="3" align="center">
-          <Flex w="10" h="10" align="center" justify="center" borderRadius="control" bg="orange.100" color="orange.700"><UploadSimple size={20} weight="bold" /></Flex>
-          <Heading id="review-import-title" size="lg" letterSpacing="0">Import reviews</Heading>
+    <Stack as="section" aria-labelledby="review-import-title" gap="7" maxW="760px" mx="auto" bg="surface" borderWidth="1px" borderColor="border" borderRadius="panel" p={{ base: "5", md: "8" }} boxShadow="0 18px 45px rgba(15, 23, 42, 0.06)">
+      <Stack align="center" gap="2" textAlign="center">
+        <Flex w="12" h="12" align="center" justify="center" borderRadius="control" bg="orange.100" color="orange.700">
+          <UploadSimple size={24} weight="bold" />
         </Flex>
+        <Heading id="review-import-title" size="xl" letterSpacing="0">Import reviews</Heading>
         <Text color="muted" fontSize="sm">Last import: {importTime(run?.completed_at ?? config.last_import_at)}</Text>
+      </Stack>
+
+      <Stack gap="3">
+        <Text fontSize="sm" fontWeight="700">Marketplace</Text>
+        <Flex role="radiogroup" aria-label="Marketplace" gap="2.5" wrap="wrap">
+          {config.profiles.map((value) => {
+            const selected = profile === value;
+            return (
+              <Flex
+                key={value}
+                as="label"
+                align="center"
+                gap="2.5"
+                minH="44px"
+                px="3.5"
+                borderWidth="1px"
+                borderColor={selected ? "accent" : "border"}
+                borderRadius="control"
+                bg={selected ? "orange.50" : "canvas"}
+                color={selected ? "accent" : "ink"}
+                _dark={{ bg: selected ? "#24150d" : "canvas" }}
+                cursor={locked ? "not-allowed" : "pointer"}
+              >
+                <input
+                  className="visually-hidden"
+                  type="radio"
+                  name="marketplace"
+                  aria-label={PROFILE_LABELS[value]}
+                  value={value}
+                  checked={selected}
+                  disabled={locked}
+                  onChange={() => { setProfile(value); resetResult(); }}
+                />
+                <Flex w="4" h="4" align="center" justify="center" borderRadius="full" borderWidth="2px" borderColor={selected ? "accent" : "muted"} flexShrink="0">
+                  {selected && <Box w="1.5" h="1.5" borderRadius="full" bg="accent" />}
+                </Flex>
+                <Text fontSize="sm" fontWeight="650" whiteSpace="nowrap">{PROFILE_LABELS[value]}</Text>
+              </Flex>
+            );
+          })}
+        </Flex>
+      </Stack>
+
+      <Flex
+        as="label"
+        position="relative"
+        minH={{ base: "190px", md: "230px" }}
+        px={{ base: "5", md: "8" }}
+        py="8"
+        direction="column"
+        align="center"
+        justify="center"
+        gap="4"
+        textAlign="center"
+        borderWidth="2px"
+        borderStyle="dashed"
+        borderColor={dragActive || file ? "accent" : "border"}
+        borderRadius="control"
+        bg={dragActive || file ? "orange.50" : "canvas"}
+        _dark={{ bg: dragActive || file ? "#24150d" : "canvas" }}
+        cursor={locked ? "not-allowed" : "pointer"}
+        onDragOver={(event) => { event.preventDefault(); if (!locked) setDragActive(true); }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={handleDrop}
+      >
+        <Flex w="16" h="16" align="center" justify="center" borderRadius="control" bg="surface" color="accent" borderWidth="1px" borderColor="border">
+          <FileCsv size={34} weight={file ? "fill" : "regular"} />
+        </Flex>
+        <Stack gap="1" maxW="520px">
+          <Heading size="md" letterSpacing="0" wordBreak="break-word">{file?.name || "Choose CSV or XLSX file"}</Heading>
+          <Text color="muted" fontSize="sm">{file ? `${(file.size / 1_000).toFixed(0)} KB selected` : "Click to browse or drag the export here"}</Text>
+        </Stack>
+        <Box as="span" px="5" py="2.5" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface" color="ink" fontWeight="700">
+          Select file
+        </Box>
+        <input
+          className="visually-hidden"
+          aria-label="CSV review export"
+          type="file"
+          accept={config.accepted_extensions.join(",") || ".csv,.xlsx"}
+          disabled={locked}
+          onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
+        />
       </Flex>
 
-      <Grid gridTemplateColumns={{ base: "1fr", lg: "minmax(180px, .55fr) minmax(300px, 1.45fr)" }} gap="4">
-        <Box as="label">
-          <Text mb="2" fontSize="sm" fontWeight="650">Marketplace</Text>
-          <Box asChild {...fieldStyle}>
-            <select aria-label="Source profile" value={profile} disabled={locked} onChange={(event) => { setProfile(event.target.value as ReviewImportProfile); resetResult(); }}>
-              {config.profiles.map((value) => <option key={value} value={value}>{PROFILE_LABELS[value]}</option>)}
-            </select>
-          </Box>
-        </Box>
-        <Flex as="label" position="relative" minH="76px" px="4" align="center" gap="3" borderWidth="1px" borderStyle="dashed" borderColor={file ? "accent" : "border"} borderRadius="control" bg={file ? "orange.50" : "canvas"} _dark={{ bg: file ? "#24150d" : "canvas" }} cursor="pointer">
-          <FileCsv size={25} weight={file ? "fill" : "regular"} />
-          <Box minW="0">
-            <Text fontWeight="700" truncate>{file?.name || "Choose CSV or XLSX file"}</Text>
-            <Text color="muted" fontSize="sm">{file ? `${(file.size / 1_000).toFixed(0)} KB` : "Browse file"}</Text>
-          </Box>
-          <input className="visually-hidden" aria-label="CSV review export" type="file" accept={config.accepted_extensions.join(",") || ".csv,.xlsx"} disabled={locked} onChange={(event) => { setFile(event.target.files?.[0] ?? null); resetResult(); }} />
-        </Flex>
-      </Grid>
-
-      <Flex align={{ base: "stretch", lg: "center" }} direction={{ base: "column", lg: "row" }} gap="3">
-        <Flex flex="1" maxW={{ lg: "360px" }} align="center" gap="2" px="3" bg="canvas" borderWidth="1px" borderColor="border" borderRadius="control">
-          <Key size={16} />
-          <Input aria-label="Admin token" type="password" autoComplete="off" value={token} disabled={locked} onChange={(event) => { setToken(event.target.value); resetResult(); }} placeholder="Admin access key" border="0" outline="0" />
-        </Flex>
-        {sellerUrl && <Flex asChild align="center" gap="1" color="accent" fontSize="sm" fontWeight="650"><a href={sellerUrl} target="_blank" rel="noreferrer">Seller center <ArrowSquareOut size={14} /></a></Flex>}
-        <Button ml={{ lg: "auto" }} colorPalette="orange" disabled={locked || !file || !token.trim()} onClick={handleImport}>{busy && <Spinner size="xs" />}{buttonLabel}</Button>
+      <Flex justify="center">
+        <Button w={{ base: "full", md: "360px" }} h="54px" size="lg" colorPalette="orange" disabled={locked || !file || !profile} onClick={handleImport}>
+          {busy && <Spinner size="xs" />}
+          {buttonLabel}
+        </Button>
       </Flex>
 
       {config.agentic_detection_enabled === false && <Text color="muted" fontSize="sm">Automatic detection is unavailable.</Text>}
