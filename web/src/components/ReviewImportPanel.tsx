@@ -324,11 +324,12 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
                 <Flex
                   align="center"
                   justify="center"
-                  h="10"
-                  minW={value === "guardian_ecommerce" ? "112px" : "0"}
-                  px={value === "guardian_ecommerce" ? "3" : "0"}
+                  w={value === "guardian_ecommerce" ? "104px" : "auto"}
+                  h={value === "guardian_ecommerce" ? "8" : "10"}
+                  px={value === "guardian_ecommerce" ? "2.5" : "0"}
                   borderRadius="control"
-                  bg={value === "guardian_ecommerce" ? "#f58220" : "transparent"}
+                  bg={value === "guardian_ecommerce" ? "brand.500" : "transparent"}
+                  overflow={value === "guardian_ecommerce" ? "hidden" : "visible"}
                 >
                   <Box asChild h={value === "guardian_ecommerce" ? "5" : "8"} maxW="132px" objectFit="contain">
                     <img src={PROFILE_LOGOS[value]} alt="" aria-hidden="true" />
