@@ -4,84 +4,66 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_demo_and_live_use_separate_compose_projects_and_duckdb_volumes() -> None:
-    demo = (ROOT / "scripts" / "demo-up").read_text(encoding="utf-8")
+def test_production_has_one_canonical_deployment_path() -> None:
+    production = (ROOT / "scripts" / "prod-up").read_text(encoding="utf-8")
     live = (ROOT / "scripts" / "live-up").read_text(encoding="utf-8")
 
-    assert "COMPOSE_PROJECT_NAME=guardian-voc-demo" in demo
-    assert "COMPOSE_PROJECT_NAME=guardian-voc-live" in live
-    assert '"${COMPOSE[@]}" -p guardian-voc-demo down --remove-orphans' in live
-    assert "-p guardian-voc-demo down --volumes" not in live
-    assert "VOC_WRITE_API_ENABLED=true" in live
-    assert 'VOC_SCHEDULER_FULL_FLOW_ENABLED="${VOC_SCHEDULER_FULL_FLOW_ENABLED:-true}"' in live
-    assert 'VOC_SCHEDULER_INTERVAL_SECONDS="${VOC_SCHEDULER_INTERVAL_SECONDS:-1800}"' in live
-    assert 'VOC_LIVE_COLLECTION_SOURCE_IDS="${VOC_LIVE_COLLECTION_SOURCE_IDS:-guardian_public_social}"' in live
-    assert "unset VOC_ADMIN_TOKEN" in live
-    assert "export VOC_ADMIN_TOKEN=" not in demo
-    assert "export AI_PROVIDER=cached" in demo
-    assert "export TINYFISH_ENABLED=false" in demo
-    assert "export VOC_COLLECTOR_ENRICHMENT_ENABLED=false" in demo
-    assert 'DEMO_SECRETS_DIR="${RUNTIME_DIR}/demo-secrets"' in demo
-    assert (
-        'DEMO_VERIFIED_DIR="${RUNTIME_DIR}/demo-verified-feedback-empty"' in demo
-    )
-    assert 'chmod 700 "${RUNTIME_DIR}" "${DEMO_SECRETS_DIR}" "${DEMO_VERIFIED_DIR}"' in demo
-    assert 'export VOC_VERIFIED_FEEDBACK_FILES=""' in demo
-    assert 'export VOC_VERIFIED_FEEDBACK_HOST_DIR="${DEMO_VERIFIED_DIR}"' in demo
-    assert "Demo verified-feedback directory must remain empty" in demo
-    assert 'VOC_OPENAI_API_KEY_SECRET_FILE="${DEMO_OPENAI_KEY_FILE}"' in demo
-    assert 'VOC_SERP_API_KEY_SECRET_FILE="${DEMO_SERP_KEY_FILE}"' in demo
-    assert 'VOC_TINYFISH_API_KEY_SECRET_FILE="${DEMO_TINYFISH_KEY_FILE}"' in demo
-    assert 'VOC_COLLECTOR_ENRICHMENT_ENABLED="${VOC_COLLECTOR_ENRICHMENT_ENABLED:-false}"' in live
-    assert 'VOC_COLLECTOR_ENRICHMENT_MAX_ROWS="${VOC_COLLECTOR_ENRICHMENT_MAX_ROWS:-25}"' in live
-    assert (
-        'VOC_COLLECTOR_ENRICHMENT_CONCURRENCY="'
-        '${VOC_COLLECTOR_ENRICHMENT_CONCURRENCY:-3}"' in live
-    )
+    assert production.startswith("#!/usr/bin/env bash\nset -euo pipefail\n")
+    assert "docker compose config --quiet" in production
+    assert "docker compose up --build --detach --remove-orphans" in production
+    assert 'runtime / "admin-token"' in production
+    assert "secrets.token_urlsafe(32)" in production
+    assert "OPENAI_API_KEY is required" in production
+    assert 'exec "${ROOT_DIR}/scripts/prod-up"' in live
+    assert "social-listening-crawler" not in production
+    assert "social-listening-crawler" not in live
 
 
-def test_compose_mounts_credentials_as_secrets_and_hardens_the_container() -> None:
+def test_compose_is_one_hardened_service_without_sibling_mounts() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 
-    assert '"127.0.0.1:${VOC_PORT:-8000}:8000"' in compose
+    assert "services:\n  app:" in compose
+    assert compose.count("\n  app:") == 1
+    assert '"127.0.0.1:${GUARDIAN_PORT:-8000}:8000"' in compose
+    assert "VOC_DEMO_MODE: \"${VOC_DEMO_MODE:-false}\"" in compose
     assert "VOC_ADMIN_TOKEN_FILE: /run/secrets/admin_token" in compose
     assert "AI_API_KEY_FILE: /run/secrets/openai_api_key" in compose
     assert "SERP_API_KEY_FILE: /run/secrets/serp_api_key" in compose
     assert "TINYFISH_API_KEY_FILE: /run/secrets/tinyfish_api_key" in compose
-    assert (
-        'VOC_COLLECTOR_ENRICHMENT_ENABLED: "'
-        '${VOC_COLLECTOR_ENRICHMENT_ENABLED:-false}"' in compose
-    )
-    assert (
-        'VOC_VERIFIED_FEEDBACK_FILES: "'
-        '${VOC_VERIFIED_FEEDBACK_FILES-/app/verified-feedback/analysis_ready.jsonl}"'
-        in compose
-    )
-    assert 'VOC_SCHEDULER_FULL_FLOW_ENABLED: "${VOC_SCHEDULER_FULL_FLOW_ENABLED:-false}"' in compose
-    assert 'VOC_SCHEDULER_INTERVAL_SECONDS: "${VOC_SCHEDULER_INTERVAL_SECONDS:-1800}"' in compose
-    assert 'VOC_LIVE_COLLECTION_FETCH_LIMIT: "${VOC_LIVE_COLLECTION_FETCH_LIMIT:-25}"' in compose
     assert "\n      AI_API_KEY:" not in compose
     assert "\n      SERP_API_KEY:" not in compose
     assert "\n      TINYFISH_API_KEY:" not in compose
     assert "\n      VOC_ADMIN_TOKEN:" not in compose
-    assert '${VOC_ADMIN_TOKEN_SECRET_FILE:-./.runtime/admin-token}' in compose
-    assert '${VOC_OPENAI_API_KEY_SECRET_FILE:-./.runtime/openai-api-key}' in compose
-    assert '${VOC_SERP_API_KEY_SECRET_FILE:-./.runtime/serp-api-key}' in compose
-    assert '${VOC_TINYFISH_API_KEY_SECRET_FILE:-./.runtime/tinyfish-api-key}' in compose
+    assert "guardian_data:/app/data" in compose
+    assert "../" not in compose
+    assert "collector-output" not in compose
+    assert "verified-feedback" not in compose
     assert "read_only: true" in compose
     assert "cap_drop:\n      - ALL" in compose
     assert "no-new-privileges:true" in compose
-    assert "../social-listening-crawler/data:/app/collector-output:ro" in compose
-    assert (
-        '"${VOC_VERIFIED_FEEDBACK_HOST_DIR:-./data/live}:'
-        '/app/verified-feedback:ro"' in compose
-    )
+    assert "pids_limit: 256" in compose
+    assert 'max-size: "10m"' in compose
 
 
-def test_generated_live_exports_are_excluded_from_git_and_docker_context() -> None:
+def test_docker_build_produces_one_non_root_frontend_plus_api_image() -> None:
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "FROM node:22-alpine AS web-build" in dockerfile
+    assert "FROM python:3.12-slim AS runtime" in dockerfile
+    assert "COPY --from=web-build /build/web/dist ./web/dist" in dockerfile
+    assert "USER guardian" in dockerfile
+    assert "HEALTHCHECK" in dockerfile
+    assert 'CMD ["python", "-m", "guardian_voc", "serve"' in dockerfile
+
+
+def test_generated_runtime_data_is_excluded_from_git_and_docker_context() -> None:
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
 
     for contents in (gitignore, dockerignore):
+        assert ".runtime" in contents
         assert "data/live/" in contents
         assert "data/live_data_manifest.json" in contents
+    assert "web/node_modules" in dockerignore
+    assert "web/dist" in dockerignore
+    assert "tests" in dockerignore

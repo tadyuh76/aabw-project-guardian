@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RUNTIME_DIR="${ROOT_DIR}/.runtime"
+ENV_FILE="${ROOT_DIR}/.env"
+
+mkdir -p "${RUNTIME_DIR}"
+chmod 700 "${RUNTIME_DIR}"
+umask 077
+
+# Convert local environment values into Docker secret files. Values are never
+# evaluated as shell code, printed, or placed in container metadata.
+ROOT_DIR="${ROOT_DIR}" ENV_FILE="${ENV_FILE}" python3 - <<'PY'
+import ast
+import os
+import secrets
+from pathlib import Path
+
+root = Path(os.environ["ROOT_DIR"])
+runtime = root / ".runtime"
+env_file = Path(os.environ["ENV_FILE"])
+allowed = {
+    "OPENAI_API_KEY", "AI_API_KEY", "SERP_API_KEY",
+    "TINY_FISH_API_KEY", "TINYFISH_API_KEY",
+}
+
+
+def read_dotenv(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.is_file():
+        return values
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.removeprefix("export ").split("=", 1)
+        key, value = key.strip(), value.strip()
+        if key not in allowed:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            try:
+                value = str(ast.literal_eval(value))
+            except (SyntaxError, ValueError):
+                value = value[1:-1]
+        values[key] = value
+    return values
+
+
+dotenv = read_dotenv(env_file)
+
+
+def first(*names: str) -> str:
+    for name in names:
+        value = os.environ.get(name, "").strip() or dotenv.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def write_secret(filename: str, value: str, *, preserve: bool = True) -> Path:
+    path = runtime / filename
+    if value:
+        path.write_text(value + "\n", encoding="utf-8")
+    elif not preserve or not path.exists():
+        path.touch()
+    path.chmod(0o600)
+    return path
+
+
+admin = runtime / "admin-token"
+if not admin.exists() or not admin.read_text(encoding="utf-8").strip():
+    admin.write_text(secrets.token_urlsafe(32) + "\n", encoding="utf-8")
+admin.chmod(0o600)
+
+openai = write_secret("openai-api-key", first("OPENAI_API_KEY", "AI_API_KEY"))
+write_secret("serp-api-key", first("SERP_API_KEY"))
+write_secret("tinyfish-api-key", first("TINY_FISH_API_KEY", "TINYFISH_API_KEY"))
+
+if not openai.read_text(encoding="utf-8").strip():
+    raise SystemExit(
+        "OPENAI_API_KEY is required. Put it in the ignored .env file or "
+        ".runtime/openai-api-key."
+    )
+PY
+
+cd "${ROOT_DIR}"
+docker compose config --quiet
+docker compose up --build --detach --remove-orphans
+
+for _ in $(seq 1 "${GUARDIAN_STARTUP_TIMEOUT_SECONDS:-180}"); do
+  if GUARDIAN_PORT="${GUARDIAN_PORT:-8000}" python3 - <<'PY' >/dev/null 2>&1
+import os
+import urllib.request
+port = os.environ["GUARDIAN_PORT"]
+urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/ready", timeout=2)
+PY
+  then
+    printf 'Guardian Signal is ready at http://127.0.0.1:%s\n' "${GUARDIAN_PORT:-8000}"
+    printf 'Admin access key file: %s\n' "${RUNTIME_DIR}/admin-token"
+    exit 0
+  fi
+  sleep 1
+done
+
+docker compose logs --tail=120 app
+printf 'Guardian Signal did not become ready in time.\n' >&2
+exit 1

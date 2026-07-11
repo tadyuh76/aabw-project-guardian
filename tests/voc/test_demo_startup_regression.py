@@ -16,12 +16,12 @@ def test_demo_up_resets_the_persistent_volume_before_starting() -> None:
         script,
     )
     volume_reset = re.search(
-        r'^\s*"\$\{COMPOSE\[@\]\}"\s+down\s+[^\n]*(?:--volumes|-v)(?:\s|$)',
+        r'^\s*docker compose\s+down\s+[^\n]*(?:--volumes|-v)(?:\s|$)',
         script,
         flags=re.MULTILINE,
     )
     startup = re.search(
-        r'^\s*"\$\{COMPOSE\[@\]\}"\s+up\s+',
+        r'^\s*docker compose\s+up\s+',
         script,
         flags=re.MULTILINE,
     )

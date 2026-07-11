@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKUP_DIR="${GUARDIAN_BACKUP_DIR:-${ROOT_DIR}/backups}"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+FILENAME="guardian-signal-${STAMP}.tar.gz"
+
+mkdir -p "${BACKUP_DIR}"
+cd "${ROOT_DIR}"
+
+was_running="$(docker compose ps --status running --services | grep -x 'app' || true)"
+if [[ -n "${was_running}" ]]; then
+  docker compose stop app
+fi
+
+restart() {
+  if [[ -n "${was_running}" ]]; then
+    docker compose start app >/dev/null
+  fi
+}
+trap restart EXIT
+
+docker compose run --rm --no-deps --user 0:0 \
+  -e "BACKUP_FILENAME=${FILENAME}" \
+  -v "${BACKUP_DIR}:/backup" \
+  --entrypoint python app -c \
+  'import os, tarfile; target="/backup/" + os.environ["BACKUP_FILENAME"]; archive=tarfile.open(target, "w:gz"); archive.add("/app/data", arcname="data"); archive.close()'
+
+chmod 600 "${BACKUP_DIR}/${FILENAME}"
+printf 'Backup created: %s\n' "${BACKUP_DIR}/${FILENAME}"

@@ -2,90 +2,51 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUNTIME_DIR="${ROOT_DIR}/.runtime"
-TOKEN_FILE="${RUNTIME_DIR}/admin-token"
-DEMO_SECRETS_DIR="${RUNTIME_DIR}/demo-secrets"
-DEMO_TINYFISH_KEY_FILE="${DEMO_SECRETS_DIR}/tinyfish-api-key"
-DEMO_OPENAI_KEY_FILE="${DEMO_SECRETS_DIR}/openai-api-key"
-DEMO_SERP_KEY_FILE="${DEMO_SECRETS_DIR}/serp-api-key"
-DEMO_VERIFIED_DIR="${RUNTIME_DIR}/demo-verified-feedback-empty"
-DOCKER_CONFIG_DIR="${RUNTIME_DIR}/docker-config"
+RUNTIME_DIR="${ROOT_DIR}/.runtime/demo"
 
-mkdir -p \
-  "${RUNTIME_DIR}" \
-  "${DEMO_SECRETS_DIR}" \
-  "${DEMO_VERIFIED_DIR}" \
-  "${DOCKER_CONFIG_DIR}"
-chmod 700 "${RUNTIME_DIR}" "${DEMO_SECRETS_DIR}" "${DEMO_VERIFIED_DIR}"
-if ! python3 -c \
-  'from pathlib import Path; import sys; raise SystemExit(any(Path(sys.argv[1]).iterdir()))' \
-  "${DEMO_VERIFIED_DIR}"; then
-  printf 'Demo verified-feedback directory must remain empty.\n' >&2
-  exit 1
-fi
+mkdir -p "${RUNTIME_DIR}"
+chmod 700 "${ROOT_DIR}/.runtime" "${RUNTIME_DIR}"
 umask 077
-python3 -c 'import secrets; print(secrets.token_urlsafe(32))' > "${TOKEN_FILE}"
-chmod 600 "${TOKEN_FILE}"
-for secret_file in "${DEMO_TINYFISH_KEY_FILE}" "${DEMO_OPENAI_KEY_FILE}" "${DEMO_SERP_KEY_FILE}"; do
-  : > "${secret_file}"
-  chmod 600 "${secret_file}"
+
+python3 - <<'PY' > "${RUNTIME_DIR}/admin-token"
+import secrets
+print(secrets.token_urlsafe(32))
+PY
+chmod 600 "${RUNTIME_DIR}/admin-token"
+for name in openai-api-key serp-api-key tinyfish-api-key; do
+  : > "${RUNTIME_DIR}/${name}"
+  chmod 600 "${RUNTIME_DIR}/${name}"
 done
-printf '{"auths":{}}\n' > "${DOCKER_CONFIG_DIR}/config.json"
 
-# Public demo images need no registry credentials. An isolated config also
-# avoids a stalled desktop credential helper without reading or changing the
-# developer's personal Docker configuration.
-export DOCKER_CONFIG="${DOCKER_CONFIG_DIR}"
-if [[ -S "${HOME}/.docker/run/docker.sock" ]]; then
-  export DOCKER_HOST="${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock}"
-fi
-
+export COMPOSE_PROJECT_NAME=guardian-signal-demo
 export VOC_DEMO_MODE=true
+export VOC_DEMO_AS_OF="${VOC_DEMO_AS_OF:-2026-07-11T23:59:59+07:00}"
+export VOC_WRITE_API_ENABLED=true
 export VOC_SCHEDULER_ENABLED=false
 export VOC_SCHEDULER_CRAWL_ENABLED=false
-export COMPOSE_PROJECT_NAME=guardian-voc-demo
-export VOC_WRITE_API_ENABLED=true
-unset VOC_ADMIN_TOKEN OPENAI_API_KEY AI_API_KEY SERP_API_KEY TINY_FISH_API_KEY TINYFISH_API_KEY || true
-export VOC_ADMIN_TOKEN_SECRET_FILE="${TOKEN_FILE}"
-export VOC_OPENAI_API_KEY_SECRET_FILE="${DEMO_OPENAI_KEY_FILE}"
-export VOC_SERP_API_KEY_SECRET_FILE="${DEMO_SERP_KEY_FILE}"
-export VOC_TINYFISH_API_KEY_SECRET_FILE="${DEMO_TINYFISH_KEY_FILE}"
-export VOC_DEMO_AS_OF="${VOC_DEMO_AS_OF:-2026-07-11T23:59:59+07:00}"
+export VOC_SCHEDULER_FULL_FLOW_ENABLED=false
 export AI_PROVIDER=cached
 export TINYFISH_ENABLED=false
-export VOC_COLLECTOR_ENRICHMENT_ENABLED=false
-# Never let the demo ingest host live data, even when the developer exported a
-# live watcher setting in the parent shell. Compose's single-hyphen default
-# preserves this explicit empty value.
-export VOC_VERIFIED_FEEDBACK_FILES=""
-export VOC_VERIFIED_FEEDBACK_HOST_DIR="${DEMO_VERIFIED_DIR}"
+export VOC_ADMIN_TOKEN_SECRET_FILE="${RUNTIME_DIR}/admin-token"
+export VOC_OPENAI_API_KEY_SECRET_FILE="${RUNTIME_DIR}/openai-api-key"
+export VOC_SERP_API_KEY_SECRET_FILE="${RUNTIME_DIR}/serp-api-key"
+export VOC_TINYFISH_API_KEY_SECRET_FILE="${RUNTIME_DIR}/tinyfish-api-key"
 
 cd "${ROOT_DIR}"
-if command -v docker-compose >/dev/null 2>&1; then
-  COMPOSE=(docker-compose)
-else
-  # The Compose CLI plugin is discovered from the user's normal Docker config.
-  unset DOCKER_CONFIG
-  COMPOSE=(docker compose)
-fi
-# Demo and live use different Compose projects and therefore different named
-# DuckDB volumes. Stop a live/legacy container without deleting its data before
-# claiming the shared host port.
-"${COMPOSE[@]}" -p guardian-voc-live down --remove-orphans >/dev/null 2>&1 || true
-"${COMPOSE[@]}" -p guardian-voc-mvp down --remove-orphans >/dev/null 2>&1 || true
 if [[ "${VOC_DEMO_RESET:-true}" == "true" ]]; then
-  "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+  docker compose down --volumes --remove-orphans >/dev/null 2>&1 || true
 fi
-"${COMPOSE[@]}" up --build -d
+docker compose up --build --detach --remove-orphans
 
-for _ in $(seq 1 60); do
-  if python3 -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/api/v1/health", timeout=2)' >/dev/null 2>&1; then
-    printf 'Guardian Signal is running at http://127.0.0.1:8000\n'
+for _ in $(seq 1 90); do
+  if curl --fail --silent "http://127.0.0.1:${GUARDIAN_PORT:-8000}/api/v1/ready" >/dev/null; then
+    printf 'Guardian Signal demo is ready at http://127.0.0.1:%s\n' "${GUARDIAN_PORT:-8000}"
+    printf 'Admin access key file: %s\n' "${RUNTIME_DIR}/admin-token"
     exit 0
   fi
   sleep 1
 done
 
-"${COMPOSE[@]}" logs --tail=80 guardian-voc
-printf 'Guardian Signal did not become healthy in time.\n' >&2
+docker compose logs --tail=100 app
+printf 'Guardian Signal demo did not become ready in time.\n' >&2
 exit 1

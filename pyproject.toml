@@ -3,9 +3,9 @@ requires = ["setuptools>=82"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "guardian-voc-mvp"
+name = "guardian-signal"
 version = "0.1.0"
-description = "Evidence-backed voice-of-customer decision brief for Guardian"
+description = "Guardian marketplace review ingestion and voice-of-customer platform"
 requires-python = ">=3.12"
 dependencies = [
   "duckdb>=1.4,<2",
@@ -35,6 +35,7 @@ dev = [
 
 [project.scripts]
 guardian-voc = "guardian_voc.cli:main"
+guardian-signal = "guardian_voc.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["guardian_voc*", "social_crawler*"]

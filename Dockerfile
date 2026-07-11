@@ -21,8 +21,8 @@ WORKDIR /app
 
 RUN adduser --disabled-password --gecos "" --home /home/guardian guardian
 
-COPY pyproject.toml ./
-RUN python -c "import pathlib, subprocess, sys, tomllib; dependencies = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['dependencies']; subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', '--timeout', '300', '--retries', '5', *dependencies])"
+COPY pyproject.toml requirements.lock ./
+RUN pip install --no-cache-dir --require-hashes --requirement requirements.lock
 
 COPY README.md ./
 COPY guardian_voc ./guardian_voc
@@ -30,13 +30,12 @@ COPY social_crawler ./social_crawler
 RUN pip install --no-cache-dir --no-deps --no-build-isolation .
 
 COPY fixtures ./fixtures
-COPY docs ./docs
 COPY scripts ./scripts
 COPY --from=web-build /build/web/dist ./web/dist
 
-RUN mkdir -p /app/data/inbox /app/data/quarantine /app/.runtime \
+RUN mkdir -p /app/data/inbox /app/data/quarantine \
     && chown -R guardian:guardian /app/data /home/guardian \
-    && chmod 0755 /app /app/.runtime
+    && chmod 0755 /app
 
 USER guardian
 EXPOSE 8000

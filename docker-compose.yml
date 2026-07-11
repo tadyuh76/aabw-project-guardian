@@ -1,41 +1,34 @@
+name: guardian-signal
+
 services:
-  guardian-voc:
+  app:
+    image: guardian-signal:${GUARDIAN_IMAGE_TAG:-latest}
     build:
       context: .
+      dockerfile: Dockerfile
     ports:
-      - "127.0.0.1:${VOC_PORT:-8000}:8000"
+      # Keep the app private. Terminate TLS with Caddy/Nginx on the VPS.
+      - "127.0.0.1:${GUARDIAN_PORT:-8000}:8000"
     environment:
       VOC_DB_PATH: /app/data/guardian_voc.duckdb
       VOC_DATA_DIR: /app/data
       VOC_INBOX_DIR: /app/data/inbox
-      VOC_DEMO_MODE: "${VOC_DEMO_MODE:-true}"
-      VOC_DEMO_AS_OF: "${VOC_DEMO_AS_OF:-2026-07-11T23:59:59+07:00}"
+      VOC_DEMO_MODE: "${VOC_DEMO_MODE:-false}"
       VOC_BUSINESS_TIMEZONE: "${VOC_BUSINESS_TIMEZONE:-Asia/Ho_Chi_Minh}"
-      VOC_WRITE_API_ENABLED: "${VOC_WRITE_API_ENABLED:-false}"
-      VOC_ADMIN_TOKEN_FILE: /run/secrets/admin_token
       VOC_DEFAULT_LOCALE: "${VOC_DEFAULT_LOCALE:-en}"
+      VOC_LOG_LEVEL: "${VOC_LOG_LEVEL:-INFO}"
+      VOC_WRITE_API_ENABLED: "${VOC_WRITE_API_ENABLED:-true}"
+      VOC_ADMIN_TOKEN_FILE: /run/secrets/admin_token
       VOC_SCHEDULER_ENABLED: "${VOC_SCHEDULER_ENABLED:-false}"
       VOC_SCHEDULER_CRAWL_ENABLED: "${VOC_SCHEDULER_CRAWL_ENABLED:-false}"
       VOC_SCHEDULER_FULL_FLOW_ENABLED: "${VOC_SCHEDULER_FULL_FLOW_ENABLED:-false}"
       VOC_SCHEDULER_INTERVAL_SECONDS: "${VOC_SCHEDULER_INTERVAL_SECONDS:-1800}"
-      VOC_SCHEDULER_INITIAL_DELAY_SECONDS: "${VOC_SCHEDULER_INITIAL_DELAY_SECONDS:-15}"
-      VOC_SCHEDULER_MAX_BACKOFF_SECONDS: "${VOC_SCHEDULER_MAX_BACKOFF_SECONDS:-14400}"
-      VOC_SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS: "${VOC_SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS:-180}"
-      VOC_COLLECTOR_FILES: "${VOC_COLLECTOR_FILES:-/app/collector-output/guardian_voc_vi_12m.customer-candidates.vi.jsonl}"
-      # Use the live strict export only when the variable is unset. An
-      # explicitly empty value is how the isolated demo disables this watcher.
-      VOC_VERIFIED_FEEDBACK_FILES: "${VOC_VERIFIED_FEEDBACK_FILES-/app/verified-feedback/analysis_ready.jsonl}"
-      VOC_COLLECTOR_CHECKPOINT_PATH: /app/data/collector-import-checkpoint.json
-      VOC_COLLECTOR_ENRICHMENT_ENABLED: "${VOC_COLLECTOR_ENRICHMENT_ENABLED:-false}"
-      VOC_COLLECTOR_ENRICHMENT_MAX_ROWS: "${VOC_COLLECTOR_ENRICHMENT_MAX_ROWS:-25}"
-      VOC_COLLECTOR_ENRICHMENT_CONCURRENCY: "${VOC_COLLECTOR_ENRICHMENT_CONCURRENCY:-3}"
       VOC_LIVE_COLLECTION_SOURCE_IDS: "${VOC_LIVE_COLLECTION_SOURCE_IDS:-guardian_public_social}"
       VOC_LIVE_COLLECTION_PAGES_PER_QUERY: "${VOC_LIVE_COLLECTION_PAGES_PER_QUERY:-1}"
       VOC_LIVE_COLLECTION_FETCH_LIMIT: "${VOC_LIVE_COLLECTION_FETCH_LIMIT:-25}"
       VOC_LIVE_COLLECTION_EXTRACTION_LIMIT: "${VOC_LIVE_COLLECTION_EXTRACTION_LIMIT:-25}"
       VOC_LIVE_COLLECTION_LOOKBACK_DAYS: "${VOC_LIVE_COLLECTION_LOOKBACK_DAYS:-2}"
-      VOC_LIVE_COLLECTION_REFRESH: "${VOC_LIVE_COLLECTION_REFRESH:-false}"
-      AI_PROVIDER: "${AI_PROVIDER:-cached}"
+      AI_PROVIDER: "${AI_PROVIDER:-openai_compatible}"
       AI_API_KEY_FILE: /run/secrets/openai_api_key
       AI_BASE_URL: "${AI_BASE_URL:-https://api.openai.com/v1}"
       AI_MODEL: "${AI_MODEL:-gpt-5.4-mini}"
@@ -43,27 +36,20 @@ services:
       AI_REQUEST_TIMEOUT_SECONDS: "${AI_REQUEST_TIMEOUT_SECONDS:-30}"
       SERP_API_KEY_FILE: /run/secrets/serp_api_key
       SERP_API_BASE_URL: "${SERP_API_BASE_URL:-https://serpapi.com}"
-      CRAWLER_KEYWORDS: "${CRAWLER_KEYWORDS:-guardian vietnam,hasaki vietnam,watsons vietnam}"
-      CRAWLER_PLATFORMS: "${CRAWLER_PLATFORMS:-facebook,tiktok,youtube,reddit,threads}"
-      CRAWLER_LOOKBACK_DAYS: "${CRAWLER_LOOKBACK_DAYS:-1}"
       TINYFISH_ENABLED: "${TINYFISH_ENABLED:-false}"
       TINYFISH_API_KEY_FILE: /run/secrets/tinyfish_api_key
       TINYFISH_SEARCH_BASE_URL: "${TINYFISH_SEARCH_BASE_URL:-https://api.search.tinyfish.ai}"
       TINYFISH_FETCH_BASE_URL: "${TINYFISH_FETCH_BASE_URL:-https://api.fetch.tinyfish.ai}"
       TINYFISH_TIMEOUT_SECONDS: "${TINYFISH_TIMEOUT_SECONDS:-150}"
-      TINYFISH_USEFUL_TEXT_CHARS: "${TINYFISH_USEFUL_TEXT_CHARS:-80}"
       TINYFISH_LOCATION: "${TINYFISH_LOCATION:-VN}"
       TINYFISH_LANGUAGE: "${TINYFISH_LANGUAGE:-vi}"
-      SOCIAL_SCRAPER_BROWSER_ENABLED: "false"
     secrets:
       - admin_token
       - openai_api_key
       - serp_api_key
       - tinyfish_api_key
     volumes:
-      - guardian-voc-data:/app/data
-      - ../social-listening-crawler/data:/app/collector-output:ro
-      - "${VOC_VERIFIED_FEEDBACK_HOST_DIR:-./data/live}:/app/verified-feedback:ro"
+      - guardian_data:/app/data
     init: true
     read_only: true
     cap_drop:
@@ -71,12 +57,18 @@ services:
     security_opt:
       - no-new-privileges:true
     tmpfs:
-      - /tmp:rw,nosuid,nodev,noexec,size=64m,mode=1777
+      - /tmp:rw,nosuid,nodev,noexec,size=128m,mode=1777
+    pids_limit: 256
     stop_grace_period: 3m
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 volumes:
-  guardian-voc-data:
+  guardian_data:
 
 secrets:
   admin_token:

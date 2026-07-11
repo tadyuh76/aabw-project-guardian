@@ -323,28 +323,8 @@ def test_cli_output_never_contains_database_content_or_paths(
         assert forbidden not in output
 
 
-def test_live_up_stops_and_verifies_service_before_handoff_then_starts() -> None:
+def test_live_up_is_a_backward_compatible_production_alias() -> None:
     script = LIVE_UP.read_text(encoding="utf-8")
-    build = script.index('"${COMPOSE[@]}" build guardian-voc')
-    stop = script.index('"${COMPOSE[@]}" stop guardian-voc')
-    stopped_check = script.index("docker ps -q")
-    handoff = script.index("python /app/scripts/sync_live_db.py")
-    start = script.index('"${COMPOSE[@]}" up --no-build -d')
-
     assert script.startswith("#!/usr/bin/env bash\nset -euo pipefail\n")
-    assert build < stop < stopped_check < handoff < start
-    assert '"${HOST_DATA_DIR}:/handoff/host:ro"' in script
-    assert '"${COMPOSE[@]}" run --rm --no-deps' in script
-    assert 'int(collector.get("verified_mapped_rows") or 0)' in script
-
-
-def test_live_up_restarts_existing_service_before_returning_handoff_error() -> None:
-    script = LIVE_UP.read_text(encoding="utf-8")
-    handoff = script.index('if "${COMPOSE[@]}" run --rm --no-deps')
-    failure_branch = script.index("handoff_status=$?", handoff)
-    restart = script.index('"${COMPOSE[@]}" start guardian-voc', failure_branch)
-    failure_exit = script.index('exit "${handoff_status}"', restart)
-    successful_start = script.index('"${COMPOSE[@]}" up --no-build -d', failure_exit)
-
-    assert handoff < failure_branch < restart < failure_exit < successful_start
-    assert "existing live service restarted" in script
+    assert 'exec "${ROOT_DIR}/scripts/prod-up" "$@"' in script
+    assert "sync_live_db.py" not in script
