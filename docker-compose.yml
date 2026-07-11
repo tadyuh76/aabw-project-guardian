@@ -1,0 +1,81 @@
+name: guardian-signal
+
+services:
+  app:
+    image: guardian-signal:${GUARDIAN_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      # Keep the app private. Terminate TLS with Caddy/Nginx on the VPS.
+      - "127.0.0.1:${GUARDIAN_PORT:-8000}:8000"
+    environment:
+      VOC_DB_PATH: /app/data/guardian_voc.duckdb
+      VOC_DATA_DIR: /app/data
+      VOC_INBOX_DIR: /app/data/inbox
+      VOC_DEMO_MODE: "${VOC_DEMO_MODE:-false}"
+      VOC_BUSINESS_TIMEZONE: "${VOC_BUSINESS_TIMEZONE:-Asia/Ho_Chi_Minh}"
+      VOC_DEFAULT_LOCALE: "${VOC_DEFAULT_LOCALE:-en}"
+      VOC_LOG_LEVEL: "${VOC_LOG_LEVEL:-INFO}"
+      VOC_WRITE_API_ENABLED: "${VOC_WRITE_API_ENABLED:-true}"
+      VOC_ADMIN_TOKEN_FILE: /run/secrets/admin_token
+      VOC_SCHEDULER_ENABLED: "${VOC_SCHEDULER_ENABLED:-false}"
+      VOC_SCHEDULER_CRAWL_ENABLED: "${VOC_SCHEDULER_CRAWL_ENABLED:-false}"
+      VOC_SCHEDULER_FULL_FLOW_ENABLED: "${VOC_SCHEDULER_FULL_FLOW_ENABLED:-false}"
+      VOC_SCHEDULER_INTERVAL_SECONDS: "${VOC_SCHEDULER_INTERVAL_SECONDS:-1800}"
+      VOC_LIVE_COLLECTION_SOURCE_IDS: "${VOC_LIVE_COLLECTION_SOURCE_IDS:-guardian_public_social}"
+      VOC_LIVE_COLLECTION_PAGES_PER_QUERY: "${VOC_LIVE_COLLECTION_PAGES_PER_QUERY:-1}"
+      VOC_LIVE_COLLECTION_FETCH_LIMIT: "${VOC_LIVE_COLLECTION_FETCH_LIMIT:-25}"
+      VOC_LIVE_COLLECTION_EXTRACTION_LIMIT: "${VOC_LIVE_COLLECTION_EXTRACTION_LIMIT:-25}"
+      VOC_LIVE_COLLECTION_LOOKBACK_DAYS: "${VOC_LIVE_COLLECTION_LOOKBACK_DAYS:-2}"
+      AI_PROVIDER: "${AI_PROVIDER:-openai_compatible}"
+      AI_API_KEY_FILE: /run/secrets/openai_api_key
+      AI_BASE_URL: "${AI_BASE_URL:-https://api.openai.com/v1}"
+      AI_MODEL: "${AI_MODEL:-gpt-5.4-mini}"
+      AI_BATCH_SIZE: "${AI_BATCH_SIZE:-20}"
+      AI_REQUEST_TIMEOUT_SECONDS: "${AI_REQUEST_TIMEOUT_SECONDS:-30}"
+      SERP_API_KEY_FILE: /run/secrets/serp_api_key
+      SERP_API_BASE_URL: "${SERP_API_BASE_URL:-https://serpapi.com}"
+      TINYFISH_ENABLED: "${TINYFISH_ENABLED:-false}"
+      TINYFISH_API_KEY_FILE: /run/secrets/tinyfish_api_key
+      TINYFISH_SEARCH_BASE_URL: "${TINYFISH_SEARCH_BASE_URL:-https://api.search.tinyfish.ai}"
+      TINYFISH_FETCH_BASE_URL: "${TINYFISH_FETCH_BASE_URL:-https://api.fetch.tinyfish.ai}"
+      TINYFISH_TIMEOUT_SECONDS: "${TINYFISH_TIMEOUT_SECONDS:-150}"
+      TINYFISH_LOCATION: "${TINYFISH_LOCATION:-VN}"
+      TINYFISH_LANGUAGE: "${TINYFISH_LANGUAGE:-vi}"
+    secrets:
+      - admin_token
+      - openai_api_key
+      - serp_api_key
+      - tinyfish_api_key
+    volumes:
+      - guardian_data:/app/data
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=128m,mode=1777
+    pids_limit: 256
+    stop_grace_period: 3m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  guardian_data:
+
+secrets:
+  admin_token:
+    file: "${VOC_ADMIN_TOKEN_SECRET_FILE:-./.runtime/admin-token}"
+  openai_api_key:
+    file: "${VOC_OPENAI_API_KEY_SECRET_FILE:-./.runtime/openai-api-key}"
+  serp_api_key:
+    file: "${VOC_SERP_API_KEY_SECRET_FILE:-./.runtime/serp-api-key}"
+  tinyfish_api_key:
+    file: "${VOC_TINYFISH_API_KEY_SECRET_FILE:-./.runtime/tinyfish-api-key}"

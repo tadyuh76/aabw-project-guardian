@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RUNTIME_DIR="${ROOT_DIR}/.runtime/demo"
+
+mkdir -p "${RUNTIME_DIR}"
+chmod 700 "${ROOT_DIR}/.runtime" "${RUNTIME_DIR}"
+umask 077
+
+python3 - <<'PY' > "${RUNTIME_DIR}/admin-token"
+import secrets
+print(secrets.token_urlsafe(32))
+PY
+chmod 600 "${RUNTIME_DIR}/admin-token"
+for name in openai-api-key serp-api-key tinyfish-api-key; do
+  : > "${RUNTIME_DIR}/${name}"
+  chmod 600 "${RUNTIME_DIR}/${name}"
+done
+
+export COMPOSE_PROJECT_NAME=guardian-signal-demo
+export VOC_DEMO_MODE=true
+export VOC_DEMO_AS_OF="${VOC_DEMO_AS_OF:-2026-07-11T23:59:59+07:00}"
+export VOC_WRITE_API_ENABLED=true
+export VOC_SCHEDULER_ENABLED=false
+export VOC_SCHEDULER_CRAWL_ENABLED=false
+export VOC_SCHEDULER_FULL_FLOW_ENABLED=false
+export AI_PROVIDER=cached
+export TINYFISH_ENABLED=false
+export VOC_ADMIN_TOKEN_SECRET_FILE="${RUNTIME_DIR}/admin-token"
+export VOC_OPENAI_API_KEY_SECRET_FILE="${RUNTIME_DIR}/openai-api-key"
+export VOC_SERP_API_KEY_SECRET_FILE="${RUNTIME_DIR}/serp-api-key"
+export VOC_TINYFISH_API_KEY_SECRET_FILE="${RUNTIME_DIR}/tinyfish-api-key"
+
+cd "${ROOT_DIR}"
+if [[ "${VOC_DEMO_RESET:-true}" == "true" ]]; then
+  docker compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+fi
+docker compose up --build --detach --remove-orphans
+
+for _ in $(seq 1 90); do
+  if curl --fail --silent "http://127.0.0.1:${GUARDIAN_PORT:-8000}/api/v1/ready" >/dev/null; then
+    printf 'Guardian Signal demo is ready at http://127.0.0.1:%s\n' "${GUARDIAN_PORT:-8000}"
+    printf 'Admin access key file: %s\n' "${RUNTIME_DIR}/admin-token"
+    exit 0
+  fi
+  sleep 1
+done
+
+docker compose logs --tail=100 app
+printf 'Guardian Signal demo did not become ready in time.\n' >&2
+exit 1

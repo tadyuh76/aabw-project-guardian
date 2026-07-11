@@ -1,0 +1,19 @@
+{
+  "competitor_public_current": {
+    "hasaki": 100,
+    "watsons": 100
+  },
+  "demo_increment_records": 28,
+  "fixture_version": "2026-07-11",
+  "growth_multiple": 2.817683,
+  "guardian_baseline_denominator": 400,
+  "guardian_current_denominator": 494,
+  "is_synthetic": true,
+  "promotion_baseline_numerator": 24,
+  "promotion_current_numerator": 84,
+  "raw_record_count": 1102,
+  "source_groups": 4,
+  "stratified_baseline_share": 0.06,
+  "stratified_current_share": 0.169061,
+  "unclear_eligibility_current_support": 51
+}

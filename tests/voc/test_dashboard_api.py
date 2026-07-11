@@ -1,0 +1,569 @@
+from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+import guardian_voc.application as application_module
+from guardian_voc.api.main import app, service_from_request
+from guardian_voc.application import GuardianService
+from guardian_voc.config import Settings
+from guardian_voc.schemas.analysis import ClassificationResult
+from guardian_voc.schemas.feedback import RawFeedback
+
+
+AS_OF = datetime.fromisoformat("2026-07-11T12:00:00+07:00")
+
+
+class FixedAsOfGuardianService(GuardianService):
+    @property
+    def as_of(self) -> datetime:
+        return AS_OF
+
+
+def _service(
+    tmp_path: Path,
+    name: str,
+    *,
+    competitor_min_sample: int = 10,
+) -> FixedAsOfGuardianService:
+    settings = Settings(
+        voc_db_path=tmp_path / f"{name}.duckdb",
+        voc_data_dir=tmp_path,
+        voc_inbox_dir=tmp_path / "inbox",
+        voc_demo_mode=False,
+        voc_competitor_min_sample=competitor_min_sample,
+        ai_provider="cached",
+    )
+    service = FixedAsOfGuardianService(settings)
+    service.initialize(seed_demo=False, process_existing=False)
+    return service
+
+
+def _raw(
+    external_id: str,
+    *,
+    occurred_at: str | None,
+    text: str,
+    rating: float | None,
+    product: bool = True,
+    product_id: str = "P-1",
+    product_name: str = "Serum A",
+    synthetic: bool = False,
+) -> RawFeedback:
+    return RawFeedback(
+        source_external_id=external_id,
+        source_group="marketplace",
+        source_platform="shopee",
+        visibility="public",
+        brand="guardian",
+        brand_candidates=["guardian"],
+        occurred_at=datetime.fromisoformat(occurred_at) if occurred_at else None,
+        observed_at=datetime.fromisoformat("2026-07-11T10:00:00+07:00"),
+        occurred_at_quality="exact" if occurred_at else "missing",
+        language="vi",
+        text=text,
+        rating=rating,
+        product_name=product_name if product else None,
+        product_category="Serum" if product else None,
+        metadata=(
+            {
+                "product_id": product_id,
+                "short_name": product_name,
+                "sku": f"SKU-{product_id}",
+                "pack": "30 ml",
+                "experience_subject": "product",
+            }
+            if product
+            else {"experience_subject": "product"}
+        ),
+        is_synthetic=synthetic,
+    )
+
+
+def _classification(
+    text: str,
+    *,
+    intent: str,
+    sentiment: str,
+    sentiment_score: float,
+    brand: str = "guardian",
+) -> ClassificationResult:
+    return ClassificationResult.model_validate(
+        {
+            "is_relevant": True,
+            "primary_brand": brand,
+            "mentioned_brands": [brand],
+            "brand_attribution_confidence": 0.99,
+            "brand_evidence_span": "Guardian",
+            "experience_subject": "product",
+            "primary_topic": "product_quality_authenticity",
+            "subtopic": "product_performance",
+            "intent": intent,
+            "sentiment": sentiment,
+            "sentiment_score": sentiment_score,
+            "urgency": "normal",
+            "customer_stated_reason": None,
+            "journey_stage": "post_purchase",
+            "evidence_span": text,
+            "confidence": 0.95,
+        }
+    )
+
+
+def _persist_by_external_id(
+    service: GuardianService,
+    classifications: dict[str, tuple[str, str, float]],
+) -> None:
+    for row in service.database.query(
+        "SELECT feedback_id, source_external_id, text_redacted FROM feedback_items"
+    ):
+        external_id = str(row["source_external_id"])
+        intent, sentiment, score = classifications[external_id]
+        service._persist_analysis(
+            str(row["feedback_id"]),
+            _classification(
+                str(row["text_redacted"]),
+                intent=intent,
+                sentiment=sentiment,
+                sentiment_score=score,
+            ),
+            model_version="dashboard-test",
+            review_required=False,
+        )
+
+
+def test_dashboard_aggregates_current_and_baseline_product_periods(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, "dashboard-periods")
+    rows = [
+        _raw(
+            "current-complaint",
+            occurred_at="2026-07-10T09:00:00+07:00",
+            text="Guardian Serum A gây thất vọng và hiệu quả kém.",
+            rating=1,
+        ),
+        _raw(
+            "current-positive",
+            occurred_at="2026-07-09T09:00:00+07:00",
+            text="Guardian Serum A dùng tốt và dịu da.",
+            rating=5,
+        ),
+        _raw(
+            "current-neutral",
+            occurred_at="2026-07-08T09:00:00+07:00",
+            text="Guardian Serum A có dùng buổi sáng được không?",
+            rating=3,
+        ),
+        _raw(
+            "baseline-complaint",
+            occurred_at="2026-07-03T09:00:00+07:00",
+            text="Guardian Serum A trước đây không đạt kỳ vọng.",
+            rating=2,
+        ),
+        _raw(
+            "baseline-positive",
+            occurred_at="2026-07-02T09:00:00+07:00",
+            text="Guardian Serum A trước đây dùng ổn.",
+            rating=4,
+        ),
+        _raw(
+            "synthetic-hidden",
+            occurred_at="2026-07-10T10:00:00+07:00",
+            text="Synthetic Guardian Serum A must not be counted live.",
+            rating=1,
+            synthetic=True,
+        ),
+    ]
+    assert service._ingest_raw_rows(
+        rows, source_name="dashboard_period_fixture", source_file=None
+    )["inserted"] == 6
+    _persist_by_external_id(
+        service,
+        {
+            "current-complaint": ("complaint", "negative", -0.8),
+            "current-positive": ("praise", "positive", 0.6),
+            "current-neutral": ("question_request", "neutral", 0.0),
+            "baseline-complaint": ("complaint", "negative", -0.5),
+            "baseline-positive": ("praise", "positive", 0.5),
+            "synthetic-hidden": ("complaint", "negative", -1.0),
+        },
+    )
+
+    result = service.dashboard()
+
+    assert result.mode == "live"
+    assert result.data_state == "ready"
+    assert result.coverage.model_dump() == {
+        "feedback_items": 5,
+        "analyzed_items": 5,
+        "relevant_items": 5,
+        "time_eligible_items": 5,
+        "product_attributed_items": 5,
+    }
+    assert len(result.products) == 1
+    product = result.products[0]
+    assert product.id == "P-1"
+    assert product.name == "Serum A"
+    assert product.short_name == "Serum A"
+    assert product.metadata_complete is True
+    assert product.rating == pytest.approx(3.0)
+    assert product.rating_count == 5
+    assert product.total_feedback == 5
+    assert product.current.model_dump() == {
+        "feedback": 3,
+        "complaints": 1,
+        "positive": 1,
+        "neutral": 1,
+    }
+    assert product.baseline.model_dump() == {
+        "feedback": 2,
+        "complaints": 1,
+        "positive": 1,
+        "neutral": 0,
+    }
+    assert product.sentiment_delta == pytest.approx(-6.6666666667)
+    assert product.sources == {"marketplace": 3}
+    assert [theme.model_dump() for theme in product.themes] == [
+        {"label": "product_performance", "count": 1}
+    ]
+    assert len(result.evidence) == 5
+    assert all(item.product_id == "P-1" for item in result.evidence)
+    assert result.benchmark.comparable is False
+    assert result.benchmark.aggregates == []
+    assert result.benchmark.reason
+
+    app.dependency_overrides[service_from_request] = lambda: service
+    client = TestClient(app)
+    try:
+        response = client.get("/api/v1/dashboard")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["products"][0]["id"] == "P-1"
+        assert payload["products"][0]["current"]["complaints"] == 1
+        assert payload["coverage"]["feedback_items"] == 5
+    finally:
+        client.close()
+        app.dependency_overrides.pop(service_from_request, None)
+        service.close()
+
+
+def test_live_missing_date_and_product_is_partial_but_keeps_actual_evidence(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, "dashboard-partial")
+    text = "Guardian giao một sản phẩm không đúng kỳ vọng."
+    assert service._ingest_raw_rows(
+        [
+            _raw(
+                "missing-context",
+                occurred_at=None,
+                text=text,
+                rating=2,
+                product=False,
+            )
+        ],
+        source_name="dashboard_partial_fixture",
+        source_file=None,
+    )["inserted"] == 1
+    _persist_by_external_id(
+        service,
+        {"missing-context": ("complaint", "negative", -0.7)},
+    )
+
+    result = service.dashboard()
+
+    assert result.data_state == "partial"
+    assert result.coverage.model_dump() == {
+        "feedback_items": 1,
+        "analyzed_items": 1,
+        "relevant_items": 1,
+        "time_eligible_items": 0,
+        "product_attributed_items": 0,
+    }
+    assert len(result.products) == 1
+    product = result.products[0]
+    assert product.id == "unattributed"
+    assert product.total_feedback == 1
+    assert product.current.model_dump() == {
+        "feedback": 0,
+        "complaints": 0,
+        "positive": 0,
+        "neutral": 0,
+    }
+    assert product.baseline == product.current
+    assert product.sentiment_delta is None
+    assert len(result.evidence) == 1
+    assert result.evidence[0].text == text
+    assert result.evidence[0].product_id == "unattributed"
+    assert result.evidence[0].timestamp is None
+    assert any("occurrence dates" in message for message in result.messages)
+    assert any("unattributed" in message for message in result.messages)
+    assert result.benchmark.comparable is False
+    assert result.benchmark.aggregates == []
+    service.close()
+
+
+def test_isolated_undated_feedback_is_a_note_when_period_windows_are_usable(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, "dashboard-undated-note")
+    rows = [
+        _raw(
+            "current-dated",
+            occurred_at="2026-07-10T09:00:00+07:00",
+            text="Guardian Serum A current feedback.",
+            rating=4,
+        ),
+        _raw(
+            "baseline-dated",
+            occurred_at="2026-07-03T09:00:00+07:00",
+            text="Guardian Serum A baseline feedback.",
+            rating=3,
+        ),
+        _raw(
+            "undated-extra",
+            occurred_at=None,
+            text="Guardian Serum A feedback without a trustworthy date.",
+            rating=2,
+        ),
+    ]
+    assert service._ingest_raw_rows(
+        rows, source_name="dashboard_undated_note_fixture", source_file=None
+    )["inserted"] == 3
+    _persist_by_external_id(
+        service,
+        {
+            "current-dated": ("praise", "positive", 0.6),
+            "baseline-dated": ("question_request", "neutral", 0.0),
+            "undated-extra": ("complaint", "negative", -0.7),
+        },
+    )
+
+    result = service.dashboard()
+
+    assert result.data_state == "ready"
+    assert result.coverage.feedback_items == 3
+    assert result.coverage.time_eligible_items == 2
+    assert result.products[0].current.feedback == 1
+    assert result.products[0].baseline.feedback == 1
+    assert any("no trustworthy occurrence date" in message for message in result.messages)
+    service.close()
+
+
+def test_all_undated_product_feedback_remains_partial(tmp_path: Path) -> None:
+    service = _service(tmp_path, "dashboard-all-undated")
+    assert service._ingest_raw_rows(
+        [
+            _raw(
+                "undated-product",
+                occurred_at=None,
+                text="Guardian Serum A feedback without a trustworthy date.",
+                rating=2,
+            )
+        ],
+        source_name="dashboard_all_undated_fixture",
+        source_file=None,
+    )["inserted"] == 1
+    _persist_by_external_id(
+        service,
+        {"undated-product": ("complaint", "negative", -0.7)},
+    )
+
+    result = service.dashboard()
+
+    assert result.data_state == "partial"
+    assert result.coverage.product_attributed_items == 1
+    assert result.coverage.time_eligible_items == 0
+    assert result.products[0].current.feedback == 0
+    assert result.products[0].baseline.feedback == 0
+    assert any("no trustworthy occurrence dates" in message for message in result.messages)
+    service.close()
+
+
+def test_empty_dashboard_is_explicitly_empty(tmp_path: Path) -> None:
+    service = _service(tmp_path, "dashboard-empty")
+
+    result = service.dashboard()
+
+    assert result.data_state == "empty"
+    assert result.coverage.model_dump() == {
+        "feedback_items": 0,
+        "analyzed_items": 0,
+        "relevant_items": 0,
+        "time_eligible_items": 0,
+        "product_attributed_items": 0,
+    }
+    assert result.products == []
+    assert result.evidence == []
+    assert result.benchmark.comparable is False
+    assert result.benchmark.aggregates == []
+    assert result.benchmark.reason
+    service.close()
+
+
+def test_matched_benchmark_returns_guardian_and_competitors_from_same_cohort(
+    tmp_path: Path,
+) -> None:
+    service = _service(
+        tmp_path, "dashboard-benchmark", competitor_min_sample=1
+    )
+    rows: list[RawFeedback] = []
+    for brand in ("guardian", "hasaki", "watsons"):
+        rows.append(
+            RawFeedback(
+                source_external_id=f"benchmark-{brand}",
+                source_group="marketplace",
+                source_platform="shopee",
+                visibility="public",
+                brand=brand,
+                brand_candidates=[brand],
+                occurred_at=datetime.fromisoformat("2026-07-10T09:00:00+07:00"),
+                observed_at=datetime.fromisoformat("2026-07-11T10:00:00+07:00"),
+                occurred_at_quality="exact",
+                language="vi",
+                text=f"{brand} serum feedback for the matched cohort.",
+                rating=4,
+                product_name=f"{brand.title()} Serum",
+                product_category="Serum",
+                metadata={
+                    "product_id": f"{brand}-serum",
+                    "experience_subject": "product",
+                },
+            )
+        )
+    assert service._ingest_raw_rows(
+        rows, source_name="dashboard_benchmark_fixture", source_file=None
+    )["inserted"] == 3
+    for row in service.database.query(
+        "SELECT feedback_id, source_external_id, text_redacted FROM feedback_items"
+    ):
+        brand = str(row["source_external_id"]).removeprefix("benchmark-")
+        intent, sentiment, score = {
+            "guardian": ("complaint", "negative", -0.7),
+            "hasaki": ("praise", "positive", 0.7),
+            "watsons": ("question_request", "neutral", 0.0),
+        }[brand]
+        service._persist_analysis(
+            str(row["feedback_id"]),
+            _classification(
+                str(row["text_redacted"]),
+                intent=intent,
+                sentiment=sentiment,
+                sentiment_score=score,
+                brand=brand,
+            ),
+            model_version="dashboard-test",
+            review_required=False,
+        )
+
+    benchmark = service.dashboard().benchmark
+
+    assert benchmark.comparable is True
+    assert benchmark.reason is None
+    assert [aggregate.brand for aggregate in benchmark.aggregates] == [
+        "guardian",
+        "hasaki",
+        "watsons",
+    ]
+    assert all(aggregate.feedback == 1 for aggregate in benchmark.aggregates)
+    assert benchmark.aggregates[0].complaints == 1
+    assert benchmark.aggregates[1].positive == 1
+    assert benchmark.aggregates[2].neutral == 1
+    service.close()
+
+
+def test_old_dated_guardian_feedback_is_partial_without_current_or_baseline_data(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, "dashboard-old-data")
+    assert service._ingest_raw_rows(
+        [
+            _raw(
+                "old-feedback",
+                occurred_at="2026-05-01T09:00:00+07:00",
+                text="Guardian Serum A historical feedback.",
+                rating=4,
+            )
+        ],
+        source_name="dashboard_old_fixture",
+        source_file=None,
+    )["inserted"] == 1
+    _persist_by_external_id(
+        service,
+        {"old-feedback": ("praise", "positive", 0.5)},
+    )
+
+    result = service.dashboard()
+
+    assert result.coverage.time_eligible_items == 1
+    assert result.data_state == "partial"
+    assert result.products[0].current.feedback == 0
+    assert result.products[0].baseline.feedback == 0
+    assert any("current analysis window" in message for message in result.messages)
+    assert any("baseline analysis window" in message for message in result.messages)
+    service.close()
+
+
+def test_evidence_limit_samples_across_products(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(application_module, "DASHBOARD_EVIDENCE_LIMIT", 3)
+    service = _service(tmp_path, "dashboard-evidence-sampling")
+    rows = [
+        _raw(
+            f"product-a-{index}",
+            occurred_at=f"2026-07-10T0{index + 5}:00:00+07:00",
+            text=f"Guardian Product A complaint {index}.",
+            rating=2,
+            product_id="P-A",
+            product_name="Product A",
+        )
+        for index in range(3)
+    ]
+    rows.append(
+        _raw(
+            "product-b-0",
+            occurred_at="2026-07-09T05:00:00+07:00",
+            text="Guardian Product B complaint.",
+            rating=2,
+            product_id="P-B",
+            product_name="Product B",
+        )
+    )
+    assert service._ingest_raw_rows(
+        rows, source_name="dashboard_evidence_fixture", source_file=None
+    )["inserted"] == 4
+    _persist_by_external_id(
+        service,
+        {
+            **{
+                f"product-a-{index}": ("complaint", "negative", -0.7)
+                for index in range(3)
+            },
+            "product-b-0": ("complaint", "negative", -0.7),
+        },
+    )
+
+    result = service.dashboard()
+
+    assert len(result.evidence) == 3
+    assert [item.product_id for item in result.evidence[:2]] == ["P-A", "P-B"]
+    assert {item.product_id for item in result.evidence} == {"P-A", "P-B"}
+    service.close()
+
+
+@pytest.mark.parametrize("path", ["/api", "/api/v1/does-not-exist"])
+def test_unknown_api_routes_return_json_404(path: str) -> None:
+    client = TestClient(app)
+    try:
+        response = client.get(path)
+        assert response.status_code == 404
+        assert response.headers["content-type"].startswith("application/json")
+        assert response.json() == {"detail": "API route not found"}
+    finally:
+        client.close()

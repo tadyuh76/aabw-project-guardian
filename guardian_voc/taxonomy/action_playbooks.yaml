@@ -1,0 +1,91 @@
+version: guardian-action-playbooks-v1
+topics:
+  product_quality_authenticity:
+    primary_owner: Commercial
+    supporting_owner: Customer Service
+    actions:
+      - Review affected SKU and supplier evidence.
+      - Prepare customer-response guidance.
+    viewer_actions:
+      customer_service: Preserve case evidence and use the approved response guidance.
+      commercial: Review the affected SKU and supplier evidence.
+  price_promotion:
+    primary_owner: E-commerce
+    supporting_owner: Marketing
+    actions:
+      - Verify checkout eligibility behavior.
+      - Clarify eligibility before purchase.
+    viewer_actions:
+      ecommerce: Reproduce eligibility behavior across the affected checkout paths.
+      marketing: Simplify campaign wording using the verified eligibility rules.
+      customer_service: Use one verified explanation for eligibility questions.
+  availability_assortment:
+    primary_owner: Commercial
+    supporting_owner: E-commerce
+    actions:
+      - Review stock concentration across affected items.
+      - Update availability messaging.
+    viewer_actions:
+      commercial: Review replenishment and assortment concentration.
+      ecommerce: Make item availability and substitution status explicit.
+      customer_service: Capture the affected item when handling cancellations.
+  delivery_fulfilment:
+    primary_owner: E-commerce
+    supporting_owner: Customer Service
+    actions:
+      - Review the carrier and fulfilment pattern.
+      - Update customer-recovery guidance.
+    viewer_actions:
+      ecommerce: Isolate the carrier or fulfilment path represented in the evidence.
+      customer_service: Apply recovery guidance consistently to affected cases.
+  online_checkout_payment:
+    primary_owner: E-commerce
+    supporting_owner: Customer Service
+    actions:
+      - Reproduce the affected checkout journey.
+      - Fix or explain the failing step.
+    viewer_actions:
+      ecommerce: Reproduce the failing journey with the evidence conditions.
+      customer_service: Record the failing step and offer the approved workaround.
+  store_staff_experience:
+    primary_owner: Customer Service
+    supporting_owner: Commercial
+    actions:
+      - Review the location concentration.
+      - Coach the relevant operation.
+    viewer_actions:
+      customer_service: Review evidence with the affected location operation.
+      commercial: Confirm whether the issue clusters by store or category.
+  customer_service:
+    primary_owner: Customer Service
+    supporting_owner: null
+    actions:
+      - Update response guidance.
+      - Review escalation criteria.
+    viewer_actions:
+      customer_service: Align response guidance and escalation criteria to the evidence.
+  returns_refunds:
+    primary_owner: Customer Service
+    supporting_owner: E-commerce
+    actions:
+      - Review policy clarity.
+      - Review resolution-time bottlenecks.
+    viewer_actions:
+      customer_service: Identify where the resolution path stalls.
+      ecommerce: Make the return and refund steps explicit before submission.
+  loyalty_membership:
+    primary_owner: Marketing
+    supporting_owner: Customer Service
+    actions:
+      - Clarify loyalty benefits.
+      - Resolve recurring earn or redeem friction.
+    viewer_actions:
+      marketing: Clarify the evidenced earn or redeem rule.
+      customer_service: Use the verified loyalty rule when resolving cases.
+  other:
+    primary_owner: Customer Service
+    supporting_owner: null
+    actions:
+      - Review representative evidence.
+    viewer_actions:
+      customer_service: Triage the evidence to the appropriate operational owner.

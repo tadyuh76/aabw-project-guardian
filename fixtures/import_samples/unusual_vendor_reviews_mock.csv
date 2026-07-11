@@ -1,0 +1,6 @@
+URL gốc,Điểm khách chấm,Người viết,ID nội bộ,Tên hàng hóa,Ý kiến nguyên văn,Thời điểm ghi nhận,Nhóm chiến dịch,Ghi chú vận hành
+https://example.test/products/guardian-50001,4,Reviewer-A,ODD-50001,"Guardian Body Scrub Coffee 250g","Hạt tẩy vừa phải, dùng xong da khá mịn.",2026.05.15 10:20,Always On,"header names intentionally unusual"
+https://example.test/products/guardian-50002,2,Reviewer-B,ODD-50002,"Guardian Facial Mist 100ml","Vòi xịt ra tia không đều, nước bên trong dịu da.",2026.05.17 14:06,Always On,"tests mixed positive and negative text"
+https://example.test/products/guardian-50003,5,Reviewer-C,ODD-50003,"Guardian Kids Sunscreen SPF50","Bé dùng không bị đỏ da, sản phẩm không có mùi nồng.",2026.05.20 09:44,Summer,"tests Vietnamese semantic mapping"
+https://example.test/products/guardian-50004,1,Reviewer-D,ODD-50004,"Guardian Digital Thermometer","Màn hình hiển thị chập chờn và kết quả đo không ổn định.",2026.05.23 22:11,Health,"tests unfamiliar review column"
+https://example.test/products/guardian-50005,5,Reviewer-E,ODD-50005,"Guardian Travel Bottle Set","Bộ chai nhỏ gọn, nắp kín và tiện mang lên máy bay.",2026.05.26 07:35,Travel,"tests original product URL mapping"
