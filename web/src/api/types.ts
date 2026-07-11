@@ -74,6 +74,7 @@ export interface DashboardEvidence {
   text: string;
   sourceGroup: string;
   sourcePlatform: string;
+  sourceUrl: string | null;
   timestamp: string | null;
   confidence: number | null;
   stance: string | null;
