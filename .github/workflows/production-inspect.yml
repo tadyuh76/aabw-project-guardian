@@ -32,7 +32,7 @@ jobs:
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_PATH}' && docker compose exec -T app python - <<'PY'
+            "cd '${DEPLOY_PATH}' && docker compose stop app >/dev/null && docker compose run --rm --no-deps --entrypoint python app - <<'PY'
           import json
           from guardian_voc.config import get_settings
           from guardian_voc.db import Database
@@ -100,4 +100,7 @@ jobs:
               'discovery_by_source': latest_discovery,
               'social_feedback_by_platform': feedback,
           }, sort_keys=True, default=str))
-          PY"
+          PY
+          status=\$?
+          scripts/deploy-server >/dev/null
+          exit \${status}"
