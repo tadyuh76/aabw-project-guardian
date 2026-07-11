@@ -1,0 +1,68 @@
+name: Production social collection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 360
+    concurrency:
+      group: guardian-signal-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: /opt/guardian-signal
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - name: Configure verified SSH access
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/guardian-deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/guardian-deploy ~/.ssh/known_hosts
+
+      - name: Install protected SERP credential
+        env:
+          SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
+        run: |
+          test -n "$SERP_API_KEY"
+          printf '%s\n' "$SERP_API_KEY" | ssh \
+            -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "umask 077; install -d -m 700 '${DEPLOY_PATH}/.runtime'; cat > '${DEPLOY_PATH}/.runtime/serp-api-key'; chmod 640 '${DEPLOY_PATH}/.runtime/serp-api-key'; chown 0:1000 '${DEPLOY_PATH}/.runtime/serp-api-key'"
+
+      - name: Enable all three sources and restart safely
+        run: |
+          ssh -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "chmod +x '${DEPLOY_PATH}/scripts/configure-production-social' '${DEPLOY_PATH}/scripts/deploy-server' && '${DEPLOY_PATH}/scripts/configure-production-social' && '${DEPLOY_PATH}/scripts/deploy-server'"
+
+      - name: Run bounded 30-day production collection
+        run: |
+          ssh -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && token=\$(cat .runtime/admin-token) && curl --fail --silent --show-error --max-time 21000 -H 'Content-Type: application/json' -H \"X-Admin-Token: \${token}\" --data '{\"source_ids\":[\"guardian_public_social\",\"hasaki_public_social\",\"watsons_public_social\"],\"pages_per_query\":3,\"fetch_limit\":500,\"extraction_limit\":500,\"lookback_days\":30,\"refresh\":false}' http://127.0.0.1:8000/api/v1/live-collections > .runtime/last-social-collection.json"
+
+      - name: Verify terminal result without exposing data or credentials
+        run: |
+          ssh -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && python3 -c 'import json; p=json.load(open(\".runtime/last-social-collection.json\")); assert p[\"status\"] in {\"completed\", \"partial\"}, p[\"status\"]; print(json.dumps({k:p.get(k) for k in (\"pipeline_run_id\",\"status\",\"records_seen\",\"records_inserted\",\"records_skipped\",\"records_failed\")}, sort_keys=True))' && curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/ready >/dev/null"

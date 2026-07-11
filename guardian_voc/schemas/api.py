@@ -310,6 +310,23 @@ class RunResponse(BaseModel):
     error_summary: str | None = None
 
 
+class LiveCollectionRequest(BaseModel):
+    source_ids: list[Literal[
+        "guardian_public_social",
+        "hasaki_public_social",
+        "watsons_public_social",
+    ]] = Field(default_factory=lambda: [
+        "guardian_public_social",
+        "hasaki_public_social",
+        "watsons_public_social",
+    ], min_length=1, max_length=3)
+    pages_per_query: int = Field(default=2, ge=1, le=10)
+    fetch_limit: int = Field(default=200, ge=1, le=500)
+    extraction_limit: int = Field(default=200, ge=1, le=500)
+    lookback_days: int = Field(default=30, ge=1, le=30)
+    refresh: bool = False
+
+
 class InsightPatchRequest(BaseModel):
     status: Literal["open", "acknowledged", "monitoring", "resolved", "dismissed"] | None = None
     primary_owner: str | None = None

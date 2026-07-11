@@ -36,6 +36,7 @@ from guardian_voc.schemas.api import (
     FeedbackListResponse,
     InsightCardView,
     InsightPatchRequest,
+    LiveCollectionRequest,
     Role,
     RunResponse,
     TodayResponse,
@@ -424,6 +425,27 @@ def start_crawl(
     keyword: str = Form(default="guardian vietnam", max_length=500),
 ) -> RunResponse:
     return service.crawl(keyword=keyword)
+
+
+@app.post(
+    "/api/v1/live-collections",
+    response_model=RunResponse,
+    dependencies=[Depends(require_admin)],
+)
+def start_live_collection(
+    payload: LiveCollectionRequest,
+    service: Annotated[GuardianService, Depends(service_from_request)],
+) -> RunResponse:
+    """Run one bounded, auditable SERP → TinyFish → OpenAI collection."""
+
+    return service.run_live_collection(
+        source_ids=payload.source_ids,
+        pages_per_query=payload.pages_per_query,
+        fetch_limit=payload.fetch_limit,
+        extraction_limit=payload.extraction_limit,
+        lookback_days=payload.lookback_days,
+        refresh=payload.refresh,
+    )
 
 
 @app.post("/api/v1/pipeline/run", response_model=RunResponse, dependencies=[Depends(require_admin)])

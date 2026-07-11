@@ -883,3 +883,35 @@ def test_scheduler_runs_one_strict_full_flow_per_cycle_before_waiting(
     assert snapshot["full_flow_enabled"] is True
     assert snapshot["full_flow_source_ids"] == ["guardian_public_social"]
     assert snapshot["last_run_id"] == "live-collection-1"
+
+
+def test_invalid_optional_collector_snapshot_does_not_block_strict_full_flow(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        _env_file=None,
+        voc_demo_mode=False,
+        voc_scheduler_enabled=True,
+        voc_scheduler_full_flow_enabled=True,
+        ai_provider="openai_compatible",
+        ai_api_key="test-openai-key",
+        serp_api_key="test-serp-key",
+        tinyfish_enabled=True,
+        tinyfish_api_key="test-tinyfish-key",
+        voc_data_dir=tmp_path,
+    )
+    service = FakeService(settings)
+    scheduler = PipelineScheduler(service, settings)  # type: ignore[arg-type]
+
+    class InvalidCollector:
+        def poll(self) -> list[RunResponse]:
+            raise RuntimeError("invalid optional snapshot")
+
+        def snapshot(self) -> dict[str, Any]:
+            return {"status": "failed"}
+
+    scheduler.collector = InvalidCollector()  # type: ignore[assignment]
+
+    assert scheduler.run_once() is False
+    assert service.live_collections == ["strict-full-flow"]
+    assert scheduler.snapshot()["state"] == "backoff"

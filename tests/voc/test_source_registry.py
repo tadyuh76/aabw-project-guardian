@@ -51,7 +51,7 @@ def test_default_registry_excludes_marketplaces_and_uses_per_source_owners() -> 
         assert source.owner_brand == owner
 
 
-def test_default_query_pack_is_exclusion_safe_and_covers_atomic_platforms() -> None:
+def test_default_query_pack_is_exclusion_safe_and_covers_platforms_and_problems() -> None:
     load_source_registry.cache_clear()
     registry = load_source_registry()
 
@@ -67,17 +67,26 @@ def test_default_query_pack_is_exclusion_safe_and_covers_atomic_platforms() -> N
         "youtube_vi",
         "reddit_vi",
     }
+    expected_problem_families = {
+        "product_problems_vi",
+        "service_problems_vi",
+        "value_experience_vi",
+    }
     for source_id in PUBLIC_SOCIAL_SOURCES:
         queries = registry.get(source_id).search_queries
-        assert len(queries) == 6
+        assert len(queries) == 9
         assert {
-            next(
-                suffix
-                for suffix in expected_suffixes
-                if query.id.endswith(suffix)
-            )
+            suffix
             for query in queries
+            for suffix in expected_suffixes
+            if query.id.endswith(suffix)
         } == expected_suffixes
+        assert {
+            suffix
+            for query in queries
+            for suffix in expected_problem_families
+            if query.id.endswith(suffix)
+        } == expected_problem_families
         by_id = {query.id: query.query for query in queries}
         reddit = next(value for key, value in by_id.items() if key.endswith("reddit_vi"))
         tiktok = next(
@@ -86,6 +95,15 @@ def test_default_query_pack_is_exclusion_safe_and_covers_atomic_platforms() -> N
         assert "site:reddit.com" in reddit and "inurl:/comments/" in reddit
         assert "site:tiktok.com" in tiktok and "inurl:/video/" in tiktok
         assert "-site:shop.tiktok.com" in tiktok
+        problem_queries = [
+            value
+            for key, value in by_id.items()
+            if any(key.endswith(suffix) for suffix in expected_problem_families)
+        ]
+        assert all("site:facebook.com" in value for value in problem_queries)
+        assert any("kích ứng" in value and "hàng giả" in value for value in problem_queries)
+        assert any("giao trễ" in value and "chưa hoàn tiền" in value for value in problem_queries)
+        assert any("không mua lại" in value and "trải nghiệm tệ" in value for value in problem_queries)
 
 
 def test_registry_requires_owner_brand_on_each_source(tmp_path: Path) -> None:
@@ -140,4 +158,3 @@ sources:
     )
     with pytest.raises(ValueError, match="invalid owner_brand"):
         load_source_registry(path)
-

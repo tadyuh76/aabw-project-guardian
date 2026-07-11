@@ -1046,22 +1046,37 @@ class GuardianService:
 
         return self._execute_pipeline(trigger="crawl", ingest=ingest)
 
-    def run_live_collection(self) -> RunResponse:
+    def run_live_collection(
+        self,
+        *,
+        source_ids: Sequence[str] | None = None,
+        pages_per_query: int | None = None,
+        fetch_limit: int | None = None,
+        extraction_limit: int | None = None,
+        lookback_days: int | None = None,
+        refresh: bool | None = None,
+    ) -> RunResponse:
         """Run the strict Serp → TinyFish → OpenAI acquisition flow once.
 
         All stages share this service's DuckDB handle and pipeline lock. Search
         snippets stay in the discovery audit; only strict page-extracted,
         Vietnamese customer units cross into feedback and current-model
         classification. Existing discovery, fetch, extraction, and feedback
-        identities make overlapping two-day windows idempotent.
+        identities make overlapping collection windows idempotent.
         """
 
         from guardian_voc.data_layer import LiveDataLayer
 
         local_today = datetime.now(ZoneInfo(self.settings.voc_business_timezone)).date()
-        period_start = local_today - timedelta(
-            days=self.settings.voc_live_collection_lookback_days - 1
+        selected_source_ids = tuple(
+            source_ids or self.settings.voc_live_collection_source_ids
         )
+        selected_lookback_days = (
+            lookback_days
+            if lookback_days is not None
+            else self.settings.voc_live_collection_lookback_days
+        )
+        period_start = local_today - timedelta(days=selected_lookback_days - 1)
         layer = LiveDataLayer(
             settings=self.settings,
             database=self.database,
@@ -1073,14 +1088,28 @@ class GuardianService:
         def ingest() -> Mapping[str, Any]:
             manifest = asyncio.run(
                 layer.run(
-                    source_ids=self.settings.voc_live_collection_source_ids,
-                    pages_per_query=self.settings.voc_live_collection_pages_per_query,
-                    fetch_limit=self.settings.voc_live_collection_fetch_limit,
+                    source_ids=selected_source_ids,
+                    pages_per_query=(
+                        pages_per_query
+                        if pages_per_query is not None
+                        else self.settings.voc_live_collection_pages_per_query
+                    ),
+                    fetch_limit=(
+                        fetch_limit
+                        if fetch_limit is not None
+                        else self.settings.voc_live_collection_fetch_limit
+                    ),
                     extraction_limit=(
-                        self.settings.voc_live_collection_extraction_limit
+                        extraction_limit
+                        if extraction_limit is not None
+                        else self.settings.voc_live_collection_extraction_limit
                     ),
                     extract_public=True,
-                    refresh=self.settings.voc_live_collection_refresh,
+                    refresh=(
+                        refresh
+                        if refresh is not None
+                        else self.settings.voc_live_collection_refresh
+                    ),
                 )
             )
             ownership = layer.apply_verified_source_ownership()
@@ -1102,7 +1131,7 @@ class GuardianService:
                     "period_start": period_start.isoformat(),
                     "period_end": local_today.isoformat(),
                     "source_ids": list(
-                        self.settings.voc_live_collection_source_ids
+                        selected_source_ids
                     ),
                     "searches": int(discover.get("searches") or 0),
                     "discovered": int(discover.get("unique_results") or 0),

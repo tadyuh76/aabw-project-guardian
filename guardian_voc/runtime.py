@@ -872,9 +872,20 @@ class PipelineScheduler:
             self._state = "running"
             self._last_started_at = _utc_now()
             self._next_run_at = None
+        collector_error: Exception | None = None
         try:
-            for result in self.collector.poll():
-                self._require_success(result)
+            try:
+                for result in self.collector.poll():
+                    self._require_success(result)
+            except Exception as exc:
+                # A malformed optional file snapshot remains failed and
+                # retryable, but must not suppress the independently verified
+                # SERP → TinyFish → OpenAI collection path for the cycle.
+                collector_error = exc
+                logger.warning(
+                    "collector snapshot failed; continuing strict live collection (%s)",
+                    type(exc).__name__,
+                )
             if self._stop_event.is_set():
                 return True
 
@@ -890,6 +901,8 @@ class PipelineScheduler:
                     if self._stop_event.is_set():
                         break
                     self._require_success(self.service.crawl(keyword=keyword))
+            if collector_error is not None:
+                raise RuntimeError("collector snapshot failed independently")
         except Exception as exc:
             logger.warning("scheduled pipeline cycle failed: %s", exc)
             with self._state_lock:

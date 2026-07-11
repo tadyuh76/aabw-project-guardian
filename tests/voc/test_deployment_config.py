@@ -37,6 +37,25 @@ def test_main_ci_deploys_only_after_tests_pass() -> None:
     assert "--exclude='.runtime/'" in workflow
 
 
+def test_production_social_collection_is_bounded_and_secret_safe() -> None:
+    workflow = (
+        ROOT / ".github" / "workflows" / "production-social-collection.yml"
+    ).read_text(encoding="utf-8")
+    configuration = (ROOT / "scripts" / "configure-production-social").read_text(
+        encoding="utf-8"
+    )
+
+    assert "workflow_dispatch:" in workflow
+    assert "environment: production" in workflow
+    assert "secrets.SERP_API_KEY" in workflow
+    assert "pages_per_query\\\":3" in workflow
+    assert "fetch_limit\\\":500" in workflow
+    assert "lookback_days\\\":30" in workflow
+    assert "last-social-collection.json" in workflow
+    assert "guardian_public_social,hasaki_public_social,watsons_public_social" in configuration
+    assert "SERP_API_KEY" not in configuration
+
+
 def test_compose_is_one_hardened_service_without_sibling_mounts() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 
