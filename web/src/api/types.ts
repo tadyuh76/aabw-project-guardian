@@ -58,14 +58,17 @@ export interface DashboardProduct {
   totalFeedback: number;
   current: ProductPeriodCounts;
   baseline: ProductPeriodCounts;
+  overall?: ProductPeriodCounts;
   sentimentDelta: number | null;
   sources: Array<{ sourceGroup: string; count: number }>;
   themes: ProductTheme[];
   ratingDistribution: ProductRatingCount[];
   baselineRatingDistribution: ProductRatingCount[];
+  allRatingDistribution?: ProductRatingCount[];
   ratingTrend: ProductRatingTrendPoint[];
   negativeFeedback: ProductTheme[];
   problems: ProductTheme[];
+  allProblems?: ProductTheme[];
 }
 
 export interface DashboardEvidence {

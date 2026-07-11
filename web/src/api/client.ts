@@ -147,14 +147,17 @@ function normalizeProduct(value: unknown): DashboardProduct | null {
     totalFeedback: countValue(value.total_feedback ?? value.totalFeedback),
     current: periodCounts(value.current),
     baseline: periodCounts(value.baseline),
+    overall: periodCounts(value.overall),
     sentimentDelta: numberValue(value.sentiment_delta ?? value.sentimentDelta),
     sources: normalizeSources(value.sources),
     themes,
     ratingDistribution: normalizeRatingDistribution(value.rating_distribution ?? value.ratingDistribution),
     baselineRatingDistribution: normalizeRatingDistribution(value.baseline_rating_distribution ?? value.baselineRatingDistribution),
+    allRatingDistribution: normalizeRatingDistribution(value.all_rating_distribution ?? value.allRatingDistribution),
     ratingTrend: normalizeRatingTrend(value.rating_trend ?? value.ratingTrend),
     negativeFeedback: normalizeThemes(value.negative_feedback ?? value.negativeFeedback),
     problems: normalizeThemes(value.problems ?? value.themes),
+    allProblems: normalizeThemes(value.all_problems ?? value.allProblems),
   };
 }
 

@@ -32,7 +32,7 @@ function humanize(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function aggregateThemes(products: DashboardProduct[], key: "negativeFeedback" | "problems" | "allNegativeFeedback" | "allProblems"): ProductTheme[] {
+function aggregateThemes(products: DashboardProduct[], key: "problems" | "allProblems"): ProductTheme[] {
   const values = new Map<string, { count: number; baselineCount: number }>();
   products.forEach((product) => (product[key] ?? []).forEach((item) => {
     const current = values.get(item.label) ?? { count: 0, baselineCount: 0 };

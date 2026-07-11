@@ -35,11 +35,13 @@ export function dashboardFixture(overrides: Partial<DashboardData> = {}): Dashbo
       totalFeedback: 720,
       current: { feedback: 200, complaints: 6, positive: 140, neutral: 40 },
       baseline: { feedback: 180, complaints: 9, positive: 120, neutral: 40 },
+      overall: { feedback: 720, complaints: 15, positive: 520, neutral: 120 },
       sentimentDelta: 3.2,
       sources: [{ sourceGroup: "owned", count: 150 }, { sourceGroup: "marketplace", count: 50 }],
       themes: [{ label: "Packaging", subtopic: null, count: 6, baselineCount: 8, percentageChange: -25 }],
       ratingDistribution: [{ rating: 5, count: 128 }, { rating: 4, count: 50 }, { rating: 3, count: 12 }, { rating: 2, count: 6 }, { rating: 1, count: 4 }],
       baselineRatingDistribution: [{ rating: 5, count: 100 }, { rating: 4, count: 50 }, { rating: 3, count: 20 }, { rating: 2, count: 8 }, { rating: 1, count: 2 }],
+      allRatingDistribution: [{ rating: 5, count: 480 }, { rating: 4, count: 130 }, { rating: 3, count: 60 }, { rating: 2, count: 30 }, { rating: 1, count: 20 }],
       ratingTrend: [
         { date: "2026-06-07", platform: "Shopee", averageRating: 4.1, count: 20, predicted: false },
         { date: "2026-06-14", platform: "Shopee", averageRating: 4.2, count: 20, predicted: false },
@@ -48,6 +50,7 @@ export function dashboardFixture(overrides: Partial<DashboardData> = {}): Dashbo
       ],
       negativeFeedback: [{ label: "product_quality", subtopic: null, count: 6, baselineCount: 4, percentageChange: 50 }],
       problems: [{ label: "damaged_packaging", subtopic: null, count: 6, baselineCount: 8, percentageChange: -25 }],
+      allProblems: [{ label: "damaged_packaging", subtopic: null, count: 14, baselineCount: 0, percentageChange: null }],
     }],
     evidence: [{
       id: "feedback-1",
