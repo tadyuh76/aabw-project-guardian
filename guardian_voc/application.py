@@ -1121,12 +1121,16 @@ class GuardianService:
             discover = discover if isinstance(discover, Mapping) else {}
             fetch = stages.get("fetch")
             fetch = fetch if isinstance(fetch, Mapping) else {}
+            discovery_errors = discover.get("errors")
+            discovery_error_count = (
+                len(discovery_errors) if isinstance(discovery_errors, list) else 0
+            )
             return {
                 "ingestion_run_id": extract.get("ingestion_run_id"),
                 "seen": int(extract.get("accepted_units") or 0),
                 "inserted": int(extract.get("inserted") or 0),
                 "skipped": int(extract.get("skipped") or 0),
-                "failed": int(extract.get("failed") or 0),
+                "failed": int(extract.get("failed") or 0) + discovery_error_count,
                 "collection": {
                     "period_start": period_start.isoformat(),
                     "period_end": local_today.isoformat(),
@@ -1134,6 +1138,9 @@ class GuardianService:
                         selected_source_ids
                     ),
                     "searches": int(discover.get("searches") or 0),
+                    "discovery_errors": discovery_error_count,
+                    "serp_available_before": discover.get("available_before"),
+                    "serp_available_after": discover.get("available_after"),
                     "discovered": int(discover.get("unique_results") or 0),
                     "fetch_attempted": int(fetch.get("attempted") or 0),
                     "extraction_attempted": int(extract.get("attempted") or 0),

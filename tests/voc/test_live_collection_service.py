@@ -103,6 +103,7 @@ def test_strict_live_collection_uses_shared_database_and_publishes(
         assert row["trigger"] == "scheduled_full_flow"
         stages = json.loads(str(row["stage_results"]))
         assert stages["ingest"]["collection"]["searches"] == 6
+        assert stages["ingest"]["collection"]["discovery_errors"] == 0
         assert stages["ingest"]["collection"]["period_start"] == "2025-07-13"
         assert stages["ingest"]["collection"]["source_ids"] == [
             "guardian_public_social",
@@ -111,6 +112,74 @@ def test_strict_live_collection_uses_shared_database_and_publishes(
         ]
         assert stages["ingest"]["collection"]["fetch_attempted"] == 4
         assert stages["post_classify"]["feedback_items"] == 6
+    finally:
+        service.close()
+
+
+def test_live_collection_counts_serp_discovery_errors(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    class FakeLiveDataLayer:
+        def __init__(self, **_: Any) -> None:
+            pass
+
+        async def run(self, **_: Any) -> dict[str, Any]:
+            return {
+                "stages": {
+                    "discover": {
+                        "searches": 0,
+                        "unique_results": 3,
+                        "available_before": 0,
+                        "available_after": 0,
+                        "errors": [
+                            {
+                                "source_id": "guardian_public_social",
+                                "query_id": "guardian_facebook_review_vi",
+                                "error": "HTTPStatusError",
+                            }
+                        ],
+                    },
+                    "fetch": {"attempted": 0},
+                    "extract": {
+                        "attempted": 0,
+                        "accepted_units": 0,
+                        "inserted": 0,
+                        "skipped": 0,
+                        "failed": 0,
+                        "ingestion_run_id": None,
+                    },
+                }
+            }
+
+        def apply_verified_source_ownership(self) -> dict[str, int]:
+            return {"updated": 0, "analyses_invalidated": 0}
+
+        def build_manifest(self, **_: Any) -> dict[str, Any]:
+            return {"counts": {}}
+
+    monkeypatch.setattr(data_layer, "LiveDataLayer", FakeLiveDataLayer)
+    settings = Settings(
+        _env_file=None,
+        voc_db_path=tmp_path / "live-flow.duckdb",
+        voc_data_dir=tmp_path / "data",
+        voc_demo_mode=False,
+        ai_provider="cached",
+        serp_api_key="test-serp",
+    )
+    service = GuardianService(settings)
+    try:
+        result = service.run_live_collection()
+        assert result.status == "partial"
+        assert result.records_failed == 1
+        row = service.database.query_one(
+            "SELECT stage_results FROM pipeline_runs WHERE id = ?",
+            [result.pipeline_run_id],
+        )
+        assert row is not None
+        stages = json.loads(str(row["stage_results"]))
+        assert stages["ingest"]["collection"]["serp_available_before"] == 0
+        assert stages["ingest"]["collection"]["serp_available_after"] == 0
     finally:
         service.close()
 
