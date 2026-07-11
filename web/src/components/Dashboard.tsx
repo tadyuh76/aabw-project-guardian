@@ -1,5 +1,5 @@
 import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { ArrowSquareOut, CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
@@ -8,7 +8,7 @@ import { GUARDIAN_PRODUCT_GROUPS, ProductGroupSelect, productMatchesGroup } from
 
 interface DashboardProps { data: DashboardData; }
 type DatePreset = "7d" | "30d" | "1y" | "all" | "custom";
-type DateMode = "current" | "combined";
+type DateMode = "current" | "combined" | "all";
 
 const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
 const ratingColor = "#ec7e24";
@@ -18,7 +18,7 @@ const platformColors: Record<string, string> = {
   Lazada: "#7c3aed",
   GrabMart: "#16a34a",
 };
-const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "5", md: "6" } } as const;
+const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "4", md: "5" } } as const;
 
 function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
@@ -32,9 +32,9 @@ function humanize(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function aggregateThemes(products: DashboardProduct[], key: "negativeFeedback" | "problems"): ProductTheme[] {
+function aggregateThemes(products: DashboardProduct[], key: "negativeFeedback" | "problems" | "allNegativeFeedback" | "allProblems"): ProductTheme[] {
   const values = new Map<string, { count: number; baselineCount: number }>();
-  products.forEach((product) => product[key].forEach((item) => {
+  products.forEach((product) => (product[key] ?? []).forEach((item) => {
     const current = values.get(item.label) ?? { count: 0, baselineCount: 0 };
     current.count += item.count;
     current.baselineCount += item.baselineCount;
@@ -52,8 +52,8 @@ function aggregateThemes(products: DashboardProduct[], key: "negativeFeedback" |
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <Box {...panelProps} minW="0">
-      <Flex align="center" justify="space-between" gap="4" mb="5">
-        <Heading size="md" letterSpacing="0">{title}</Heading>
+      <Flex align="center" justify="space-between" gap="4" mb="4">
+        <Heading size="sm" letterSpacing="0">{title}</Heading>
         {action}
       </Flex>
       {children}
@@ -193,9 +193,9 @@ function RatingBars({ items }: { items: Array<{ label: string; count: number }> 
     <Grid gridTemplateColumns="repeat(5, minmax(0, 1fr))" gap={{ base: "2", md: "3" }} h="190px" alignItems="end">
       {items.map((item) => (
         <Flex key={item.label} direction="column" align="center" justify="flex-end" h="full" gap="2">
-          <Text fontWeight="750">{item.count.toLocaleString()}</Text>
-          <Flex w="full" maxW="54px" h={`${Math.max(8, (item.count / max) * 112)}px`} bg={ratingColor} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
-          <Flex align="center" gap="1" fontWeight="700"><Star size={16} weight="fill" color={ratingColor} />{item.label}</Flex>
+          <Text fontSize="sm" fontWeight="750">{item.count.toLocaleString()}</Text>
+          <Flex w="full" maxW="48px" h={`${Math.max(8, (item.count / max) * 104)}px`} bg={ratingColor} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
+          <Flex align="center" gap="1" fontSize="sm" fontWeight="700"><Star size={14} weight="fill" color={ratingColor} />{item.label}</Flex>
         </Flex>
       ))}
     </Grid>
@@ -236,11 +236,11 @@ function ProblemCategoryChart({ items, mode, empty }: { items: ProductTheme[]; m
           const label = humanize(item.label);
           return (
             <g key={item.label}>
-              <text x="0" y={y + 21} fill="var(--chakra-colors-ink)" fontSize="13" fontWeight="650">
+              <text x="0" y={y + 21} fill="var(--chakra-colors-ink)" fontSize="11" fontWeight="650">
                 {label.length > 22 ? `${label.slice(0, 21)}…` : label}
               </text>
               <rect x={labelWidth} y={y + 8} width={bar} height="16" rx="4" fill={chartColors[(index + 1) % chartColors.length]} />
-              <text x={labelWidth + bar + 8} y={y + 21} fill="var(--chakra-colors-ink)" fontSize="13" fontWeight="750">
+              <text x={labelWidth + bar + 8} y={y + 21} fill="var(--chakra-colors-ink)" fontSize="11" fontWeight="750">
                 {item.displayCount.toLocaleString()}
               </text>
             </g>
@@ -264,6 +264,55 @@ function aggregateRatingTrend(products: DashboardProduct[]): ProductRatingTrendP
   return [...groups.values()].map(({ total, count, point }) => ({ ...point, averageRating: total / count, count }));
 }
 
+function dateOnly(value: string | null): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function trendDateRange(data: DashboardData, preset: DatePreset, customRange: { from: string; to: string }): { start: Date | null; end: Date | null } {
+  if (preset === "all") return { start: null, end: null };
+  if (preset === "custom") {
+    const start = parseDisplayDate(customRange.from);
+    const end = parseDisplayDate(customRange.to);
+    return { start, end: end ? addDays(end, 1) : null };
+  }
+  const currentEnd = dateOnly(data.windows.currentEnd) ?? new Date();
+  if (preset === "7d") return { start: dateOnly(data.windows.currentStart) ?? addDays(currentEnd, -7), end: currentEnd };
+  return { start: addDays(currentEnd, preset === "30d" ? -30 : -365), end: currentEnd };
+}
+
+function filterRatingTrend(points: ProductRatingTrendPoint[], range: { start: Date | null; end: Date | null }): ProductRatingTrendPoint[] {
+  if (!range.start && !range.end) return points;
+  const observed = points.filter((point) => {
+    if (point.predicted) return false;
+    const pointDate = dateOnly(point.date);
+    if (!pointDate) return false;
+    if (range.start && pointDate < range.start) return false;
+    return !(range.end && pointDate >= range.end);
+  });
+  if (!observed.length) return [];
+  const observedDates = observed.flatMap((point) => {
+    const pointDate = dateOnly(point.date);
+    return pointDate ? [pointDate.getTime()] : [];
+  });
+  const lastObservedTime = Math.max(...observedDates);
+  const forecastEnd = addDays(range.end ?? new Date(lastObservedTime), 8);
+  const predicted = points.filter((point) => {
+    if (!point.predicted) return false;
+    const pointDate = dateOnly(point.date);
+    return Boolean(pointDate && pointDate.getTime() > lastObservedTime && pointDate < forecastEnd);
+  });
+  return [...observed, ...predicted];
+}
+
 function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
   const platforms = Object.keys(platformColors).filter((platform) => points.some((point) => point.platform === platform));
   const dates = [...new Set(points.map((point) => point.date))].sort();
@@ -284,20 +333,20 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
       <Box overflowX="auto">
         <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Historical and predicted average ratings by marketplace" style={{ width: "100%", minWidth: "320px", display: "block" }}>
           <rect x={predictionX} y="0" width={width - predictionX} height={height - bottom + 12} fill="var(--chakra-colors-subtle)" opacity="0.72" />
-          {[1, 2, 3, 4, 5].map((rating) => <g key={rating}><line x1={left} y1={y(rating)} x2={width - right} y2={y(rating)} stroke="var(--chakra-colors-border)" /><text x={left - 12} y={y(rating) + 5} textAnchor="end" fill="var(--chakra-colors-muted)" fontSize="13">{rating}.0</text></g>)}
-          {firstPrediction && <text x={predictionX + 12} y="18" fill="var(--chakra-colors-muted)" fontSize="13" fontWeight="600">PREDICTED</text>}
+          {[1, 2, 3, 4, 5].map((rating) => <g key={rating}><line x1={left} y1={y(rating)} x2={width - right} y2={y(rating)} stroke="var(--chakra-colors-border)" /><text x={left - 12} y={y(rating) + 4} textAnchor="end" fill="var(--chakra-colors-muted)" fontSize="11">{rating}.0</text></g>)}
+          {firstPrediction && <text x={predictionX + 12} y="18" fill="var(--chakra-colors-muted)" fontSize="11" fontWeight="600">PREDICTED</text>}
           {platforms.map((platform) => {
             const platformPoints = points.filter((point) => point.platform === platform).sort((a, b) => a.date.localeCompare(b.date));
             const observed = platformPoints.filter((point) => !point.predicted);
             const predicted = platformPoints.filter((point) => point.predicted);
             const projected = observed.length && predicted.length ? [observed[observed.length - 1]!, ...predicted] : predicted;
-            return <g key={platform}><path d={line(observed)} fill="none" stroke={platformColors[platform]} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{projected.length > 1 && <path d={line(projected)} fill="none" stroke={platformColors[platform]} strokeWidth="3" strokeDasharray="8 7" strokeLinecap="round" />}{platformPoints.map((point) => <circle key={`${point.date}-${point.predicted}`} cx={x(point.date)} cy={y(point.averageRating)} r="4" fill={point.predicted ? "var(--chakra-colors-surface)" : platformColors[platform]} stroke={platformColors[platform]} strokeWidth="2.5" />)}</g>;
+            return <g key={platform}><path d={line(observed)} fill="none" stroke={platformColors[platform]} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />{projected.length > 1 && <path d={line(projected)} fill="none" stroke={platformColors[platform]} strokeWidth="2.5" strokeDasharray="7 6" strokeLinecap="round" />}{platformPoints.map((point) => <circle key={`${point.date}-${point.predicted}`} cx={x(point.date)} cy={y(point.averageRating)} r="3.5" fill={point.predicted ? "var(--chakra-colors-surface)" : platformColors[platform]} stroke={platformColors[platform]} strokeWidth="2" />)}</g>;
           })}
-          {dates.map((date, index) => (index === 0 || index === dates.length - 1 || index % 2 === 0) && <text key={date} x={x(date)} y={height - 14} textAnchor="middle" fill="var(--chakra-colors-muted)" fontSize="13">{new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(new Date(`${date}T00:00:00`))}</text>)}
+          {dates.map((date, index) => (index === 0 || index === dates.length - 1 || index % 2 === 0) && <text key={date} x={x(date)} y={height - 14} textAnchor="middle" fill="var(--chakra-colors-muted)" fontSize="11">{new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(new Date(`${date}T00:00:00`))}</text>)}
         </svg>
       </Box>
-      <Flex gap="5" wrap="wrap">
-        {platforms.map((platform) => <Flex key={platform} align="center" gap="2"><Box w="10px" h="10px" borderRadius="full" bg={platformColors[platform]} /><Text fontWeight="600">{platform}</Text></Flex>)}
+      <Flex gap="4" wrap="wrap">
+        {platforms.map((platform) => <Flex key={platform} align="center" gap="2"><Box w="8px" h="8px" borderRadius="full" bg={platformColors[platform]} /><Text fontSize="sm" fontWeight="600">{platform}</Text></Flex>)}
       </Flex>
     </Stack>
   );
@@ -324,7 +373,8 @@ function SocialExperienceScore({ benchmark }: { benchmark: DashboardData["benchm
           </Box>
         );
       })}
-      <Text color="muted" fontSize="sm">
+      {benchmark.reason && <Text color="muted" fontSize="xs" lineHeight="1.45">{cleanDisplayText(benchmark.reason)}</Text>}
+      <Text color="muted" fontSize="xs" lineHeight="1.45">
         So sánh hiệu suất cạnh tranh bằng Net Sentiment Score = 50 + 50 * ((Positive Mentions - Negative Mentions) / Total Mentions) để đo lường sự hài lòng của khách hàng và phản ánh thái độ của họ.
       </Text>
     </Stack>
@@ -346,6 +396,21 @@ function weeklySummaryMessage({ insight, feedback, positive, neutral, issue }: {
   return "Customer sentiment needs attention this week.";
 }
 
+function combinedPeriod(product: DashboardProduct) {
+  return {
+    feedback: product.current.feedback + product.baseline.feedback,
+    complaints: product.current.complaints + product.baseline.complaints,
+    positive: product.current.positive + product.baseline.positive,
+    neutral: product.current.neutral + product.baseline.neutral,
+  };
+}
+
+function periodForMode(product: DashboardProduct, mode: DateMode) {
+  if (mode === "all") return product.overall ?? combinedPeriod(product);
+  if (mode === "current") return product.current;
+  return combinedPeriod(product);
+}
+
 function WeeklySummaryCard({ message }: { message: string }) {
   return (
     <Flex
@@ -355,10 +420,10 @@ function WeeklySummaryCard({ message }: { message: string }) {
       overflow="hidden"
       align="center"
       gap={{ base: "4", md: "6" }}
-      minH={{ base: "118px", md: "128px" }}
+      minH={{ base: "104px", md: "112px" }}
       width="full"
       px={{ base: "5", md: "7" }}
-      py={{ base: "5", md: "6" }}
+      py={{ base: "4", md: "5" }}
       bg="surface"
       borderWidth="1px"
       borderColor="brand.200"
@@ -372,8 +437,8 @@ function WeeklySummaryCard({ message }: { message: string }) {
         </Flex>
       </Flex>
       <Box position="relative" minW="0" maxW="980px">
-        <Badge mb="2" colorPalette="orange" variant="subtle">AI summary</Badge>
-        <Heading size={{ base: "md", md: "xl" }} lineHeight="1.28" letterSpacing="0">
+        <Badge mb="2" colorPalette="orange" variant="subtle" fontSize="2xs">AI summary</Badge>
+        <Heading size={{ base: "sm", md: "lg" }} lineHeight="1.28" letterSpacing="0">
           {message}
         </Heading>
       </Box>
@@ -404,45 +469,42 @@ function WeeklySummaryCard({ message }: { message: string }) {
 }
 
 export function Dashboard({ data }: DashboardProps) {
-  const [datePreset, setDatePreset] = useState<DatePreset>("7d");
+  const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
   const [selectedGroupId, setSelectedGroupId] = useState("all");
   const selectedGroup = GUARDIAN_PRODUCT_GROUPS.find((group) => group.id === selectedGroupId) ?? GUARDIAN_PRODUCT_GROUPS[0]!;
-  const dateMode: DateMode = datePreset === "7d" ? "current" : "combined";
+  const dateMode: DateMode = datePreset === "all" ? "all" : datePreset === "7d" ? "current" : "combined";
 
   const selectedProducts = useMemo(() => data.products.filter((product) => productMatchesGroup(product, selectedGroup)), [data.products, selectedGroup]);
-  const selectedSet = useMemo(() => new Set(selectedProducts.map((product) => product.id)), [selectedProducts]);
-  const selectedEvidence = data.evidence.filter((item) => item.productId === null || selectedSet.has(item.productId));
   const totals = selectedProducts.reduce((result, product) => {
-    const period = dateMode === "current"
-      ? product.current
-      : {
-        feedback: product.current.feedback + product.baseline.feedback,
-        complaints: product.current.complaints + product.baseline.complaints,
-        positive: product.current.positive + product.baseline.positive,
-        neutral: product.current.neutral + product.baseline.neutral,
-      };
+    const period = periodForMode(product, dateMode);
     return { feedback: result.feedback + period.feedback, complaints: result.complaints + period.complaints, positive: result.positive + period.positive, neutral: result.neutral + period.neutral };
   }, { feedback: 0, complaints: 0, positive: 0, neutral: 0 });
   const negative = Math.max(0, totals.feedback - totals.positive - totals.neutral);
   const ratingCounts = new Map<number, number>([5, 4, 3, 2, 1].map((rating) => [rating, 0]));
   selectedProducts.forEach((product) => {
-    const distributions = dateMode === "current" ? [product.ratingDistribution] : [product.ratingDistribution, product.baselineRatingDistribution];
+    const allRatings = product.allRatingDistribution ?? [];
+    const distributions = dateMode === "all"
+      ? [allRatings.length ? allRatings : [...product.ratingDistribution, ...product.baselineRatingDistribution]]
+      : dateMode === "current"
+        ? [product.ratingDistribution]
+        : [product.ratingDistribution, product.baselineRatingDistribution];
     distributions.flat().forEach((item) => ratingCounts.set(item.rating, (ratingCounts.get(item.rating) ?? 0) + item.count));
   });
   const ratingDistribution = [5, 4, 3, 2, 1].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
-  const displayedIssueCount = (item: ProductTheme) => dateMode === "current" ? item.count : item.count + item.baselineCount;
+  const displayedIssueCount = (item: ProductTheme) => dateMode === "current" || dateMode === "all" ? item.count : item.count + item.baselineCount;
   const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
-  const problems = aggregateThemes(selectedProducts, "problems").sort(periodIssueSort).slice(0, 5);
-  const ratingTrend = aggregateRatingTrend(selectedProducts);
+  const allProblems = aggregateThemes(selectedProducts, "allProblems");
+  const problems = (dateMode === "all" && allProblems.length ? allProblems : aggregateThemes(selectedProducts, "problems")).sort(periodIssueSort).slice(0, 5);
+  const ratingTrend = filterRatingTrend(aggregateRatingTrend(selectedProducts), trendDateRange(data, datePreset, customRange));
   const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
   const weeklyMessage = weeklySummaryMessage({ insight, feedback: totals.feedback, positive: totals.positive, neutral: totals.neutral, issue: problems[0] });
 
   const metrics = [
-    { icon: <ChatCircleDots size={34} />, label: "Reviews", value: totals.feedback.toLocaleString(), iconBg: "#eff6ff", darkIconBg: "#10233f", color: "#2563eb" },
-    { icon: <CheckCircle size={34} weight="fill" />, label: "Positive", value: percent(ratio(totals.positive, totals.feedback), 0), iconBg: "#ecfdf3", darkIconBg: "#102b20", color: "#16a34a" },
-    { icon: <Pulse size={34} weight="fill" />, label: "Neutral", value: percent(ratio(totals.neutral, totals.feedback), 0), iconBg: "#fff7e6", darkIconBg: "#38260d", color: "#d97706" },
-    { icon: <WarningCircle size={34} weight="fill" />, label: "Negative", value: percent(ratio(negative, totals.feedback), 0), iconBg: "#fff1f2", darkIconBg: "#3a151c", color: "#e11d48" },
+    { icon: <ChatCircleDots size={28} />, label: "Reviews", value: totals.feedback.toLocaleString(), iconBg: "#eff6ff", darkIconBg: "#10233f", color: "#2563eb" },
+    { icon: <CheckCircle size={28} weight="fill" />, label: "Positive", value: percent(ratio(totals.positive, totals.feedback), 0), iconBg: "#ecfdf3", darkIconBg: "#102b20", color: "#16a34a" },
+    { icon: <Pulse size={28} weight="fill" />, label: "Neutral", value: percent(ratio(totals.neutral, totals.feedback), 0), iconBg: "#fff7e6", darkIconBg: "#38260d", color: "#d97706" },
+    { icon: <WarningCircle size={28} weight="fill" />, label: "Negative", value: percent(ratio(negative, totals.feedback), 0), iconBg: "#fff1f2", darkIconBg: "#3a151c", color: "#e11d48" },
   ];
 
   return (
@@ -464,9 +526,9 @@ export function Dashboard({ data }: DashboardProps) {
         <WeeklySummaryCard message={weeklyMessage} />
 
         <Grid as="section" aria-label="Sentiment metrics" gridTemplateColumns={{ base: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
-          {metrics.map((metric) => <Flex key={metric.label} minH={{ base: "146px", md: "128px" }} p={{ base: "5", md: "5" }} gap={{ base: "2", md: "4" }} direction={{ base: "column", md: "row" }} justify={{ base: "center", md: "flex-start" }} align="center" bg="surface" borderWidth="1px" borderTopWidth="3px" borderColor="border" borderTopColor={metric.color} borderRadius="panel">
-            <Flex color={metric.color} bg={metric.iconBg} _dark={{ bg: metric.darkIconBg }} w={{ base: "12", md: "13" }} h={{ base: "12", md: "13" }} borderRadius="control" align="center" justify="center" flex="0 0 auto">{metric.icon}</Flex>
-            <Box minW="0" textAlign={{ base: "center", md: "left" }}><Text color="muted" fontWeight="600" whiteSpace="nowrap">{metric.label}</Text><Text fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.1" fontWeight="780" letterSpacing="0" whiteSpace="nowrap">{metric.value}</Text></Box>
+          {metrics.map((metric) => <Flex key={metric.label} minH={{ base: "126px", md: "112px" }} p={{ base: "4", md: "4" }} gap={{ base: "2", md: "3" }} direction={{ base: "column", md: "row" }} justify={{ base: "center", md: "flex-start" }} align="center" bg="surface" borderWidth="1px" borderTopWidth="3px" borderColor="border" borderTopColor={metric.color} borderRadius="panel">
+            <Flex color={metric.color} bg={metric.iconBg} _dark={{ bg: metric.darkIconBg }} w={{ base: "10", md: "11" }} h={{ base: "10", md: "11" }} borderRadius="control" align="center" justify="center" flex="0 0 auto">{metric.icon}</Flex>
+            <Box minW="0" textAlign={{ base: "center", md: "left" }}><Text color="muted" fontSize="sm" fontWeight="600" whiteSpace="nowrap">{metric.label}</Text><Text fontSize={{ base: "xl", md: "2xl" }} lineHeight="1.1" fontWeight="780" letterSpacing="0" whiteSpace="nowrap">{metric.value}</Text></Box>
           </Flex>)}
         </Grid>
 
@@ -476,8 +538,6 @@ export function Dashboard({ data }: DashboardProps) {
           <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
           <Section title="Social experience score"><SocialExperienceScore benchmark={data.benchmark} /></Section>
         </Grid>
-
-        {selectedEvidence.length > 0 && <Section title="Recent review signals" action={<Badge variant="subtle" colorPalette="orange">{selectedEvidence.length}</Badge>}><Stack gap="0" divideY="1px" divideColor="border">{selectedEvidence.slice(0, 4).map((item) => <Grid key={item.id} py="4" gridTemplateColumns={{ base: "1fr", md: "130px minmax(0, 1fr) auto" }} gap="4" alignItems="start"><Text fontWeight="650">{humanize(cleanDisplayText(item.sourcePlatform))}</Text><Text>“{cleanDisplayText(item.text)}”</Text><Flex gap="2" align="center" justify={{ base: "flex-start", md: "flex-end" }}><Badge colorPalette={item.sentiment === "positive" ? "green" : item.sentiment === "negative" ? "red" : "gray"} variant="subtle">{humanize(item.sentiment ?? "neutral")}</Badge>{item.sourceUrl && <Button asChild size="xs" variant="ghost" aria-label="Open source"><a href={item.sourceUrl} target="_blank" rel="noreferrer"><ArrowSquareOut weight="bold" /></a></Button>}</Flex></Grid>)}</Stack></Section>}
       </>}
     </Stack>
   );

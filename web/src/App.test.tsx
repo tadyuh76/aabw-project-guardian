@@ -37,7 +37,8 @@ describe("App dashboard states", () => {
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
     expect(await screen.findByText("Packaging complaints declined")).toBeInTheDocument();
-    expect(screen.getByText("The cleanser arrived securely packed.", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Recent review signals" })).not.toBeInTheDocument();
+    expect(screen.queryByText("The cleanser arrived securely packed.", { exact: false })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Top 5 negative feedback" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
@@ -45,7 +46,7 @@ describe("App dashboard states", () => {
     expect(screen.getByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products to watch" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
-    expect(screen.getByText("128")).toBeInTheDocument();
+    expect(screen.getByText("480")).toBeInTheDocument();
     expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
     expect(screen.queryByText("Demo", { exact: true })).not.toBeInTheDocument();
   });
