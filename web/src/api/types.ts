@@ -148,6 +148,7 @@ export interface ImportConfigResponse {
   agentic_detection_enabled: boolean;
   seller_urls: Partial<Record<ReviewImportProfile, string>>;
   last_import_at: string | null;
+  last_import_by_profile: Partial<Record<ReviewImportProfile, string | null>>;
 }
 
 export interface ImportIssueResponse {

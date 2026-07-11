@@ -323,6 +323,17 @@ def import_config(
         WHERE runs.status IN ('completed', 'partial')
         """
     )
+    latest_by_profile = service.database.query(
+        """
+        SELECT files.source_name AS profile, max(files.first_imported_at) AS last_import_at
+        FROM imported_files files
+        JOIN ingestion_runs runs ON runs.id = files.last_ingestion_run_id
+        WHERE runs.status IN ('completed', 'partial')
+          AND files.source_name IN (?, ?, ?, ?, ?)
+        GROUP BY files.source_name
+        """,
+        list(REVIEW_CSV_PROFILES),
+    )
     return {
         "enabled": service.settings.voc_write_api_enabled,
         "max_bytes": service.settings.voc_max_import_bytes,
@@ -331,6 +342,9 @@ def import_config(
         "agentic_detection_enabled": bool(service.settings.ai_api_key),
         "seller_urls": MARKETPLACE_SELLER_URLS,
         "last_import_at": latest.get("last_import_at") if latest else None,
+        "last_import_by_profile": {
+            row["profile"]: row.get("last_import_at") for row in latest_by_profile
+        },
     }
 
 

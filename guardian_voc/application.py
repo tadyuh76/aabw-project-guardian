@@ -676,6 +676,7 @@ class GuardianService:
         )
         payload = value.model_dump(mode="json")
         payload["filename"] = name
+        payload["duplicate_file"] = self.is_imported_file(profile=profile, content=content)
         return payload
 
     @staticmethod

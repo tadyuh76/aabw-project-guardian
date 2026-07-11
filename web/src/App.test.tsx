@@ -18,7 +18,16 @@ import { App } from "./App";
 describe("App dashboard states", () => {
   beforeEach(() => {
     Object.values(api).forEach((mock) => mock.mockReset());
-    api.fetchImportConfig.mockResolvedValue({ enabled: false, max_bytes: 1000, profiles: [], accepted_extensions: [".csv"] });
+    api.fetchImportConfig.mockResolvedValue({
+      enabled: false,
+      max_bytes: 1000,
+      profiles: [],
+      accepted_extensions: [".csv"],
+      agentic_detection_enabled: false,
+      seller_urls: {},
+      last_import_at: null,
+      last_import_by_profile: {},
+    });
   });
 
   it("renders only values from a successful dashboard response", async () => {

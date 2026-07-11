@@ -29,11 +29,20 @@ const preview: ImportPreviewResponse = {
   filename: "reviews.csv",
   file_sha256: "hash",
   columns: ["review_text"],
-  resolved_mapping: {},
+  resolved_mapping: { text: "review_text" },
   total_rows: 2,
   valid_rows: 2,
   invalid_rows: 0,
-  samples: [],
+  samples: [
+    {
+      source_platform: "shopee",
+      brand: "guardian",
+      occurred_at: "2026-07-11T00:00:00+07:00",
+      rating: 5,
+      product_name: "Serum A",
+      text: "Great",
+    },
+  ],
   issues: [],
   mapping: {
     reviewer_name: null,
@@ -57,6 +66,7 @@ describe("ReviewImportPanel", () => {
       agentic_detection_enabled: true,
       seller_urls: { shopee: "https://seller.shopee.vn/" },
       last_import_at: null,
+      last_import_by_profile: {},
     });
     api.detectReviewImport.mockResolvedValue(preview);
     api.commitReviewImport.mockResolvedValue({
@@ -74,7 +84,7 @@ describe("ReviewImportPanel", () => {
     });
   });
 
-  it("detects and imports with one button", async () => {
+  it("previews data before importing", async () => {
     const running: RunResponse = {
       pipeline_run_id: "run-1", status: "running", stage: "classify",
       started_at: null, completed_at: null, records_seen: 2, records_inserted: 0,
@@ -97,9 +107,14 @@ describe("ReviewImportPanel", () => {
     expect(screen.queryByLabelText("Admin token")).not.toBeInTheDocument();
     const file = new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" });
     await user.upload(fileInput, file);
-    await user.click(screen.getByRole("button", { name: "Import reviews" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Finishing...");
+    expect(await screen.findByText("Great")).toBeInTheDocument();
+    expect(screen.getByText("2 valid rows, 0 issues")).toBeInTheDocument();
+    expect(api.commitReviewImport).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Import reviewed data" }));
+
+    await waitFor(() => expect(screen.getAllByText("Finishing...").length).toBeGreaterThan(0));
     expect(api.detectReviewImport).toHaveBeenCalledWith(file, "shopee", expect.any(AbortSignal));
     expect(api.commitReviewImport).toHaveBeenCalledWith(file, "shopee", expect.any(AbortSignal), preview.mapping);
     act(() => pollOptions?.onUpdate?.(running));
@@ -120,27 +135,34 @@ describe("ReviewImportPanel", () => {
     renderPanel(onImported);
 
     await user.upload(await screen.findByLabelText("CSV review export"), new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" }));
-    await user.click(screen.getByRole("button", { name: "Import reviews" }));
+    await screen.findByText("Great");
+    await user.click(screen.getByRole("button", { name: "Import reviewed data" }));
 
     expect(await screen.findByText("Some reviews could not be imported")).toBeInTheDocument();
     expect(screen.getByText("1 imported - 1 failed")).toBeInTheDocument();
     expect(onImported).toHaveBeenCalledTimes(1);
   });
 
-  it("locks the file and marketplace inputs while the file is being checked", async () => {
+  it("locks the file and marketplace inputs while the file is importing", async () => {
     let resolveDetection: ((value: ImportPreviewResponse) => void) | undefined;
     api.detectReviewImport.mockReturnValue(new Promise((resolve) => { resolveDetection = resolve; }));
+    api.commitReviewImport.mockReturnValue(new Promise(() => undefined));
     const user = userEvent.setup();
     renderPanel();
 
     const fileInput = await screen.findByLabelText("CSV review export");
     const profile = screen.getByLabelText("Shopee");
     await user.upload(fileInput, new File(["review_text\nGreat"], "reviews.csv", { type: "text/csv" }));
-    await user.click(screen.getByRole("button", { name: "Import reviews" }));
 
+    expect(await screen.findByText("Previewing file...")).toBeInTheDocument();
+    expect(fileInput).not.toBeDisabled();
+    expect(profile).not.toBeDisabled();
+    act(() => resolveDetection?.(preview));
+    await screen.findByText("Great");
+    await user.click(screen.getByRole("button", { name: "Import reviewed data" }));
+
+    await waitFor(() => expect(api.commitReviewImport).toHaveBeenCalled());
     expect(fileInput).toBeDisabled();
     expect(profile).toBeDisabled();
-    act(() => resolveDetection?.(preview));
-    await waitFor(() => expect(api.commitReviewImport).toHaveBeenCalled());
   });
 });

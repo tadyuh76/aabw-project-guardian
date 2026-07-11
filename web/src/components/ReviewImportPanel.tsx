@@ -1,4 +1,4 @@
-import { Box, Button, Flex, Heading, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Flex, Grid, Heading, Spinner, Stack, Text } from "@chakra-ui/react";
 import { CheckCircle, FileCsv, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import {
@@ -8,7 +8,7 @@ import {
   previewReviewImport,
   waitForRun,
 } from "../api/client";
-import type { ImportConfigResponse, ReviewImportProfile, RunResponse } from "../api/types";
+import type { ImportConfigResponse, ImportPreviewResponse, ReviewImportProfile, RunResponse } from "../api/types";
 
 const PROFILE_LABELS: Record<ReviewImportProfile, string> = {
   guardian_ecommerce: "Guardian e-commerce",
@@ -17,6 +17,15 @@ const PROFILE_LABELS: Record<ReviewImportProfile, string> = {
   lazada: "Lazada",
   grabmart: "GrabMart",
 };
+
+const PREVIEW_COLUMNS = [
+  "source_platform",
+  "brand",
+  "occurred_at",
+  "rating",
+  "product_name",
+  "text",
+] as const;
 
 interface ReviewImportPanelProps {
   onImported: () => void | Promise<void>;
@@ -33,17 +42,39 @@ function importTime(value: string | null | undefined): string {
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
+function shortColumnLabel(value: string): string {
+  return value.replace(/_/g, " ");
+}
+
+function previewValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+function fileValidationError(file: File | null, maxBytes: number | undefined): string {
+  if (!file) return "Choose a CSV or XLSX review export.";
+  if (!/\.(csv|xlsx)$/i.test(file.name)) return "This file must be CSV or XLSX.";
+  if (maxBytes && file.size > maxBytes) return `This file exceeds the ${(maxBytes / 1_000_000).toFixed(1)} MB limit.`;
+  return "";
+}
+
 export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
   const [config, setConfig] = useState<ImportConfigResponse | null>(null);
+  const [lastImportByProfile, setLastImportByProfile] = useState<Partial<Record<ReviewImportProfile, string | null>>>({});
   const [configError, setConfigError] = useState("");
   const [configAttempt, setConfigAttempt] = useState(0);
   const [profile, setProfile] = useState<ReviewImportProfile | "">("");
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [previewBusy, setPreviewBusy] = useState(false);
   const [run, setRun] = useState<RunResponse | null>(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState<"checking" | "importing" | "finishing" | null>(null);
+  const [busy, setBusy] = useState<"importing" | "finishing" | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
+  const previewRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -51,6 +82,7 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
     fetchImportConfig(controller.signal)
       .then((value) => {
         setConfig(value);
+        setLastImportByProfile(value.last_import_by_profile);
         setProfile((current) => current || value.profiles[0] || "");
       })
       .catch((cause: unknown) => {
@@ -61,87 +93,127 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
 
   useEffect(() => () => {
     activeRequest.current?.abort();
+    previewRequest.current?.abort();
     activeRequest.current = null;
+    previewRequest.current = null;
   }, []);
+
+  useEffect(() => {
+    previewRequest.current?.abort();
+    setPreview(null);
+    setPreviewError("");
+    setPreviewBusy(false);
+    if (!file || !profile || !config?.enabled) return;
+
+    const validation = fileValidationError(file, config.max_bytes);
+    if (validation) {
+      setPreviewError(validation);
+      return;
+    }
+
+    const controller = new AbortController();
+    previewRequest.current = controller;
+    setPreviewBusy(true);
+    const request = config.agentic_detection_enabled
+      ? detectReviewImport(file, profile, controller.signal)
+      : previewReviewImport(file, profile, controller.signal);
+
+    request
+      .then((value) => {
+        if (controller.signal.aborted) return;
+        setPreview(value);
+        if (value.duplicate_file) {
+          setPreviewError("This exact file was already imported. Choose a newer export.");
+        } else if (value.valid_rows < 1) {
+          setPreviewError(value.issues[0]?.message || "No valid reviews were found in this file.");
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) setPreviewError(errorMessage(cause));
+      })
+      .finally(() => {
+        if (previewRequest.current === controller) {
+          previewRequest.current = null;
+          setPreviewBusy(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [config?.agentic_detection_enabled, config?.enabled, config?.max_bytes, file, profile]);
 
   const resetResult = () => {
     setRun(null);
     setError("");
   };
 
-  const validate = (): { file: File; profile: ReviewImportProfile } | null => {
-    if (!file) {
-      setError("Choose a CSV or XLSX review export.");
-      return null;
-    }
-    if (!/\.(csv|xlsx)$/i.test(file.name)) {
-      setError("This file must be CSV or XLSX.");
-      return null;
-    }
-    if (config?.max_bytes && file.size > config.max_bytes) {
-      setError(`This file exceeds the ${(config.max_bytes / 1_000_000).toFixed(1)} MB limit.`);
-      return null;
-    }
-    if (!profile) {
-      setError("Choose where this export came from.");
-      return null;
-    }
-    return { file, profile };
+  const handleFile = (nextFile: File | null) => {
+    setFile(nextFile);
+    resetResult();
   };
 
-  const finishRun = async (result: RunResponse) => {
+  const markLastImport = (importedProfile: ReviewImportProfile, completedAt: string | null | undefined) => {
+    setLastImportByProfile((current) => ({
+      ...current,
+      [importedProfile]: completedAt || new Date().toISOString(),
+    }));
+  };
+
+  const finishRun = async (result: RunResponse, importedProfile: ReviewImportProfile) => {
     setRun(result);
     if (result.status === "failed") {
       setError(result.error_summary || "The import failed.");
       return;
     }
-    if (result.status === "completed") {
+    if (result.status === "completed" || result.status === "partial") {
+      markLastImport(importedProfile, result.completed_at);
       await onImported();
-      return;
     }
-    if (result.status === "partial") await onImported();
   };
 
-  const pollRun = async (runId: string, controller: AbortController) => {
+  const pollRun = async (runId: string, controller: AbortController, importedProfile: ReviewImportProfile) => {
     setBusy("finishing");
     const terminal = await waitForRun(runId, {
       signal: controller.signal,
       onUpdate: (update) => setRun(update),
     });
-    await finishRun(terminal);
+    await finishRun(terminal, importedProfile);
   };
 
   const handleImport = async () => {
-    const input = validate();
-    if (!input) return;
+    const selectedProfile = profile || "";
+    const validation = fileValidationError(file, config?.max_bytes);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+    if (!selectedProfile) {
+      setError("Choose where this export came from.");
+      return;
+    }
+    if (!preview || previewBusy) {
+      setError("Wait for the preview before importing.");
+      return;
+    }
+    if (previewError || preview.duplicate_file || preview.valid_rows < 1) {
+      setError(previewError || "Resolve the preview warnings before importing.");
+      return;
+    }
+
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
     setError("");
     setRun(null);
-    setBusy("checking");
+    setBusy("importing");
     try {
-      const preview = config?.agentic_detection_enabled
-        ? await detectReviewImport(input.file, input.profile, controller.signal)
-        : await previewReviewImport(input.file, input.profile, controller.signal);
-      if (preview.duplicate_file) {
-        setError("This exact file was already imported. Choose a newer export.");
-        return;
-      }
-      if (preview.valid_rows < 1) {
-        setError(preview.issues[0]?.message || "No valid reviews were found in this file.");
-        return;
-      }
-
-      setBusy("importing");
       const queued = preview.mapping
-        ? await commitReviewImport(input.file, input.profile, controller.signal, preview.mapping)
-        : await commitReviewImport(input.file, input.profile, controller.signal);
+        ? await commitReviewImport(file as File, selectedProfile, controller.signal, preview.mapping)
+        : await commitReviewImport(file as File, selectedProfile, controller.signal);
       setRun(queued);
       if (queued.status === "queued" || queued.status === "running") {
-        await pollRun(queued.pipeline_run_id, controller);
+        await pollRun(queued.pipeline_run_id, controller, selectedProfile);
       } else {
-        await finishRun(queued);
+        await finishRun(queued, selectedProfile);
       }
     } catch (cause) {
       if (!controller.signal.aborted) setError(errorMessage(cause));
@@ -153,18 +225,11 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
     }
   };
 
-  const buttonLabel = busy === "checking"
-    ? "Checking file..."
-    : busy === "importing"
-      ? "Importing..."
-      : busy === "finishing"
-        ? "Finishing..."
-        : "Import reviews";
-
-  const handleFile = (nextFile: File | null) => {
-    setFile(nextFile);
-    resetResult();
-  };
+  const buttonLabel = busy === "importing"
+    ? "Importing..."
+    : busy === "finishing"
+      ? "Finishing..."
+      : "Import reviewed data";
 
   const handleDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
@@ -192,36 +257,48 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
   }
 
   const locked = busy !== null;
+  const canImport = Boolean(file && profile && preview && !previewBusy && !previewError && !preview.duplicate_file && preview.valid_rows > 0);
+  const previewColumns = preview?.samples.length
+    ? PREVIEW_COLUMNS.filter((column) => preview.samples.some((sample) => sample[column] !== undefined))
+    : [];
+  const mappingEntries = preview ? Object.entries(preview.resolved_mapping) : [];
 
   return (
-    <Stack as="section" aria-labelledby="review-import-title" gap="7" maxW="760px" mx="auto" bg="surface" borderWidth="1px" borderColor="border" borderRadius="panel" p={{ base: "5", md: "8" }} boxShadow="0 18px 45px rgba(15, 23, 42, 0.06)">
-      <Stack align="center" gap="2" textAlign="center">
-        <Flex w="12" h="12" align="center" justify="center" borderRadius="control" bg="orange.100" color="orange.700">
-          <UploadSimple size={24} weight="bold" />
+    <Stack as="section" aria-labelledby="review-import-title" gap="8" w="full">
+      <Flex align={{ base: "flex-start", md: "center" }} justify="space-between" gap="4" wrap="wrap">
+        <Flex align="center" gap="3">
+          <Flex w="11" h="11" align="center" justify="center" borderRadius="control" bg="orange.100" color="orange.700" flexShrink="0">
+            <UploadSimple size={23} weight="bold" />
+          </Flex>
+          <Box>
+            <Heading id="review-import-title" size="xl" letterSpacing="0">Import reviews</Heading>
+            <Text color="muted" fontSize="sm">Preview a marketplace export, then import the reviewed rows.</Text>
+          </Box>
         </Flex>
-        <Heading id="review-import-title" size="xl" letterSpacing="0">Import reviews</Heading>
-        <Text color="muted" fontSize="sm">Last import: {importTime(run?.completed_at ?? config.last_import_at)}</Text>
-      </Stack>
+      </Flex>
 
       <Stack gap="3">
         <Text fontSize="sm" fontWeight="700">Marketplace</Text>
-        <Flex role="radiogroup" aria-label="Marketplace" gap="2.5" wrap="wrap">
+        <Flex role="radiogroup" aria-label="Marketplace" gap="2.5" wrap={{ base: "wrap", xl: "nowrap" }} align="stretch">
           {config.profiles.map((value) => {
             const selected = profile === value;
             return (
               <Flex
                 key={value}
                 as="label"
-                align="center"
+                align="flex-start"
                 gap="2.5"
-                minH="44px"
+                flex={{ base: "1 1 190px", xl: "1 1 0" }}
+                minW={{ base: "180px", xl: "0" }}
+                minH="62px"
                 px="3.5"
+                py="2.5"
                 borderWidth="1px"
                 borderColor={selected ? "accent" : "border"}
                 borderRadius="control"
-                bg={selected ? "orange.50" : "canvas"}
+                bg={selected ? "orange.50" : "surface"}
                 color={selected ? "accent" : "ink"}
-                _dark={{ bg: selected ? "#24150d" : "canvas" }}
+                _dark={{ bg: selected ? "#24150d" : "surface" }}
                 cursor={locked ? "not-allowed" : "pointer"}
               >
                 <input
@@ -234,70 +311,147 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
                   disabled={locked}
                   onChange={() => { setProfile(value); resetResult(); }}
                 />
-                <Flex w="4" h="4" align="center" justify="center" borderRadius="full" borderWidth="2px" borderColor={selected ? "accent" : "muted"} flexShrink="0">
+                <Flex mt="1" w="4" h="4" align="center" justify="center" borderRadius="full" borderWidth="2px" borderColor={selected ? "accent" : "muted"} flexShrink="0">
                   {selected && <Box w="1.5" h="1.5" borderRadius="full" bg="accent" />}
                 </Flex>
-                <Text fontSize="sm" fontWeight="650" whiteSpace="nowrap">{PROFILE_LABELS[value]}</Text>
+                <Box minW="0">
+                  <Text fontSize="sm" fontWeight="700" lineHeight="1.25">{PROFILE_LABELS[value]}</Text>
+                  <Text color={selected ? "accent" : "muted"} fontSize="xs" lineHeight="1.35">Last import: {importTime(lastImportByProfile[value] ?? null)}</Text>
+                </Box>
               </Flex>
             );
           })}
         </Flex>
       </Stack>
 
-      <Flex
-        as="label"
-        position="relative"
-        minH={{ base: "190px", md: "230px" }}
-        px={{ base: "5", md: "8" }}
-        py="8"
-        direction="column"
-        align="center"
-        justify="center"
-        gap="4"
-        textAlign="center"
-        borderWidth="2px"
-        borderStyle="dashed"
-        borderColor={dragActive || file ? "accent" : "border"}
-        borderRadius="control"
-        bg={dragActive || file ? "orange.50" : "canvas"}
-        _dark={{ bg: dragActive || file ? "#24150d" : "canvas" }}
-        cursor={locked ? "not-allowed" : "pointer"}
-        onDragOver={(event) => { event.preventDefault(); if (!locked) setDragActive(true); }}
-        onDragLeave={() => setDragActive(false)}
-        onDrop={handleDrop}
-      >
-        <Flex w="16" h="16" align="center" justify="center" borderRadius="control" bg="surface" color="accent" borderWidth="1px" borderColor="border">
-          <FileCsv size={34} weight={file ? "fill" : "regular"} />
+      <Grid templateColumns={{ base: "1fr", xl: "minmax(320px, 420px) minmax(0, 1fr)" }} gap="6" alignItems="start">
+        <Flex
+          as="label"
+          position="relative"
+          minH="220px"
+          px={{ base: "5", md: "6" }}
+          py="7"
+          direction="column"
+          align="center"
+          justify="center"
+          gap="4"
+          textAlign="center"
+          borderWidth="2px"
+          borderStyle="dashed"
+          borderColor={dragActive || file ? "accent" : "border"}
+          borderRadius="control"
+          bg={dragActive || file ? "orange.50" : "surface"}
+          _dark={{ bg: dragActive || file ? "#24150d" : "surface" }}
+          cursor={locked ? "not-allowed" : "pointer"}
+          onDragOver={(event) => { event.preventDefault(); if (!locked) setDragActive(true); }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={handleDrop}
+        >
+          <Flex w="14" h="14" align="center" justify="center" borderRadius="control" bg="canvas" color="accent" borderWidth="1px" borderColor="border">
+            <FileCsv size={31} weight={file ? "fill" : "regular"} />
+          </Flex>
+          <Stack gap="1" maxW="360px">
+            <Heading size="md" letterSpacing="0" wordBreak="break-word">{file?.name || "Choose CSV or XLSX file"}</Heading>
+            <Text color="muted" fontSize="sm">{file ? `${(file.size / 1_000).toFixed(0)} KB selected` : "Click to browse or drag the export here"}</Text>
+          </Stack>
+          <Box as="span" px="5" py="2.5" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface" color="ink" fontWeight="700">
+            Select file
+          </Box>
+          <input
+            className="visually-hidden"
+            aria-label="CSV review export"
+            type="file"
+            accept={config.accepted_extensions.join(",") || ".csv,.xlsx"}
+            disabled={locked}
+            onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
+          />
         </Flex>
-        <Stack gap="1" maxW="520px">
-          <Heading size="md" letterSpacing="0" wordBreak="break-word">{file?.name || "Choose CSV or XLSX file"}</Heading>
-          <Text color="muted" fontSize="sm">{file ? `${(file.size / 1_000).toFixed(0)} KB selected` : "Click to browse or drag the export here"}</Text>
+
+        <Stack gap="4" minW="0">
+          <Flex align="center" justify="space-between" gap="3" wrap="wrap">
+            <Box>
+              <Heading size="md" letterSpacing="0">Data to import</Heading>
+              <Text color="muted" fontSize="sm">
+                {preview
+                  ? `${preview.valid_rows.toLocaleString()} valid rows, ${preview.invalid_rows.toLocaleString()} issues`
+                  : file
+                    ? "Checking the selected export before import."
+                    : "Select a file to preview rows before importing."}
+              </Text>
+            </Box>
+            <Button minW={{ base: "full", sm: "220px" }} h="46px" colorPalette="orange" disabled={locked || !canImport} onClick={handleImport}>
+              {busy && <Spinner size="xs" />}
+              {buttonLabel}
+            </Button>
+          </Flex>
+
+          {previewBusy && <Flex align="center" gap="2" color="muted" fontSize="sm" role="status"><Spinner size="xs" />Previewing file...</Flex>}
+          {config.agentic_detection_enabled === false && <Text color="muted" fontSize="sm">Automatic detection is unavailable.</Text>}
+
+          {preview && (
+            <Stack gap="4" borderTopWidth="1px" borderColor="border" pt="4">
+              <Flex gap="6" wrap="wrap">
+                <Box><Text fontSize="xl" fontWeight="750">{preview.total_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">rows found</Text></Box>
+                <Box><Text fontSize="xl" fontWeight="750">{preview.valid_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">ready</Text></Box>
+                <Box><Text fontSize="xl" fontWeight="750">{preview.invalid_rows.toLocaleString()}</Text><Text color="muted" fontSize="sm">flagged</Text></Box>
+              </Flex>
+
+              {mappingEntries.length > 0 && (
+                <Flex gap="2" wrap="wrap">
+                  {mappingEntries.map(([target, source]) => (
+                    <Box key={target} px="2.5" py="1.5" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface" fontSize="xs">
+                      <Text as="span" color="muted">{shortColumnLabel(target)}: </Text>{source}
+                    </Box>
+                  ))}
+                </Flex>
+              )}
+
+              {previewColumns.length > 0 ? (
+                <Box overflowX="auto" borderWidth="1px" borderColor="border" borderRadius="control">
+                  <Box as="table" w="full" minW="720px" fontSize="sm" borderCollapse="collapse">
+                    <Box as="thead" bg="subtle">
+                      <Box as="tr">
+                        {previewColumns.map((column) => <Box as="th" key={column} px="3" py="2.5" textAlign="left" fontWeight="700">{shortColumnLabel(column)}</Box>)}
+                      </Box>
+                    </Box>
+                    <Box as="tbody">
+                      {preview.samples.map((sample, index) => (
+                        <Box as="tr" key={`${preview.file_sha256}-${index}`} borderTopWidth="1px" borderColor="border">
+                          {previewColumns.map((column) => (
+                            <Box as="td" key={column} px="3" py="2.5" verticalAlign="top" maxW={column === "text" ? "360px" : "220px"}>
+                              <Text lineClamp={column === "text" ? 3 : 2}>{previewValue(sample[column])}</Text>
+                            </Box>
+                          ))}
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                </Box>
+              ) : (
+                <Text color="muted" fontSize="sm">No sample rows are available for this file.</Text>
+              )}
+
+              {preview.issues.length > 0 && (
+                <Stack gap="2">
+                  <Text fontSize="sm" fontWeight="700">Rows needing attention</Text>
+                  {preview.issues.slice(0, 5).map((issue, index) => (
+                    <Flex key={`${issue.row_number}-${issue.code}-${index}`} gap="2" fontSize="sm" color="muted">
+                      <Text flexShrink="0" fontWeight="700" color="ink">Row {issue.row_number || index + 1}</Text>
+                      <Text>{issue.message}</Text>
+                    </Flex>
+                  ))}
+                </Stack>
+              )}
+            </Stack>
+          )}
         </Stack>
-        <Box as="span" px="5" py="2.5" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface" color="ink" fontWeight="700">
-          Select file
-        </Box>
-        <input
-          className="visually-hidden"
-          aria-label="CSV review export"
-          type="file"
-          accept={config.accepted_extensions.join(",") || ".csv,.xlsx"}
-          disabled={locked}
-          onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
-        />
-      </Flex>
+      </Grid>
 
-      <Flex justify="center">
-        <Button w={{ base: "full", md: "360px" }} h="54px" size="lg" colorPalette="orange" disabled={locked || !file || !profile} onClick={handleImport}>
-          {busy && <Spinner size="xs" />}
-          {buttonLabel}
-        </Button>
-      </Flex>
-
-      {config.agentic_detection_enabled === false && <Text color="muted" fontSize="sm">Automatic detection is unavailable.</Text>}
       {busy && <Flex align="center" gap="2" color="muted" fontSize="sm" role="status"><Spinner size="xs" />{buttonLabel}</Flex>}
-      {run?.status === "completed" && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="success" bg="canvas" role="status"><CheckCircle size={19} weight="fill" /><Box><Text fontWeight="700">Import complete</Text><Text color="muted" fontSize="sm">{run.records_inserted.toLocaleString()} new - {run.records_skipped.toLocaleString()} skipped - {run.records_failed.toLocaleString()} failed</Text></Box></Flex>}
-      {run?.status === "partial" && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="orange.500" bg="canvas" role="status"><WarningCircle size={19} /><Box><Text fontWeight="700">Some reviews could not be imported</Text><Text color="muted" fontSize="sm">{run.records_inserted.toLocaleString()} imported - {run.records_failed.toLocaleString()} failed</Text></Box></Flex>}
-      {error && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="danger" bg="canvas" role="alert"><WarningCircle size={18} /><Text>{error}</Text></Flex>}
+      {run?.status === "completed" && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="success" bg="surface" role="status"><CheckCircle size={19} weight="fill" /><Box><Text fontWeight="700">Import complete</Text><Text color="muted" fontSize="sm">{run.records_inserted.toLocaleString()} new - {run.records_skipped.toLocaleString()} skipped - {run.records_failed.toLocaleString()} failed</Text></Box></Flex>}
+      {run?.status === "partial" && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="orange.500" bg="surface" role="status"><WarningCircle size={19} /><Box><Text fontWeight="700">Some reviews could not be imported</Text><Text color="muted" fontSize="sm">{run.records_inserted.toLocaleString()} imported - {run.records_failed.toLocaleString()} failed</Text></Box></Flex>}
+      {previewError && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="danger" bg="surface" role="alert"><WarningCircle size={18} /><Text>{previewError}</Text></Flex>}
+      {error && <Flex p="4" gap="3" borderLeftWidth="4px" borderColor="danger" bg="surface" role="alert"><WarningCircle size={18} /><Text>{error}</Text></Flex>}
     </Stack>
   );
 }

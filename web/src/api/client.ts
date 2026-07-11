@@ -391,6 +391,12 @@ export async function fetchImportConfig(signal?: AbortSignal): Promise<ImportCon
         typeof item === "string" && REVIEW_IMPORT_PROFILES.includes(item as ReviewImportProfile),
       )
     : [];
+  const lastImportByProfile: Partial<Record<ReviewImportProfile, string | null>> = {};
+  if (isRecord(payload.last_import_by_profile)) {
+    for (const profile of REVIEW_IMPORT_PROFILES) {
+      lastImportByProfile[profile] = stringValue(payload.last_import_by_profile[profile]);
+    }
+  }
   return {
     enabled: booleanValue(payload.enabled),
     max_bytes: countValue(payload.max_bytes),
@@ -399,6 +405,7 @@ export async function fetchImportConfig(signal?: AbortSignal): Promise<ImportCon
     agentic_detection_enabled: booleanValue(payload.agentic_detection_enabled),
     seller_urls: isRecord(payload.seller_urls) ? payload.seller_urls as ImportConfigResponse["seller_urls"] : {},
     last_import_at: stringValue(payload.last_import_at),
+    last_import_by_profile: lastImportByProfile,
   };
 }
 
