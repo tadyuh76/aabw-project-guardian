@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RUNTIME_DIR="${ROOT_DIR}/.runtime"
+ENV_FILE="${ROOT_DIR}/.env"
+PORT="${GUARDIAN_PORT:-8000}"
+
+mkdir -p "${RUNTIME_DIR}"
+chmod 700 "${RUNTIME_DIR}"
+umask 077
+
+if [[ ! -f "${ENV_FILE}" ]]; then
+  cp "${ROOT_DIR}/.env.example" "${ENV_FILE}"
+  chmod 600 "${ENV_FILE}"
+fi
+
+if [[ ! -s "${RUNTIME_DIR}/admin-token" ]]; then
+  python3 - <<'PY' > "${RUNTIME_DIR}/admin-token"
+import secrets
+print(secrets.token_urlsafe(32))
+PY
+fi
+
+for name in admin-token openai-api-key serp-api-key tinyfish-api-key; do
+  touch "${RUNTIME_DIR}/${name}"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    chown 0:1000 "${RUNTIME_DIR}/${name}"
+    chmod 640 "${RUNTIME_DIR}/${name}"
+  elif [[ "$(id -u)" -eq 1000 ]]; then
+    # The image's guardian process also runs as numeric UID 1000, so the
+    # bind-mounted secret stays owner-only on both the host and container.
+    chmod 600 "${RUNTIME_DIR}/${name}"
+  else
+    chmod 644 "${RUNTIME_DIR}/${name}"
+  fi
+done
+
+cd "${ROOT_DIR}"
+docker compose config --quiet
+docker compose up --build --detach --remove-orphans
+
+for _ in $(seq 1 "${GUARDIAN_STARTUP_TIMEOUT_SECONDS:-180}"); do
+  if curl --fail --silent --show-error \
+    "http://127.0.0.1:${PORT}/api/v1/ready" >/dev/null 2>&1; then
+    docker image prune --force --filter "until=168h" >/dev/null
+    printf 'Guardian Signal deployment is ready on port %s.\n' "${PORT}"
+    exit 0
+  fi
+  sleep 1
+done
+
+docker compose logs --tail=120 app
+printf 'Guardian Signal deployment did not become ready in time.\n' >&2
+exit 1

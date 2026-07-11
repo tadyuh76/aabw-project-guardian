@@ -54,7 +54,8 @@ At minimum, set `OPENAI_API_KEY` in `.env`. Then start the complete application:
 The script:
 
 1. creates a strong admin access key in `.runtime/admin-token`;
-2. converts provider keys into mode-`0600` Docker secret files;
+2. converts provider keys into Docker secret files protected by a mode-`0700`
+   parent directory and readable by the non-root container group;
 3. validates the Compose configuration;
 4. builds and starts the single hardened container; and
 5. waits for `/api/v1/ready` before reporting success.
@@ -77,6 +78,23 @@ out of backups shared with other people; both are ignored by Git and Docker.
 git pull --ff-only
 ./scripts/prod-up
 ```
+
+### GitHub CI/CD
+
+Every pull request runs the backend, frontend, Compose, and production-image
+checks. A successful push to `main` also synchronizes the release to the VPS,
+runs `scripts/deploy-server`, and verifies the readiness endpoint before the
+deployment succeeds.
+
+Configure these secrets in the GitHub `production` environment:
+
+- `DEPLOY_HOST`: VPS hostname or IP address
+- `DEPLOY_USER`: restricted deployment SSH user (or `root` during bootstrap)
+- `DEPLOY_SSH_PRIVATE_KEY`: the dedicated deployment private key
+- `DEPLOY_KNOWN_HOSTS`: the pinned SSH host-key line
+
+The deployment excludes and preserves `.env`, `.runtime/`, and persistent
+Docker volume data on the VPS.
 
 Compose replaces the application container while retaining the `guardian_data`
 volume.

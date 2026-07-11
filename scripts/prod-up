@@ -64,14 +64,24 @@ def write_secret(filename: str, value: str, *, preserve: bool = True) -> Path:
         path.write_text(value + "\n", encoding="utf-8")
     elif not preserve or not path.exists():
         path.touch()
-    path.chmod(0o600)
+    make_container_readable(path)
     return path
+
+
+def make_container_readable(path: Path) -> None:
+    # Compose file secrets are bind mounts, so their host permissions remain
+    # visible inside the non-root container. The parent directory is mode 0700.
+    if os.geteuid() == 0:
+        os.chown(path, 0, 1000)
+        path.chmod(0o640)
+    else:
+        path.chmod(0o644)
 
 
 admin = runtime / "admin-token"
 if not admin.exists() or not admin.read_text(encoding="utf-8").strip():
     admin.write_text(secrets.token_urlsafe(32) + "\n", encoding="utf-8")
-admin.chmod(0o600)
+make_container_readable(admin)
 
 openai = write_secret("openai-api-key", first("OPENAI_API_KEY", "AI_API_KEY"))
 write_secret("serp-api-key", first("SERP_API_KEY"))

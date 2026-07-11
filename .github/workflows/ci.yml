@@ -59,3 +59,50 @@ jobs:
 
       - name: Build production image
         run: docker build --tag guardian-signal:ci .
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: guardian-signal-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: /opt/guardian-signal
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - name: Configure verified SSH access
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/guardian-deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/guardian-deploy ~/.ssh/known_hosts
+
+      - name: Synchronize release
+        run: |
+          ssh_args="-i $HOME/.ssh/guardian-deploy -o BatchMode=yes -o StrictHostKeyChecking=yes"
+          rsync --archive --compress --delete \
+            --exclude='.git/' \
+            --exclude='.env' \
+            --exclude='.runtime/' \
+            --exclude='data/' \
+            --exclude='.venv/' \
+            --exclude='web/node_modules/' \
+            --exclude='web/dist/' \
+            -e "ssh $ssh_args" \
+            ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+
+      - name: Deploy and verify
+        run: |
+          ssh -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "chmod +x '${DEPLOY_PATH}/scripts/deploy-server' && '${DEPLOY_PATH}/scripts/deploy-server'"

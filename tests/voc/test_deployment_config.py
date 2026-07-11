@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_production_has_one_canonical_deployment_path() -> None:
     production = (ROOT / "scripts" / "prod-up").read_text(encoding="utf-8")
+    deployment = (ROOT / "scripts" / "deploy-server").read_text(encoding="utf-8")
     live = (ROOT / "scripts" / "live-up").read_text(encoding="utf-8")
 
     assert production.startswith("#!/usr/bin/env bash\nset -euo pipefail\n")
@@ -17,6 +18,23 @@ def test_production_has_one_canonical_deployment_path() -> None:
     assert 'exec "${ROOT_DIR}/scripts/prod-up"' in live
     assert "social-listening-crawler" not in production
     assert "social-listening-crawler" not in live
+    assert "docker compose up --build --detach --remove-orphans" in deployment
+    assert "chown 0:1000" in deployment
+    assert "/api/v1/ready" in deployment
+
+
+def test_main_ci_deploys_only_after_tests_pass() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "needs: test" in workflow
+    assert "github.event_name == 'push'" in workflow
+    assert "environment: production" in workflow
+    assert "DEPLOY_SSH_PRIVATE_KEY" in workflow
+    assert "scripts/deploy-server" in workflow
+    assert "--exclude='.env'" in workflow
+    assert "--exclude='.runtime/'" in workflow
 
 
 def test_compose_is_one_hardened_service_without_sibling_mounts() -> None:
