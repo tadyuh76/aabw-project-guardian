@@ -1,13 +1,14 @@
-import { Badge, Box, Button, Flex, Grid, Heading, Stack, Text } from "@chakra-ui/react";
-import { ArrowDown, ArrowRight, ArrowUp, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
+import { ArrowDown, ArrowUp, CalendarBlank, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
 import { cleanDisplayText } from "../utils/displayText";
-import { ProductFilter } from "./ProductFilter";
+import { GUARDIAN_PRODUCT_GROUPS, ProductGroupSelect, productMatchesGroup } from "./ProductGroupSelect";
 
 interface DashboardProps { data: DashboardData; }
-type TimeScope = "current" | "baseline";
+type DatePreset = "7d" | "30d" | "1y" | "all" | "custom";
+type DateMode = "current" | "combined";
 
 const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
 const ratingColor = "#ec7e24";
@@ -60,6 +61,37 @@ function Section({ title, action, children }: { title: string; action?: ReactNod
   );
 }
 
+function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: { value: DatePreset; onChange: (value: DatePreset) => void; customRange: { from: string; to: string }; onCustomRangeChange: (value: { from: string; to: string }) => void }) {
+  const presets: Array<{ value: DatePreset; label: string }> = [
+    { value: "7d", label: "7D" },
+    { value: "30d", label: "30D" },
+    { value: "1y", label: "1Y" },
+    { value: "all", label: "All" },
+    { value: "custom", label: "Custom" },
+  ];
+
+  return (
+    <Flex align="center" gap="2" wrap="wrap">
+      <Flex role="group" aria-label="Date range" p="1" bg="subtle" borderRadius="control" gap="1" alignSelf="flex-start">
+        {presets.map((preset) => (
+          <Button key={preset.value} size="sm" minW="12" variant={value === preset.value ? "solid" : "ghost"} colorPalette="orange" onClick={() => onChange(preset.value)}>
+            {preset.label}
+          </Button>
+        ))}
+      </Flex>
+      {value === "custom" && (
+        <Flex align="center" gap="2" wrap="wrap">
+          <Flex align="center" gap="2" px="3" h="36px" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface">
+            <CalendarBlank size={16} />
+            <Input type="date" aria-label="Custom start date" value={customRange.from} onChange={(event) => onCustomRangeChange({ ...customRange, from: event.target.value })} border="0" px="0" h="32px" width="140px" />
+          </Flex>
+          <Input type="date" aria-label="Custom end date" value={customRange.to} onChange={(event) => onCustomRangeChange({ ...customRange, to: event.target.value })} h="36px" width="140px" bg="surface" />
+        </Flex>
+      )}
+    </Flex>
+  );
+}
+
 function ChangeBadge({ value }: { value: number | null }) {
   if (value === null) return <Badge colorPalette="gray" variant="subtle">New</Badge>;
   const improved = value < 0;
@@ -86,8 +118,8 @@ function RatingBars({ items }: { items: Array<{ label: string; count: number }> 
   );
 }
 
-function IssueBars({ items, scope, empty }: { items: ProductTheme[]; scope: TimeScope; empty: string }) {
-  const displayed = items.map((item) => ({ ...item, displayCount: scope === "current" ? item.count : item.baselineCount }));
+function IssueBars({ items, mode, empty }: { items: ProductTheme[]; mode: DateMode; empty: string }) {
+  const displayed = items.map((item) => ({ ...item, displayCount: mode === "current" ? item.count : item.count + item.baselineCount }));
   const max = Math.max(1, ...displayed.map((item) => item.displayCount));
   if (!displayed.some((item) => item.displayCount > 0)) return <Text color="muted">{empty}</Text>;
   return (
@@ -168,28 +200,38 @@ function hasUsefulInsight(data: DashboardData): boolean {
 }
 
 export function Dashboard({ data }: DashboardProps) {
-  const [selectedIds, setSelectedIds] = useState<string[]>(() => data.products.map((product) => product.id));
-  const [timeScope, setTimeScope] = useState<TimeScope>("current");
-  useEffect(() => setSelectedIds(data.products.map((product) => product.id)), [data]);
+  const [datePreset, setDatePreset] = useState<DatePreset>("7d");
+  const [customRange, setCustomRange] = useState({ from: "", to: "" });
+  const [selectedGroupId, setSelectedGroupId] = useState("all");
+  const selectedGroup = GUARDIAN_PRODUCT_GROUPS.find((group) => group.id === selectedGroupId) ?? GUARDIAN_PRODUCT_GROUPS[0]!;
+  const dateMode: DateMode = datePreset === "7d" ? "current" : "combined";
 
-  const selectedProducts = useMemo(() => data.products.filter((product) => selectedIds.includes(product.id)), [data.products, selectedIds]);
-  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedProducts = useMemo(() => data.products.filter((product) => productMatchesGroup(product, selectedGroup)), [data.products, selectedGroup]);
+  const selectedSet = useMemo(() => new Set(selectedProducts.map((product) => product.id)), [selectedProducts]);
   const selectedEvidence = data.evidence.filter((item) => item.productId === null || selectedSet.has(item.productId));
   const totals = selectedProducts.reduce((result, product) => {
-    const period = product[timeScope];
+    const period = dateMode === "current"
+      ? product.current
+      : {
+        feedback: product.current.feedback + product.baseline.feedback,
+        complaints: product.current.complaints + product.baseline.complaints,
+        positive: product.current.positive + product.baseline.positive,
+        neutral: product.current.neutral + product.baseline.neutral,
+      };
     return { feedback: result.feedback + period.feedback, complaints: result.complaints + period.complaints, positive: result.positive + period.positive, neutral: result.neutral + period.neutral };
   }, { feedback: 0, complaints: 0, positive: 0, neutral: 0 });
   const negative = Math.max(0, totals.feedback - totals.positive - totals.neutral);
   const ratingCounts = new Map<number, number>([5, 4, 3, 2, 1].map((rating) => [rating, 0]));
-  selectedProducts.forEach((product) => (timeScope === "current" ? product.ratingDistribution : product.baselineRatingDistribution).forEach((item) => ratingCounts.set(item.rating, (ratingCounts.get(item.rating) ?? 0) + item.count)));
+  selectedProducts.forEach((product) => {
+    const distributions = dateMode === "current" ? [product.ratingDistribution] : [product.ratingDistribution, product.baselineRatingDistribution];
+    distributions.flat().forEach((item) => ratingCounts.set(item.rating, (ratingCounts.get(item.rating) ?? 0) + item.count));
+  });
   const ratingDistribution = [5, 4, 3, 2, 1].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
-  const periodIssueSort = (a: ProductTheme, b: ProductTheme) => timeScope === "current"
-    ? b.count - a.count || a.label.localeCompare(b.label)
-    : b.baselineCount - a.baselineCount || a.label.localeCompare(b.label);
+  const displayedIssueCount = (item: ProductTheme) => dateMode === "current" ? item.count : item.count + item.baselineCount;
+  const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
   const negativeFeedback = aggregateThemes(selectedProducts, "negativeFeedback").sort(periodIssueSort).slice(0, 5);
   const problems = aggregateThemes(selectedProducts, "problems").sort(periodIssueSort).slice(0, 5);
   const ratingTrend = aggregateRatingTrend(selectedProducts);
-  const heroProduct = [...selectedProducts].sort((a, b) => (ratio(b.current.complaints, b.current.feedback) ?? 0) - (ratio(a.current.complaints, a.current.feedback) ?? 0))[0];
   const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
 
   const metrics = [
@@ -201,21 +243,17 @@ export function Dashboard({ data }: DashboardProps) {
 
   return (
     <Stack gap="5">
-      <Flex align={{ base: "stretch", md: "center" }} justify="space-between" direction={{ base: "column", md: "row" }} gap="4">
-        <Flex role="group" aria-label="Analysis period" p="1" bg="subtle" borderRadius="control" gap="1" alignSelf="flex-start">
-          <Button size="sm" variant={timeScope === "current" ? "solid" : "ghost"} colorPalette="orange" onClick={() => setTimeScope("current")}>Current 7 days</Button>
-          <Button size="sm" variant={timeScope === "baseline" ? "solid" : "ghost"} colorPalette="orange" onClick={() => setTimeScope("baseline")}>Previous 28 days</Button>
-        </Flex>
-        <ProductFilter products={data.products} selectedIds={selectedIds} onChange={setSelectedIds} />
+      <Flex align={{ base: "stretch", lg: "center" }} justify="space-between" direction={{ base: "column", lg: "row" }} gap="4">
+        <DateRangeFilter value={datePreset} onChange={setDatePreset} customRange={customRange} onCustomRangeChange={setCustomRange} />
+        <ProductGroupSelect products={data.products} selectedGroupId={selectedGroupId} onChange={setSelectedGroupId} />
       </Flex>
 
       {selectedProducts.length === 0 ? (
-        <Stack {...panelProps} align="flex-start" gap="4"><Package size={30} /><Heading size="lg">No products selected</Heading><Button colorPalette="orange" onClick={() => setSelectedIds(data.products.map((product) => product.id))}>Show products</Button></Stack>
+        <Stack {...panelProps} align="flex-start" gap="4"><Package size={30} /><Heading size="lg">No products found in this group</Heading><Button colorPalette="orange" onClick={() => setSelectedGroupId("all")}>Show all groups</Button></Stack>
       ) : <>
         {insight && <Grid as="section" aria-labelledby="pulse-title" {...panelProps} bg="brand.50" _dark={{ bg: "#30190c" }} borderColor="brand.200" gridTemplateColumns={{ base: "1fr", md: "auto 1fr auto" }} alignItems="center" gap="5">
           <Flex w="14" h="14" align="center" justify="center" borderRadius="full" bg="brand.100" color="brand.500"><Star size={30} weight="fill" /></Flex>
           <Box><Heading id="pulse-title" size="lg" letterSpacing="0">{cleanDisplayText(insight.title)}</Heading>{insight.summary && <Text color="muted" mt="2">{cleanDisplayText(insight.summary)}</Text>}</Box>
-          {heroProduct && <Button variant="outline" colorPalette="orange" onClick={() => setSelectedIds([heroProduct.id])}>Focus <ArrowRight size={16} /></Button>}
         </Grid>}
 
         <Grid as="section" aria-label="Sentiment metrics" gridTemplateColumns={{ base: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
@@ -227,8 +265,8 @@ export function Dashboard({ data }: DashboardProps) {
 
         <Grid gridTemplateColumns={{ base: "1fr", xl: "repeat(3, minmax(0, 1fr))" }} gap="4">
           <Section title="Rating distribution"><RatingBars items={ratingDistribution} /></Section>
-          <Section title="Top 5 negative feedback"><IssueBars items={negativeFeedback} scope={timeScope} empty="No negative feedback in this period." /></Section>
-          <Section title="Top 5 product problems"><IssueBars items={problems} scope={timeScope} empty="No product problems in this period." /></Section>
+          <Section title="Top 5 negative feedback"><IssueBars items={negativeFeedback} mode={dateMode} empty="No negative feedback in this period." /></Section>
+          <Section title="Top 5 product problems"><IssueBars items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
         </Grid>
 
         <Grid gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.55fr) minmax(320px, .75fr)" }} gap="4">

@@ -69,7 +69,7 @@ describe("App dashboard states", () => {
     expect(screen.queryByText(/Some Guardian feedback has no trustworthy occurrence date/)).not.toBeInTheDocument();
   });
 
-  it("keeps the benchmark visible after product filtering", async () => {
+  it("keeps the benchmark visible after product group filtering", async () => {
     const fixture = dashboardFixture();
     const first = fixture.products[0]!;
     api.fetchDashboard.mockResolvedValue({
@@ -79,6 +79,7 @@ describe("App dashboard states", () => {
         id: "second-product",
         name: "Second Product",
         shortName: "Second Product",
+        category: "Makeup",
       }],
     });
     const user = userEvent.setup();
@@ -86,8 +87,8 @@ describe("App dashboard states", () => {
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
     expect(await screen.findByRole("heading", { name: "Competitive sentiment" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Change product scope/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Second Product/ }));
+    await user.click(screen.getByRole("button", { name: /Change product group/ }));
+    await user.click(screen.getByRole("button", { name: /Chăm sóc da mặt/ }));
     expect(screen.getByRole("heading", { name: "Competitive sentiment" })).toBeInTheDocument();
   });
 
