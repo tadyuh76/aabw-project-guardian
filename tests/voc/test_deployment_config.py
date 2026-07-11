@@ -23,12 +23,14 @@ def test_production_has_one_canonical_deployment_path() -> None:
     assert "/api/v1/ready" in deployment
 
 
-def test_main_ci_deploys_only_after_tests_pass() -> None:
+def test_main_ci_deploys_only_after_release_checks_pass() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
 
-    assert "needs: test" in workflow
+    assert "needs: build" in workflow
+    assert "uv run pytest" not in workflow
+    assert "npm test" not in workflow
     assert "github.event_name == 'push'" in workflow
     assert "environment: production" in workflow
     assert "DEPLOY_SSH_PRIVATE_KEY" in workflow

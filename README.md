@@ -81,10 +81,10 @@ git pull --ff-only
 
 ### GitHub CI/CD
 
-Every pull request runs the backend, frontend, Compose, and production-image
-checks. A successful push to `main` also synchronizes the release to the VPS,
-runs `scripts/deploy-server`, and verifies the readiness endpoint before the
-deployment succeeds.
+Every pull request runs release checks: production dependency export, frontend
+build, Compose validation, and production-image build. A successful push to
+`main` also synchronizes the release to the VPS, runs `scripts/deploy-server`,
+and verifies the readiness endpoint before the deployment succeeds.
 
 Configure these secrets in the GitHub `production` environment:
 
