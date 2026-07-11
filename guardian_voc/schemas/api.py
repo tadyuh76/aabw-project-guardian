@@ -323,7 +323,7 @@ class LiveCollectionRequest(BaseModel):
     pages_per_query: int = Field(default=2, ge=1, le=10)
     fetch_limit: int = Field(default=200, ge=1, le=500)
     extraction_limit: int = Field(default=200, ge=1, le=500)
-    lookback_days: int = Field(default=30, ge=1, le=30)
+    lookback_days: int = Field(default=365, ge=1, le=365)
     refresh: bool = False
 
 

@@ -60,50 +60,54 @@ def test_default_query_pack_is_exclusion_safe_and_covers_platforms_and_problems(
             assert all(term in query.query for term in EXCLUSION_TERMS), query.id
 
     expected_suffixes = {
-        "facebook_vi",
-        "instagram_vi",
-        "threads_vi",
-        "tiktok_video_vi",
-        "youtube_vi",
-        "reddit_vi",
-    }
-    expected_problem_families = {
-        "product_problems_vi",
-        "service_problems_vi",
-        "value_experience_vi",
+        "facebook_review_vi",
+        "facebook_order_vi",
+        "instagram_review_vi",
+        "threads_review_vi",
+        "tiktok_video_review_vi",
+        "youtube_review_vi",
+        "reddit_review_vi",
+        "product_reaction_vi",
+        "product_quality_vi",
+        "service_delivery_vi",
+        "service_staff_payment_vi",
+        "promo_value_vi",
     }
     for source_id in PUBLIC_SOCIAL_SOURCES:
         queries = registry.get(source_id).search_queries
-        assert len(queries) == 9
+        assert len(queries) == 12
         assert {
             suffix
             for query in queries
             for suffix in expected_suffixes
             if query.id.endswith(suffix)
         } == expected_suffixes
-        assert {
-            suffix
-            for query in queries
-            for suffix in expected_problem_families
-            if query.id.endswith(suffix)
-        } == expected_problem_families
         by_id = {query.id: query.query for query in queries}
-        reddit = next(value for key, value in by_id.items() if key.endswith("reddit_vi"))
+        reddit = next(
+            value for key, value in by_id.items() if key.endswith("reddit_review_vi")
+        )
         tiktok = next(
-            value for key, value in by_id.items() if key.endswith("tiktok_video_vi")
+            value
+            for key, value in by_id.items()
+            if key.endswith("tiktok_video_review_vi")
         )
         assert "site:reddit.com" in reddit and "inurl:/comments/" in reddit
         assert "site:tiktok.com" in tiktok and "inurl:/video/" in tiktok
         assert "-site:shop.tiktok.com" in tiktok
-        problem_queries = [
-            value
-            for key, value in by_id.items()
-            if any(key.endswith(suffix) for suffix in expected_problem_families)
-        ]
-        assert all("site:facebook.com" in value for value in problem_queries)
-        assert any("kích ứng" in value and "hàng giả" in value for value in problem_queries)
-        assert any("giao trễ" in value and "chưa hoàn tiền" in value for value in problem_queries)
-        assert any("không mua lại" in value and "trải nghiệm tệ" in value for value in problem_queries)
+        assert not any(
+            "mình mua" in query.query and "tích điểm" in query.query
+            for query in queries
+        )
+        assert any(
+            "kích ứng" in value and "nổi mụn" in value for value in by_id.values()
+        )
+        assert any(
+            "giao trễ" in value and "thiếu hàng" in value for value in by_id.values()
+        )
+        assert any(
+            "không mua lại" in value and "voucher không áp dụng" in value
+            for value in by_id.values()
+        )
 
 
 def test_registry_requires_owner_brand_on_each_source(tmp_path: Path) -> None:

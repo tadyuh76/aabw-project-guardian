@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     voc_live_collection_extraction_limit: int = Field(default=25, ge=1, le=500)
     # Two calendar days avoids a midnight boundary gap. Stable source and
     # content identities make the overlap idempotent.
-    voc_live_collection_lookback_days: int = Field(default=2, ge=1, le=30)
+    voc_live_collection_lookback_days: int = Field(default=2, ge=1, le=365)
     voc_live_collection_refresh: bool = False
 
     ai_provider: Literal["cached", "openai_compatible"] = "cached"

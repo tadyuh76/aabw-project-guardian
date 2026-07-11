@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from guardian_voc.schemas.analysis import FrozenModel, StrictModel
+from guardian_voc.schemas.analysis import ClassificationResult, FrozenModel, StrictModel
 from guardian_voc.schemas.feedback import Brand
 
 
@@ -51,6 +51,7 @@ class ExtractedFeedbackUnit(StrictModel):
     rating_span: ExtractionSpan | None = None
     product_name_span: ExtractionSpan | None = None
     extraction_confidence: float = Field(ge=0.0, le=1.0)
+    classification: ClassificationResult | None = None
 
 
 class PageExtractionResult(StrictModel):

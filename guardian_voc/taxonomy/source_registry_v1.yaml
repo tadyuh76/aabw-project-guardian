@@ -171,24 +171,30 @@ sources:
     tinyfish_policy: allowed_public_fetch
     permission_status: public_best_effort_not_exhaustive
     search_queries:
-      - id: guardian_facebook_vi
-        query: 'site:facebook.com ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: guardian_instagram_vi
-        query: 'site:instagram.com ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: guardian_threads_vi
-        query: '(site:threads.com OR site:threads.net) inurl:/post/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: guardian_tiktok_video_vi
-        query: 'site:tiktok.com inurl:/video/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: guardian_youtube_vi
-        query: '(site:youtube.com/watch OR site:youtube.com/shorts) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: guardian_reddit_vi
-        query: 'site:reddit.com inurl:/comments/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: guardian_product_problems_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("kích ứng" OR "dị ứng" OR "nổi mụn" OR "không hiệu quả" OR "mùi khó chịu" OR "rò rỉ" OR "bao bì vỡ" OR "hư nắp" OR "hạn sử dụng" OR "hàng giả") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: guardian_service_problems_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("giao trễ" OR "giao sai" OR "thiếu hàng" OR "hủy đơn" OR "khó đổi trả" OR "chưa hoàn tiền" OR "không liên hệ được" OR "nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: guardian_value_experience_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("thất vọng" OR "không mua lại" OR "không đáng tiền" OR "giá cao" OR "khuyến mãi ảo" OR "voucher không áp dụng" OR "hết quà" OR "tích điểm lỗi" OR "trải nghiệm tệ" OR "review thật") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_facebook_review_vi
+        query: 'site:facebook.com ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_facebook_order_vi
+        query: 'site:facebook.com ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("hết hàng" OR "hủy đơn" OR "hoàn tiền") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_instagram_review_vi
+        query: 'site:instagram.com ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_threads_review_vi
+        query: '(site:threads.com OR site:threads.net) inurl:/post/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_tiktok_video_review_vi
+        query: 'site:tiktok.com inurl:/video/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_youtube_review_vi
+        query: '(site:youtube.com/watch OR site:youtube.com/shorts) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_reddit_review_vi
+        query: 'site:reddit.com inurl:/comments/ ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_product_reaction_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("kích ứng" OR "dị ứng" OR "nổi mụn") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_product_quality_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("rò rỉ" OR "bao bì vỡ" OR "hư nắp") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_service_delivery_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("giao trễ" OR "giao sai" OR "thiếu hàng") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_service_staff_payment_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_promo_value_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("khuyến mãi ảo" OR "voucher không áp dụng" OR "không mua lại") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
 
   - source_id: hasaki_public_social
     owner_brand: hasaki
@@ -201,24 +207,30 @@ sources:
     tinyfish_policy: allowed_public_fetch
     permission_status: public_best_effort_not_exhaustive
     search_queries:
-      - id: hasaki_facebook_vi
-        query: 'site:facebook.com (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: hasaki_instagram_vi
-        query: 'site:instagram.com (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: hasaki_threads_vi
-        query: '(site:threads.com OR site:threads.net) inurl:/post/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: hasaki_tiktok_video_vi
-        query: 'site:tiktok.com inurl:/video/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: hasaki_youtube_vi
-        query: '(site:youtube.com/watch OR site:youtube.com/shorts) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: hasaki_reddit_vi
-        query: 'site:reddit.com inurl:/comments/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: hasaki_product_problems_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("kích ứng" OR "dị ứng" OR "nổi mụn" OR "không hiệu quả" OR "mùi khó chịu" OR "rò rỉ" OR "bao bì vỡ" OR "hư nắp" OR "hạn sử dụng" OR "hàng giả") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: hasaki_service_problems_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("giao trễ" OR "giao sai" OR "thiếu hàng" OR "hủy đơn" OR "khó đổi trả" OR "chưa hoàn tiền" OR "không liên hệ được" OR "nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: hasaki_value_experience_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("thất vọng" OR "không mua lại" OR "không đáng tiền" OR "giá cao" OR "khuyến mãi ảo" OR "voucher không áp dụng" OR "hết quà" OR "tích điểm lỗi" OR "trải nghiệm tệ" OR "review thật") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_facebook_review_vi
+        query: 'site:facebook.com (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_facebook_order_vi
+        query: 'site:facebook.com (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("hết hàng" OR "hủy đơn" OR "hoàn tiền") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_instagram_review_vi
+        query: 'site:instagram.com (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_threads_review_vi
+        query: '(site:threads.com OR site:threads.net) inurl:/post/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_tiktok_video_review_vi
+        query: 'site:tiktok.com inurl:/video/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_youtube_review_vi
+        query: '(site:youtube.com/watch OR site:youtube.com/shorts) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_reddit_review_vi
+        query: 'site:reddit.com inurl:/comments/ (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_product_reaction_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("kích ứng" OR "dị ứng" OR "nổi mụn") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_product_quality_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("rò rỉ" OR "bao bì vỡ" OR "hư nắp") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_service_delivery_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("giao trễ" OR "giao sai" OR "thiếu hàng") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_service_staff_payment_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_promo_value_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("khuyến mãi ảo" OR "voucher không áp dụng" OR "không mua lại") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
 
   - source_id: watsons_public_social
     owner_brand: watsons
@@ -231,21 +243,27 @@ sources:
     tinyfish_policy: allowed_public_fetch
     permission_status: public_best_effort_not_exhaustive
     search_queries:
-      - id: watsons_facebook_vi
-        query: 'site:facebook.com ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: watsons_instagram_vi
-        query: 'site:instagram.com ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: watsons_threads_vi
-        query: '(site:threads.com OR site:threads.net) inurl:/post/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: watsons_tiktok_video_vi
-        query: 'site:tiktok.com inurl:/video/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: watsons_youtube_vi
-        query: '(site:youtube.com/watch OR site:youtube.com/shorts) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: watsons_reddit_vi
-        query: 'site:reddit.com inurl:/comments/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("mình mua" OR "trải nghiệm" OR "đánh giá" OR "không hài lòng" OR "khuyến mãi" OR "hết hàng" OR "hủy đơn" OR "giao hàng" OR "hoàn tiền" OR "đổi trả" OR "chính hãng" OR "nhân viên" OR "thanh toán" OR "tích điểm") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: watsons_product_problems_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("kích ứng" OR "dị ứng" OR "nổi mụn" OR "không hiệu quả" OR "mùi khó chịu" OR "rò rỉ" OR "bao bì vỡ" OR "hư nắp" OR "hạn sử dụng" OR "hàng giả") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: watsons_service_problems_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("giao trễ" OR "giao sai" OR "thiếu hàng" OR "hủy đơn" OR "khó đổi trả" OR "chưa hoàn tiền" OR "không liên hệ được" OR "nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
-      - id: watsons_value_experience_vi
-        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("thất vọng" OR "không mua lại" OR "không đáng tiền" OR "giá cao" OR "khuyến mãi ảo" OR "voucher không áp dụng" OR "hết quà" OR "tích điểm lỗi" OR "trải nghiệm tệ" OR "review thật") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_facebook_review_vi
+        query: 'site:facebook.com ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_facebook_order_vi
+        query: 'site:facebook.com ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("hết hàng" OR "hủy đơn" OR "hoàn tiền") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_instagram_review_vi
+        query: 'site:instagram.com ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_threads_review_vi
+        query: '(site:threads.com OR site:threads.net) inurl:/post/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_tiktok_video_review_vi
+        query: 'site:tiktok.com inurl:/video/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_youtube_review_vi
+        query: '(site:youtube.com/watch OR site:youtube.com/shorts) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_reddit_review_vi
+        query: 'site:reddit.com inurl:/comments/ ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) "đánh giá" -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_product_reaction_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("kích ứng" OR "dị ứng" OR "nổi mụn") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_product_quality_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("rò rỉ" OR "bao bì vỡ" OR "hư nắp") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_service_delivery_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("giao trễ" OR "giao sai" OR "thiếu hàng") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_service_staff_payment_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_promo_value_vi
+        query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("khuyến mãi ảo" OR "voucher không áp dụng" OR "không mua lại") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'

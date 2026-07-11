@@ -1358,6 +1358,7 @@ class GuardianService:
         *,
         model_version: str,
         review_required: bool,
+        prompt_version: str = ITEM_CLASSIFIER_PROMPT_VERSION,
     ) -> None:
         now = utc_now()
         raw_result = result.model_dump(mode="json")
@@ -1413,7 +1414,7 @@ class GuardianService:
                 result.evidence_span,
                 result.confidence,
                 model_version,
-                ITEM_CLASSIFIER_PROMPT_VERSION,
+                prompt_version,
                 "voc-v1",
                 _json_dump(raw_result),
                 now,
@@ -1547,17 +1548,35 @@ class GuardianService:
             for row in rows:
                 request = self._classification_request(row)
                 label = labels.get(str(row.get("source_external_id")))
+                metadata_value = _json_load(row.get("sanitized_metadata"), {})
+                metadata = metadata_value if isinstance(metadata_value, Mapping) else {}
+                inline_label = metadata.get("inline_classification")
+                inline_model = _dashboard_text(
+                    metadata.get("inline_classification_model")
+                )
+                inline_prompt_version = _dashboard_text(
+                    metadata.get("inline_classification_prompt_version")
+                )
                 try:
-                    if label is not None:
+                    if isinstance(inline_label, Mapping):
+                        result = ClassificationResult.model_validate(inline_label)
+                        result = validate_classification(result, request)
+                        model_version = inline_model or self.settings.ai_model
+                        prompt_version = (
+                            inline_prompt_version or ITEM_CLASSIFIER_PROMPT_VERSION
+                        )
+                    elif label is not None:
                         payload = dict(label)
                         payload.pop("source_external_id", None)
                         result = ClassificationResult.model_validate(payload)
                         result = validate_classification(result, request)
                         model_version = "cached-fixture-v1"
+                        prompt_version = ITEM_CLASSIFIER_PROMPT_VERSION
                     elif live_provider is not None:
                         assert live_runner is not None
                         result = live_runner.run(live_provider.classify(request))
                         model_version = live_provider.model_version
+                        prompt_version = ITEM_CLASSIFIER_PROMPT_VERSION
                     else:
                         failed += 1
                         self._record_classification_failure(
@@ -1579,6 +1598,7 @@ class GuardianService:
                         str(row["feedback_id"]),
                         result,
                         model_version=model_version,
+                        prompt_version=prompt_version,
                         review_required=review_required,
                     )
                     analyzed += 1

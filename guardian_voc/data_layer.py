@@ -26,13 +26,15 @@ from guardian_voc.ai.extraction import (
     assemble_customer_text,
 )
 from guardian_voc.ai.openai_compatible import OpenAICompatibleProvider
+from guardian_voc.ai.validator import validate_classification
 from guardian_voc.config import Settings, get_settings
 from guardian_voc.connectors.public_social import brand_candidates_from_keywords
 from guardian_voc.db import Database, GuardianVocRepository
-from guardian_voc.pipeline.dedupe import canonicalize_url
+from guardian_voc.pipeline.dedupe import canonicalize_url, content_hash
 from guardian_voc.pipeline.language import resolve_language
 from guardian_voc.pipeline.normalize import parse_timestamp
 from guardian_voc.pipeline.pii import redact_text
+from guardian_voc.schemas.analysis import ClassificationRequest, TrustedSourceMetadata
 from guardian_voc.schemas.extraction import PageBlock, PageExtractionRequest
 from guardian_voc.schemas.feedback import (
     Brand,
@@ -1494,6 +1496,49 @@ class LiveDataLayer:
                                         "period_start": self.period_start.isoformat(),
                                         "period_end": self.period_end.isoformat(),
                                     }
+                                    if unit.classification is not None:
+                                        classification_request = ClassificationRequest(
+                                            content_hash=content_hash(
+                                                title=str(row.get("title") or "") or None,
+                                                text=customer_text,
+                                            ),
+                                            text_redacted=customer_text,
+                                            trusted_metadata=TrustedSourceMetadata(
+                                                source_group=(
+                                                    SourceGroup.SOCIAL
+                                                    if is_social
+                                                    else SourceGroup.OWNED
+                                                ),
+                                                source_platform=platform,
+                                                visibility=Visibility.PUBLIC,
+                                                source_fixed_brand=source_owner_brand,
+                                                language="vi",
+                                            ),
+                                            brand_candidates=candidates,
+                                        )
+                                        try:
+                                            validated_classification = (
+                                                validate_classification(
+                                                    unit.classification,
+                                                    classification_request,
+                                                )
+                                            )
+                                        except Exception:
+                                            pass
+                                        else:
+                                            feedback_metadata[
+                                                "inline_classification"
+                                            ] = validated_classification.model_dump(
+                                                mode="json"
+                                            )
+                                            feedback_metadata[
+                                                "inline_classification_model"
+                                            ] = self.settings.ai_model
+                                            feedback_metadata[
+                                                "inline_classification_prompt_version"
+                                            ] = (
+                                                PAGE_FEEDBACK_EXTRACTOR_PROMPT_VERSION
+                                            )
                                     if seller_replies:
                                         feedback_metadata["seller_responses"] = (
                                             seller_replies

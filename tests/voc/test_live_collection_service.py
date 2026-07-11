@@ -80,7 +80,7 @@ def test_strict_live_collection_uses_shared_database_and_publishes(
             pages_per_query=3,
             fetch_limit=500,
             extraction_limit=500,
-            lookback_days=30,
+            lookback_days=365,
             refresh=False,
         )
 
@@ -103,7 +103,7 @@ def test_strict_live_collection_uses_shared_database_and_publishes(
         assert row["trigger"] == "scheduled_full_flow"
         stages = json.loads(str(row["stage_results"]))
         assert stages["ingest"]["collection"]["searches"] == 6
-        assert stages["ingest"]["collection"]["period_start"] == "2026-06-13"
+        assert stages["ingest"]["collection"]["period_start"] == "2025-07-13"
         assert stages["ingest"]["collection"]["source_ids"] == [
             "guardian_public_social",
             "hasaki_public_social",
@@ -147,7 +147,7 @@ def test_live_collection_api_requires_admin_and_forwards_bounded_options(
         "pages_per_query": 3,
         "fetch_limit": 500,
         "extraction_limit": 500,
-        "lookback_days": 30,
+        "lookback_days": 365,
         "refresh": False,
     }
     try:
@@ -165,7 +165,7 @@ def test_live_collection_api_requires_admin_and_forwards_bounded_options(
             "pages_per_query": 3,
             "fetch_limit": 500,
             "extraction_limit": 500,
-            "lookback_days": 30,
+            "lookback_days": 365,
             "refresh": False,
         }
     finally:
