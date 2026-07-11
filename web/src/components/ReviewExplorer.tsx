@@ -1,5 +1,5 @@
-import { Badge, Box, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { ArrowSquareOut, FunnelSimple, MagnifyingGlass } from "@phosphor-icons/react";
+import { Badge, Box, createListCollection, Flex, Grid, Heading, Input, Select, Stack, Text } from "@chakra-ui/react";
+import { FunnelSimple, MagnifyingGlass } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { DashboardData, DashboardEvidence } from "../api/types";
@@ -59,6 +59,36 @@ function humanize(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function friendlyPlatform(value: string): string {
+  const normalized = value.trim().toLocaleLowerCase();
+  const labels: Record<string, string> = {
+    guardian_ecommerce: "Guardian eCommerce",
+    guardian: "Guardian",
+    tiktok_shop: "TikTok Shop",
+    tiktok: "TikTok",
+    grabmart: "GrabMart",
+    shopee: "Shopee",
+    lazada: "Lazada",
+    watsons: "Watsons",
+    hasaki: "Hasaki",
+    facebook: "Facebook",
+    instagram: "Instagram",
+    youtube: "YouTube",
+  };
+  return labels[normalized] ?? humanize(cleanDisplayText(value));
+}
+
+function friendlySourceGroup(value: string): string | null {
+  const normalized = value.trim().toLocaleLowerCase();
+  if (normalized === "owned" || normalized === "social") return null;
+  const labels: Record<string, string> = {
+    marketplace: "Marketplace",
+    customer_service: "Customer service",
+    public_social: "Social media",
+  };
+  return labels[normalized] ?? humanize(cleanDisplayText(value));
+}
+
 function parseTime(value: string | null): number | null {
   if (!value) return null;
   const time = new Date(value).getTime();
@@ -79,15 +109,47 @@ function sentimentPalette(sentiment: string | null): "green" | "red" | "gray" | 
   return "orange";
 }
 
-function NativeSelect({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
+function problemPalette(problem: ProblemCategory): "red" | "orange" | "yellow" | "purple" | "blue" | "pink" {
+  if (problem === "Leaking" || problem === "Product leakage") return "red";
+  if (problem === "Poor packaging" || problem === "Packaging deformation") return "orange";
+  if (problem === "Seal quality" || problem === "Broken cap") return "yellow";
+  if (problem === "Wrong item received") return "purple";
+  if (problem === "Delivery damage" || problem === "Late delivery") return "blue";
+  return "pink";
+}
+
+function FilterSelect<T extends string>({ label, value, items, onChange }: { label: string; value: T; items: Array<{ value: T; label: string }>; onChange: (value: T) => void }) {
+  const collection = useMemo(() => createListCollection({ items }), [items]);
   return (
-    <Box position="relative" minW={{ base: "full", sm: "190px" }}>
-      <Box asChild w="full" h="42px" px="3" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface" color="ink" fontWeight="650">
-        <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
-          {children}
-        </select>
-      </Box>
-    </Box>
+    <Select.Root
+      collection={collection}
+      value={[value]}
+      onValueChange={(details) => {
+        const next = details.value[0];
+        if (next) onChange(next as T);
+      }}
+      minW={{ base: "full", sm: "190px" }}
+      positioning={{ sameWidth: true }}
+    >
+      <Select.Label className="visually-hidden">{label}</Select.Label>
+      <Select.HiddenSelect aria-label={label} />
+      <Select.Control>
+        <Select.Trigger h="42px" px="3" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface" color="ink" fontWeight="650" justifyContent="space-between">
+          <Select.ValueText />
+          <Select.Indicator />
+        </Select.Trigger>
+      </Select.Control>
+      <Select.Positioner>
+        <Select.Content bg="surface" borderWidth="1px" borderColor="border" borderRadius="control" boxShadow="lg" zIndex="popover">
+          {items.map((item) => (
+            <Select.Item key={item.value} item={item} px="3" py="2.5" cursor="pointer" _highlighted={{ bg: "subtle" }}>
+              <Select.ItemText>{item.label}</Select.ItemText>
+              <Select.ItemIndicator />
+            </Select.Item>
+          ))}
+        </Select.Content>
+      </Select.Positioner>
+    </Select.Root>
   );
 }
 
@@ -96,7 +158,9 @@ function reviewSearchText(item: DashboardEvidence, productName: string): string 
   return [
     item.text,
     item.sourcePlatform,
+    friendlyPlatform(item.sourcePlatform),
     item.sourceGroup,
+    friendlySourceGroup(item.sourceGroup),
     productName,
     problem,
     item.sentiment,
@@ -121,10 +185,7 @@ function SourceLink({ href, children }: { href: string | null; children: ReactNo
   return (
     <Box asChild color="ink" _hover={{ color: "accent", textDecoration: "underline" }}>
       <a href={href} target="_blank" rel="noreferrer">
-        <Flex as="span" align="center" gap="1.5">
-          {children}
-          <ArrowSquareOut size={15} />
-        </Flex>
+        {children}
       </a>
     </Box>
   );
@@ -140,6 +201,10 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
   const platforms = useMemo(
     () => [...new Set(data.evidence.map((item) => item.sourcePlatform).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     [data.evidence],
+  );
+  const platformOptions = useMemo(
+    () => [{ value: "all", label: "All platforms" }, ...platforms.map((value) => ({ value, label: friendlyPlatform(value) }))],
+    [platforms],
   );
   const anchorTime = parseTime(data.asOf) ?? parseTime(data.lastUpdated) ?? Date.now();
   const frame = timeFrames.find((item) => item.value === timeFrame) ?? timeFrames[0]!;
@@ -189,16 +254,9 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
             <MagnifyingGlass size={18} />
             <Input aria-label="Search reviews" placeholder="Search review text, product, topic..." value={query} onChange={(event) => setQuery(event.target.value)} border="0" px="0" h="38px" _focusVisible={{ outline: "none", boxShadow: "none" }} />
           </Flex>
-          <NativeSelect label="Filter reviews by platform" value={platform} onChange={setPlatform}>
-            <option value="all">All platforms</option>
-            {platforms.map((value) => <option key={value} value={value}>{value}</option>)}
-          </NativeSelect>
-          <NativeSelect label="Filter reviews by time frame" value={timeFrame} onChange={(value) => setTimeFrame(value as TimeFrame)}>
-            {timeFrames.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </NativeSelect>
-          <NativeSelect label="Sort reviews" value={sortMode} onChange={(value) => setSortMode(value as SortMode)}>
-            {sortOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </NativeSelect>
+          <FilterSelect label="Filter reviews by platform" value={platform} items={platformOptions} onChange={setPlatform} />
+          <FilterSelect label="Filter reviews by time frame" value={timeFrame} items={timeFrames} onChange={setTimeFrame} />
+          <FilterSelect label="Sort reviews" value={sortMode} items={sortOptions} onChange={setSortMode} />
         </Grid>
       </Box>
 
@@ -211,11 +269,11 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
           </Stack>
         ) : (
           <Box overflowX="auto">
-            <Box as="table" width="full" minW="900px" borderCollapse="collapse">
+              <Box as="table" width="full" minW="860px" borderCollapse="collapse" fontSize="sm">
               <Box as="thead" bg="subtle">
                 <Box as="tr">
                   {["Review", "Problem", "Product", "Platform", "Sentiment", "Date"].map((label) => (
-                    <Box as="th" key={label} px="4" py="3" textAlign="left" fontSize="sm" color="muted" fontWeight="750">{label}</Box>
+                    <Box as="th" key={label} px="3" py="2.5" textAlign="left" fontSize="xs" color="muted" fontWeight="750" textTransform="uppercase" letterSpacing="0.04em">{label}</Box>
                   ))}
                 </Box>
               </Box>
@@ -223,32 +281,35 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
                 {reviews.map((item) => {
                   const product = item.productId ? productsById.get(item.productId) : undefined;
                   const social = isSocialSource(item);
-                  const sourceGroup = humanize(cleanDisplayText(item.sourceGroup));
+                  const sourceGroup = friendlySourceGroup(item.sourceGroup);
+                  const problem = categorizeProblem(item);
                   return (
                     <Box as="tr" key={item.id} borderTopWidth="1px" borderColor="border">
-                      <Box as="td" px="4" py="4" maxW="430px">
+                      <Box as="td" px="3" py="3" maxW="430px">
                         <SourceLink href={item.sourceUrl}>
-                          <Text as="span" fontWeight="650" lineClamp={3}>{cleanDisplayText(item.text)}</Text>
+                          <Text as="span" fontWeight="600" lineClamp={3} fontSize="sm">{cleanDisplayText(item.text)}</Text>
                         </SourceLink>
                       </Box>
-                      <Box as="td" px="4" py="4">
-                        <Text fontWeight="700">{categorizeProblem(item)}</Text>
+                      <Box as="td" px="3" py="3">
+                        <Badge colorPalette={problemPalette(problem)} variant="subtle" borderRadius="control" px="2.5" py="1" fontSize="xs" fontWeight="700">
+                          {problem}
+                        </Badge>
                       </Box>
-                      <Box as="td" px="4" py="4">
+                      <Box as="td" px="3" py="3">
                         {social ? (
-                          <Text color="muted">Null</Text>
+                          <Text color="muted" fontSize="sm">Null</Text>
                         ) : (
                           <>
                             <SourceLink href={item.sourceUrl}>
-                              <Text as="span" fontWeight="650">{cleanDisplayText(product?.shortName ?? product?.name ?? "Unknown product")}</Text>
+                              <Text as="span" fontWeight="600" fontSize="sm">{cleanDisplayText(product?.shortName ?? product?.name ?? "Unknown product")}</Text>
                             </SourceLink>
-                            {product?.sku && <Text color="muted" fontSize="sm">{product.sku}</Text>}
+                            {product?.sku && <Text color="muted" fontSize="xs">{product.sku}</Text>}
                           </>
                         )}
                       </Box>
-                      <Box as="td" px="4" py="4"><Text>{cleanDisplayText(item.sourcePlatform)}</Text>{sourceGroup !== "Social" && <Text color="muted" fontSize="sm">{sourceGroup}</Text>}</Box>
-                      <Box as="td" px="4" py="4"><Badge colorPalette={sentimentPalette(item.sentiment)} variant="subtle">{humanize(cleanDisplayText(item.sentiment ?? "unknown"))}</Badge></Box>
-                      <Box as="td" px="4" py="4"><Text>{formatDate(item.timestamp)}</Text></Box>
+                      <Box as="td" px="3" py="3"><Text fontSize="sm">{friendlyPlatform(item.sourcePlatform)}</Text>{sourceGroup && <Text color="muted" fontSize="xs">{sourceGroup}</Text>}</Box>
+                      <Box as="td" px="3" py="3"><Badge colorPalette={sentimentPalette(item.sentiment)} variant="subtle" fontSize="xs">{humanize(cleanDisplayText(item.sentiment ?? "unknown"))}</Badge></Box>
+                      <Box as="td" px="3" py="3"><Text fontSize="sm">{formatDate(item.timestamp)}</Text></Box>
                     </Box>
                   );
                 })}

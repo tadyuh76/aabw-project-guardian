@@ -221,7 +221,8 @@ describe("App dashboard states", () => {
     expect(screen.getByRole("link", { name: /The cleanser arrived securely packed/i })).toHaveAttribute("href", "https://shopee.vn/product/cerave-473");
     expect(screen.getAllByRole("link", { name: /CeraVe Foaming Cleanser/i }).some((link) => link.getAttribute("href") === "https://shopee.vn/product/cerave-473")).toBe(true);
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Filter reviews by platform" }), "Watsons");
+    await user.click(screen.getByRole("combobox", { name: "Filter reviews by platform" }));
+    await user.click(await screen.findByRole("option", { name: "Watsons" }));
     expect(screen.getByText("Watsons delivery was late.")).toBeInTheDocument();
     expect(screen.getByText("Late delivery")).toBeInTheDocument();
     expect(screen.queryByText("The cleanser arrived securely packed.")).not.toBeInTheDocument();
@@ -231,7 +232,8 @@ describe("App dashboard states", () => {
     expect(screen.getByRole("link", { name: /Watsons delivery was late/i })).toHaveAttribute("href", "https://www.watsons.vn/product/cerave-473");
 
     await user.clear(screen.getByRole("textbox", { name: "Search reviews" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "Filter reviews by platform" }), "Facebook");
+    await user.click(screen.getByRole("combobox", { name: "Filter reviews by platform" }));
+    await user.click(await screen.findByRole("option", { name: "Facebook" }));
     expect(screen.getByText("Null")).toBeInTheDocument();
     expect(screen.getByText("Unknown")).toBeInTheDocument();
     expect(screen.getByText("Skin irritation")).toBeInTheDocument();
