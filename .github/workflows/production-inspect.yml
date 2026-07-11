@@ -1,0 +1,103 @@
+name: Production data inspection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || vars.DEPLOY_PATH || '/opt/guardian-signal' }}
+    steps:
+      - name: Configure verified SSH access
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/guardian-deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/guardian-deploy ~/.ssh/known_hosts
+
+      - name: Print redacted aggregate collection counts
+        run: |
+          ssh -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && docker compose exec -T app python - <<'PY'
+          import json
+          from guardian_voc.config import get_settings
+          from guardian_voc.db import Database
+
+          settings = get_settings()
+          db = Database(settings=settings)
+          last = db.query_one(
+              '''
+              SELECT id, status, trigger, records_seen, records_inserted,
+                     records_skipped, records_failed, stage_results
+              FROM pipeline_runs
+              ORDER BY started_at DESC LIMIT 1
+              '''
+          )
+          stage_results = {}
+          if last and last.get('stage_results'):
+              stage_results = json.loads(str(last['stage_results']))
+          ingest = stage_results.get('ingest') or {}
+          collection = ingest.get('collection') or {}
+          fetch_status = db.query(
+              '''
+              SELECT status, count(*) AS count
+              FROM fetch_attempts
+              GROUP BY status
+              ORDER BY status
+              '''
+          )
+          extraction_status = db.query(
+              '''
+              SELECT status, count(*) AS count, sum(unit_count) AS units
+              FROM page_extractions
+              GROUP BY status
+              ORDER BY status
+              '''
+          )
+          latest_discovery = db.query(
+              '''
+              SELECT source_id, count(*) AS total,
+                     sum(CASE WHEN eligible_for_fetch THEN 1 ELSE 0 END) AS eligible
+              FROM discovery_results
+              GROUP BY source_id
+              ORDER BY source_id
+              '''
+          )
+          feedback = db.query(
+              '''
+              SELECT source_group, source_platform, count(*) AS count
+              FROM feedback_items
+              WHERE source_group = 'social'
+              GROUP BY source_group, source_platform
+              ORDER BY source_platform
+              '''
+          )
+          print(json.dumps({
+              'last_run': {
+                  key: last.get(key)
+                  for key in (
+                      'id', 'status', 'trigger', 'records_seen',
+                      'records_inserted', 'records_skipped', 'records_failed'
+                  )
+              } if last else None,
+              'collection': collection,
+              'fetch_status': fetch_status,
+              'extraction_status': extraction_status,
+              'discovery_by_source': latest_discovery,
+              'social_feedback_by_platform': feedback,
+          }, sort_keys=True, default=str))
+          PY"
