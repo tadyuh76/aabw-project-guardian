@@ -27,7 +27,7 @@ function GuardianPalmBrand({ compact = false }: { compact?: boolean }) {
 }
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>("import");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");

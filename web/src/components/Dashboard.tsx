@@ -1,5 +1,5 @@
 import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { ArrowDown, ArrowUp, CalendarBlank, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CalendarBlank, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
@@ -199,6 +199,68 @@ function hasUsefulInsight(data: DashboardData): boolean {
   return Boolean(title && !/^ai auto summary$/i.test(title));
 }
 
+function weeklySummaryMessage({ insight, feedback, positive, neutral, issue }: { insight: DashboardData["primaryInsight"]; feedback: number; positive: number; neutral: number; issue?: ProductTheme }): string {
+  if (insight) return cleanDisplayText(insight.title);
+  if (feedback <= 0) return "No resolved customer feedback this week.";
+  const negative = Math.max(0, feedback - positive - neutral);
+  if (positive >= negative && issue && issue.count > 0) return `Customers are mostly happy, but ${humanize(issue.label).toLocaleLowerCase()} needs action now.`;
+  if (positive >= negative) return "Customers are mostly happy this week.";
+  if (issue && issue.count > 0) return `${humanize(issue.label)} needs action this week.`;
+  return "Customer sentiment needs attention this week.";
+}
+
+function WeeklySummaryCard({ message }: { message: string }) {
+  return (
+    <Flex
+      as="section"
+      aria-label="Last week summary"
+      position="relative"
+      overflow="hidden"
+      align="center"
+      gap={{ base: "4", md: "6" }}
+      minH={{ base: "118px", md: "128px" }}
+      width="full"
+      px={{ base: "5", md: "7" }}
+      py={{ base: "5", md: "6" }}
+      bg="surface"
+      borderWidth="1px"
+      borderColor="brand.200"
+      borderRadius="panel"
+      boxShadow="0 10px 30px rgba(236, 126, 36, 0.10)"
+    >
+      <Box position="absolute" inset="0" bg="linear-gradient(100deg, rgba(255,248,241,0.95) 0%, rgba(255,255,255,0.95) 58%, rgba(255,234,216,0.42) 100%)" pointerEvents="none" />
+      <Box position="absolute" right={{ base: "-28px", md: "24px" }} top={{ base: "-18px", md: "20px" }} w={{ base: "96px", md: "128px" }} h={{ base: "96px", md: "128px" }} borderWidth="1px" borderColor="brand.200" borderRadius="full" opacity="0.45" pointerEvents="none" />
+      <Box position="absolute" right={{ base: "28px", md: "148px" }} bottom={{ base: "-14px", md: "18px" }} w="28px" h="28px" bg="brand.100" borderRadius="full" opacity="0.7" pointerEvents="none" />
+      <Flex position="relative" w={{ base: "14", md: "16" }} h={{ base: "14", md: "16" }} flex="0 0 auto" align="center" justify="center" borderRadius="full" bg="brand.100" color="brand.500">
+        <Flex w={{ base: "10", md: "12" }} h={{ base: "10", md: "12" }} align="center" justify="center" borderRadius="full" bg="brand.500" color="white">
+          <Star size={28} weight="fill" />
+        </Flex>
+      </Flex>
+      <Box position="relative" minW="0" maxW="980px">
+        <Badge mb="2" colorPalette="orange" variant="subtle">AI summary</Badge>
+        <Heading size={{ base: "md", md: "xl" }} lineHeight="1.28" letterSpacing="0">
+          {message}
+        </Heading>
+      </Box>
+      <Flex
+        position="relative"
+        display={{ base: "none", md: "flex" }}
+        ml="auto"
+        flex="0 0 auto"
+        align="center"
+        justify="center"
+        w="72px"
+        h="72px"
+        color="brand.500"
+        opacity="0.9"
+        aria-hidden="true"
+      >
+        <Package size={48} />
+      </Flex>
+    </Flex>
+  );
+}
+
 export function Dashboard({ data }: DashboardProps) {
   const [datePreset, setDatePreset] = useState<DatePreset>("7d");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
@@ -233,6 +295,7 @@ export function Dashboard({ data }: DashboardProps) {
   const problems = aggregateThemes(selectedProducts, "problems").sort(periodIssueSort).slice(0, 5);
   const ratingTrend = aggregateRatingTrend(selectedProducts);
   const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
+  const weeklyMessage = weeklySummaryMessage({ insight, feedback: totals.feedback, positive: totals.positive, neutral: totals.neutral, issue: problems[0] ?? negativeFeedback[0] });
 
   const metrics = [
     { icon: <ChatCircleDots size={34} />, label: "Reviews", value: totals.feedback.toLocaleString(), iconBg: "#eff6ff", darkIconBg: "#10233f", color: "#2563eb" },
@@ -243,7 +306,21 @@ export function Dashboard({ data }: DashboardProps) {
 
   return (
     <Stack gap="5">
-      <Flex align={{ base: "stretch", lg: "center" }} justify="space-between" direction={{ base: "column", lg: "row" }} gap="4">
+      <Flex
+        as="header"
+        align={{ base: "stretch", lg: "center" }}
+        justify="space-between"
+        direction={{ base: "column", lg: "row" }}
+        gap="4"
+        mx={{ base: "-4", md: "-7", xl: "-10" }}
+        mt={{ base: "-6", md: "-8" }}
+        px={{ base: "4", md: "7", xl: "10" }}
+        py={{ base: "4", md: "5" }}
+        bg="surface"
+        borderBottomWidth="1px"
+        borderColor="border"
+        boxShadow="0 1px 0 rgba(24, 26, 29, 0.04)"
+      >
         <DateRangeFilter value={datePreset} onChange={setDatePreset} customRange={customRange} onCustomRangeChange={setCustomRange} />
         <ProductGroupSelect products={data.products} selectedGroupId={selectedGroupId} onChange={setSelectedGroupId} />
       </Flex>
@@ -251,10 +328,7 @@ export function Dashboard({ data }: DashboardProps) {
       {selectedProducts.length === 0 ? (
         <Stack {...panelProps} align="flex-start" gap="4"><Package size={30} /><Heading size="lg">No products found in this group</Heading><Button colorPalette="orange" onClick={() => setSelectedGroupId("all")}>Show all groups</Button></Stack>
       ) : <>
-        {insight && <Grid as="section" aria-labelledby="pulse-title" {...panelProps} bg="brand.50" _dark={{ bg: "#30190c" }} borderColor="brand.200" gridTemplateColumns={{ base: "1fr", md: "auto 1fr auto" }} alignItems="center" gap="5">
-          <Flex w="14" h="14" align="center" justify="center" borderRadius="full" bg="brand.100" color="brand.500"><Star size={30} weight="fill" /></Flex>
-          <Box><Heading id="pulse-title" size="lg" letterSpacing="0">{cleanDisplayText(insight.title)}</Heading>{insight.summary && <Text color="muted" mt="2">{cleanDisplayText(insight.summary)}</Text>}</Box>
-        </Grid>}
+        <WeeklySummaryCard message={weeklyMessage} />
 
         <Grid as="section" aria-label="Sentiment metrics" gridTemplateColumns={{ base: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
           {metrics.map((metric) => <Flex key={metric.label} minH={{ base: "146px", md: "128px" }} p={{ base: "5", md: "5" }} gap={{ base: "2", md: "4" }} direction={{ base: "column", md: "row" }} justify={{ base: "center", md: "flex-start" }} align="center" bg="surface" borderWidth="1px" borderTopWidth="3px" borderColor="border" borderTopColor={metric.color} borderRadius="panel">
@@ -283,7 +357,7 @@ export function Dashboard({ data }: DashboardProps) {
           </Section>
         </Grid>
 
-        {selectedEvidence.length > 0 && <Section title="Recent review signals" action={<Badge variant="subtle" colorPalette="orange">{selectedEvidence.length}</Badge>}><Stack gap="0" divideY="1px" divideColor="border">{selectedEvidence.slice(0, 4).map((item) => <Grid key={item.id} py="4" gridTemplateColumns={{ base: "1fr", md: "130px minmax(0, 1fr) auto" }} gap="4" alignItems="start"><Text fontWeight="650">{humanize(cleanDisplayText(item.sourcePlatform))}</Text><Text>“{cleanDisplayText(item.text)}”</Text><Badge colorPalette={item.sentiment === "positive" ? "green" : item.sentiment === "negative" ? "red" : "gray"} variant="subtle">{humanize(item.sentiment ?? "neutral")}</Badge></Grid>)}</Stack></Section>}
+        {selectedEvidence.length > 0 && <Section title="Recent review signals" action={<Badge variant="subtle" colorPalette="orange">{selectedEvidence.length}</Badge>}><Stack gap="0" divideY="1px" divideColor="border">{selectedEvidence.slice(0, 4).map((item) => <Grid key={item.id} py="4" gridTemplateColumns={{ base: "1fr", md: "130px minmax(0, 1fr) auto" }} gap="4" alignItems="start"><Text fontWeight="650">{humanize(cleanDisplayText(item.sourcePlatform))}</Text><Text>“{cleanDisplayText(item.text)}”</Text><Flex gap="2" align="center" justify={{ base: "flex-start", md: "flex-end" }}><Badge colorPalette={item.sentiment === "positive" ? "green" : item.sentiment === "negative" ? "red" : "gray"} variant="subtle">{humanize(item.sentiment ?? "neutral")}</Badge>{item.sourceUrl && <Button asChild size="xs" variant="ghost" aria-label="Open source"><a href={item.sourceUrl} target="_blank" rel="noreferrer"><ArrowSquareOut weight="bold" /></a></Button>}</Flex></Grid>)}</Stack></Section>}
       </>}
     </Stack>
   );
