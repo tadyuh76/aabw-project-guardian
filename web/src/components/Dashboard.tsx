@@ -69,10 +69,28 @@ function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: 
     { value: "all", label: "All" },
     { value: "custom", label: "Custom" },
   ];
+  const customDateField = (label: string, field: "from" | "to") => (
+    <Flex align="center" gap="2" px="3" h="40px" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface">
+      <CalendarBlank size={16} />
+      <Input
+        type="text"
+        inputMode="numeric"
+        aria-label={label}
+        placeholder="dd/mm/yyyy"
+        value={customRange[field]}
+        onChange={(event) => onCustomRangeChange({ ...customRange, [field]: event.target.value })}
+        border="0"
+        px="0"
+        h="36px"
+        width="126px"
+        _focusVisible={{ outline: "none", boxShadow: "none" }}
+      />
+    </Flex>
+  );
 
   return (
     <Flex align="center" gap="2" wrap="wrap">
-      <Flex role="group" aria-label="Date range" p="1" bg="subtle" borderRadius="control" gap="1" alignSelf="flex-start">
+      <Flex role="group" aria-label="Date range" p="1" bg="surface" borderWidth="1px" borderColor="border" borderRadius="control" gap="1" alignSelf="flex-start">
         {presets.map((preset) => (
           <Button key={preset.value} size="sm" minW="12" variant={value === preset.value ? "solid" : "ghost"} colorPalette="orange" onClick={() => onChange(preset.value)}>
             {preset.label}
@@ -81,11 +99,8 @@ function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: 
       </Flex>
       {value === "custom" && (
         <Flex align="center" gap="2" wrap="wrap">
-          <Flex align="center" gap="2" px="3" h="36px" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface">
-            <CalendarBlank size={16} />
-            <Input type="date" aria-label="Custom start date" value={customRange.from} onChange={(event) => onCustomRangeChange({ ...customRange, from: event.target.value })} border="0" px="0" h="32px" width="140px" />
-          </Flex>
-          <Input type="date" aria-label="Custom end date" value={customRange.to} onChange={(event) => onCustomRangeChange({ ...customRange, to: event.target.value })} h="36px" width="140px" bg="surface" />
+          {customDateField("Custom start date", "from")}
+          {customDateField("Custom end date", "to")}
         </Flex>
       )}
     </Flex>
@@ -312,14 +327,6 @@ export function Dashboard({ data }: DashboardProps) {
         justify="space-between"
         direction={{ base: "column", lg: "row" }}
         gap="4"
-        mx={{ base: "-4", md: "-7", xl: "-10" }}
-        mt={{ base: "-6", md: "-8" }}
-        px={{ base: "4", md: "7", xl: "10" }}
-        py={{ base: "4", md: "5" }}
-        bg="surface"
-        borderBottomWidth="1px"
-        borderColor="border"
-        boxShadow="0 1px 0 rgba(24, 26, 29, 0.04)"
       >
         <DateRangeFilter value={datePreset} onChange={setDatePreset} customRange={customRange} onCustomRangeChange={setCustomRange} />
         <ProductGroupSelect products={data.products} selectedGroupId={selectedGroupId} onChange={setSelectedGroupId} />
