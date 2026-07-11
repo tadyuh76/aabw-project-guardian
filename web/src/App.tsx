@@ -3,6 +3,7 @@ import {
   CalendarBlank,
   Database,
   Moon,
+  Pulse,
   ShieldCheck,
   SidebarSimple,
   Sun,
@@ -91,7 +92,7 @@ export function App() {
       <aside className="sidebar">
         <div className="brand"><ShieldCheck size={25} weight="fill" aria-hidden="true" /><span>Guardian</span></div>
         <nav className="sidebar-nav" aria-label="Primary navigation">
-          <a className="nav-item is-active" href="#main-content" aria-current="page"><ShieldCheck size={20} weight="fill" /><span>Command Center</span></a>
+          <a className="nav-item is-active" href="#main-content" aria-current="page"><Pulse size={20} weight="fill" /><span>Customer Pulse</span></a>
           <a className="nav-item" href="#review-import"><UploadSimple size={20} /><span>Import reviews</span></a>
         </nav>
         <div className="sidebar-footer">
@@ -102,7 +103,7 @@ export function App() {
       </aside>
 
       <header className="topbar">
-        <div><span className="topbar-kicker">Voice of customer</span><h1>Command Center</h1></div>
+        <div><span className="topbar-kicker">Voice of customer</span><h1>Customer Pulse</h1></div>
         <div className="topbar-actions">
           <button className="refresh-button" type="button" onClick={() => void load(true)} disabled={loading || refreshing} aria-label="Refresh dashboard">
             <ArrowClockwise size={17} className={refreshing ? "is-spinning" : ""} /><span>{refreshing ? "Refreshing" : "Refresh"}</span>

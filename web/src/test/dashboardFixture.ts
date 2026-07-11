@@ -38,6 +38,9 @@ export function dashboardFixture(overrides: Partial<DashboardData> = {}): Dashbo
       sentimentDelta: 3.2,
       sources: [{ sourceGroup: "owned", count: 150 }, { sourceGroup: "marketplace", count: 50 }],
       themes: [{ label: "Packaging", subtopic: null, count: 6 }],
+      ratingDistribution: [{ rating: 5, count: 128 }, { rating: 4, count: 50 }, { rating: 3, count: 12 }, { rating: 2, count: 6 }, { rating: 1, count: 4 }],
+      negativeFeedback: [{ label: "product_quality", subtopic: null, count: 6 }],
+      problems: [{ label: "damaged_packaging", subtopic: null, count: 6 }],
     }],
     evidence: [{
       id: "feedback-1",

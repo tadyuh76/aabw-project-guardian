@@ -30,6 +30,11 @@ export interface ProductTheme {
   count: number;
 }
 
+export interface ProductRatingCount {
+  rating: number;
+  count: number;
+}
+
 export interface DashboardProduct {
   id: string;
   name: string | null;
@@ -46,6 +51,9 @@ export interface DashboardProduct {
   sentimentDelta: number | null;
   sources: Array<{ sourceGroup: string; count: number }>;
   themes: ProductTheme[];
+  ratingDistribution: ProductRatingCount[];
+  negativeFeedback: ProductTheme[];
+  problems: ProductTheme[];
 }
 
 export interface DashboardEvidence {

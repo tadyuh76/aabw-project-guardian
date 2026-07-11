@@ -184,6 +184,11 @@ class DashboardThemeView(BaseModel):
     count: int = Field(ge=0)
 
 
+class DashboardRatingCountView(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    count: int = Field(ge=0)
+
+
 class DashboardProductView(BaseModel):
     id: str
     name: str
@@ -200,6 +205,9 @@ class DashboardProductView(BaseModel):
     sentiment_delta: float | None = None
     sources: dict[str, int] = Field(default_factory=dict)
     themes: list[DashboardThemeView] = Field(default_factory=list)
+    rating_distribution: list[DashboardRatingCountView] = Field(default_factory=list)
+    negative_feedback: list[DashboardThemeView] = Field(default_factory=list)
+    problems: list[DashboardThemeView] = Field(default_factory=list)
 
 
 class DashboardEvidenceView(BaseModel):

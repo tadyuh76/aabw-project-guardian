@@ -31,6 +31,12 @@ describe("App dashboard states", () => {
     expect(screen.getByText("Improving decision")).toBeInTheDocument();
     expect(screen.getByText("Workflow: Monitoring")).toBeInTheDocument();
     expect(screen.getByText("The cleanser arrived securely packed.", { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Star rating distribution" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Top 5 negative feedback" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
+    expect(screen.getByText("128")).toBeInTheDocument();
+    expect(screen.getByText("Product Quality")).toBeInTheDocument();
+    expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
   });
 
   it("shows the backend partial message with the usable data", async () => {

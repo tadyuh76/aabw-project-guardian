@@ -88,6 +88,7 @@ from guardian_voc.schemas.api import (
     DashboardEvidenceView,
     DashboardPeriodCountsView,
     DashboardProductView,
+    DashboardRatingCountView,
     DashboardResponse,
     DashboardThemeView,
     DashboardWindowsView,
@@ -3461,9 +3462,24 @@ class GuardianService:
                 row for row in current_analyzed if str(row.get("intent")) == "complaint"
             ]
             source_counts = Counter(str(row.get("source_group")) for row in current_rows)
-            theme_counts = Counter(
+            feedback_counts = Counter(
+                str(row.get("primary_topic") or "other")
+                for row in complaint_rows
+            )
+            problem_counts = Counter(
                 str(row.get("subtopic") or row.get("primary_topic") or "other")
                 for row in complaint_rows
+            )
+            rating_counts = Counter(
+                max(1, min(5, int(float(row["rating"]) + 0.5)))
+                for row in current_rows
+                if row.get("rating") is not None
+            )
+            sorted_feedback = sorted(
+                feedback_counts.items(), key=lambda item: (-item[1], item[0])
+            )
+            sorted_problems = sorted(
+                problem_counts.items(), key=lambda item: (-item[1], item[0])
             )
             products.append(
                 DashboardProductView(
@@ -3497,9 +3513,20 @@ class GuardianService:
                     sources=dict(sorted(source_counts.items())),
                     themes=[
                         DashboardThemeView(label=label, count=count)
-                        for label, count in sorted(
-                            theme_counts.items(), key=lambda item: (-item[1], item[0])
-                        )
+                        for label, count in sorted_problems
+                    ],
+                    rating_distribution=[
+                        DashboardRatingCountView(rating=rating, count=rating_counts[rating])
+                        for rating in range(5, 0, -1)
+                        if rating_counts[rating]
+                    ],
+                    negative_feedback=[
+                        DashboardThemeView(label=label, count=count)
+                        for label, count in sorted_feedback
+                    ],
+                    problems=[
+                        DashboardThemeView(label=label, count=count)
+                        for label, count in sorted_problems
                     ],
                 )
             )

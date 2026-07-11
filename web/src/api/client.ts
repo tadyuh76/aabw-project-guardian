@@ -89,22 +89,34 @@ function normalizeSources(value: unknown): DashboardProduct["sources"] {
   );
 }
 
+function normalizeThemes(value: unknown): DashboardProduct["themes"] {
+  return Array.isArray(value)
+    ? value.flatMap((item) => {
+        if (!isRecord(item)) return [];
+        const label = stringValue(item.label ?? item.topic);
+        if (!label) return [];
+        return [{ label, subtopic: stringValue(item.subtopic), count: countValue(item.count) }];
+      })
+    : [];
+}
+
+function normalizeRatingDistribution(value: unknown): DashboardProduct["ratingDistribution"] {
+  return Array.isArray(value)
+    ? value.flatMap((item) => {
+        if (!isRecord(item)) return [];
+        const rating = numberValue(item.rating);
+        return rating !== null && rating >= 1 && rating <= 5
+          ? [{ rating, count: countValue(item.count) }]
+          : [];
+      })
+    : [];
+}
+
 function normalizeProduct(value: unknown): DashboardProduct | null {
   if (!isRecord(value)) return null;
   const id = stringValue(value.id);
   if (!id) return null;
-  const themes = Array.isArray(value.themes)
-    ? value.themes.flatMap((item) => {
-        if (!isRecord(item)) return [];
-        const label = stringValue(item.label ?? item.topic);
-        if (!label) return [];
-        return [{
-          label,
-          subtopic: stringValue(item.subtopic),
-          count: countValue(item.count),
-        }];
-      })
-    : [];
+  const themes = normalizeThemes(value.themes);
   return {
     id,
     name: stringValue(value.name),
@@ -121,6 +133,9 @@ function normalizeProduct(value: unknown): DashboardProduct | null {
     sentimentDelta: numberValue(value.sentiment_delta ?? value.sentimentDelta),
     sources: normalizeSources(value.sources),
     themes,
+    ratingDistribution: normalizeRatingDistribution(value.rating_distribution ?? value.ratingDistribution),
+    negativeFeedback: normalizeThemes(value.negative_feedback ?? value.negativeFeedback),
+    problems: normalizeThemes(value.problems ?? value.themes),
   };
 }
 

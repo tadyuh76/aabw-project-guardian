@@ -230,6 +230,17 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
     assert [theme.model_dump() for theme in product.themes] == [
         {"label": "product_performance", "count": 1}
     ]
+    assert [item.model_dump() for item in product.rating_distribution] == [
+        {"rating": 5, "count": 1},
+        {"rating": 3, "count": 1},
+        {"rating": 1, "count": 1},
+    ]
+    assert [item.model_dump() for item in product.negative_feedback] == [
+        {"label": "product_quality_authenticity", "count": 1}
+    ]
+    assert [item.model_dump() for item in product.problems] == [
+        {"label": "product_performance", "count": 1}
+    ]
     assert len(result.evidence) == 5
     assert all(item.product_id == "P-1" for item in result.evidence)
     assert result.benchmark.comparable is False
