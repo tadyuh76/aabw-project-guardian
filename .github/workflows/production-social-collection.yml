@@ -2,6 +2,12 @@ name: Production social collection
 
 on:
   workflow_dispatch:
+    inputs:
+      repair_discovery_cache:
+        description: Back up the database and rebuild only the derived discovery cache
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -52,6 +58,15 @@ jobs:
             -o ServerAliveCountMax=20 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "chmod +x '${DEPLOY_PATH}/scripts/configure-production-social' '${DEPLOY_PATH}/scripts/deploy-server' && '${DEPLOY_PATH}/scripts/configure-production-social' && '${DEPLOY_PATH}/scripts/deploy-server'"
+
+      - name: Repair interrupted discovery cache with backup
+        if: inputs.repair_discovery_cache
+        run: |
+          ssh -i ~/.ssh/guardian-deploy \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}'; docker compose stop app; docker compose run --rm --no-deps --entrypoint python app scripts/repair-discovery-cache; repair_status=\$?; scripts/deploy-server; exit \${repair_status}"
 
       - name: Run bounded 30-day production collection
         run: |

@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+"""Rebuild the derived discovery cache after an interrupted DuckDB write."""
+
+from guardian_voc.config import get_settings
+from guardian_voc.maintenance import repair_discovery_cache
+
+
+def main() -> None:
+    settings = get_settings()
+    backup = repair_discovery_cache(settings.voc_db_path)
+    print(f"Discovery cache rebuilt; safety backup: {backup}")
+
+
+if __name__ == "__main__":
+    main()
