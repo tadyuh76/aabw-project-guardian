@@ -38,7 +38,7 @@ jobs:
           from guardian_voc.db import Database
 
           settings = get_settings()
-          db = Database(settings=settings)
+          db = Database(settings=settings, read_only=True)
           last = db.query_one(
               '''
               SELECT id, status, trigger, records_seen, records_inserted,
