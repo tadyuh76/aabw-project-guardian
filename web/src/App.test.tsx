@@ -17,6 +17,7 @@ import { App } from "./App";
 
 describe("App dashboard states", () => {
   beforeEach(() => {
+    window.history.replaceState(null, "", "/");
     Object.values(api).forEach((mock) => mock.mockReset());
     api.fetchImportConfig.mockResolvedValue({
       enabled: false,
@@ -131,5 +132,80 @@ describe("App dashboard states", () => {
     await user.click(screen.getByRole("button", { name: "Retry dashboard" }));
     expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
     expect(api.fetchDashboard).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens the dashboard at the root route and moves import to /import", async () => {
+    api.fetchDashboard.mockResolvedValue(dashboardFixture());
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Import reviews" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Import" }));
+    expect(window.location.pathname).toBe("/import");
+    expect(await screen.findByText("Review imports are disabled.")).toBeInTheDocument();
+  });
+
+  it("opens import directly from /import without loading dashboard data", async () => {
+    window.history.replaceState(null, "", "/import");
+    api.fetchDashboard.mockResolvedValue(dashboardFixture());
+
+    render(<App />);
+
+    expect(await screen.findByText("Review imports are disabled.")).toBeInTheDocument();
+    expect(api.fetchDashboard).not.toHaveBeenCalled();
+  });
+
+  it("opens reviews at /reviews with platform, time-frame, sort, search, and product URL controls", async () => {
+    window.history.replaceState(null, "", "/reviews");
+    api.fetchDashboard.mockResolvedValue(dashboardFixture({
+      evidence: [
+        {
+          id: "feedback-1",
+          productId: "cerave-473",
+          text: "The cleanser arrived securely packed.",
+          sourceGroup: "marketplace",
+          sourcePlatform: "Shopee",
+          sourceUrl: "https://shopee.vn/product/cerave-473",
+          timestamp: "2026-07-10T10:00:00Z",
+          confidence: 0.91,
+          stance: "support",
+          topic: "packaging",
+          subtopic: "seal",
+          sentiment: "positive",
+        },
+        {
+          id: "feedback-2",
+          productId: "cerave-473",
+          text: "Watsons delivery was late.",
+          sourceGroup: "marketplace",
+          sourcePlatform: "Watsons",
+          sourceUrl: "https://www.watsons.vn/product/cerave-473",
+          timestamp: "2026-06-10T10:00:00Z",
+          confidence: 0.83,
+          stance: "support",
+          topic: "delivery",
+          subtopic: null,
+          sentiment: "negative",
+        },
+      ],
+    }));
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Reviews" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Filter reviews by platform" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Filter reviews by time frame" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Sort reviews" })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter reviews by platform" }), "Watsons");
+    expect(screen.getByText("Watsons delivery was late.")).toBeInTheDocument();
+    expect(screen.queryByText("The cleanser arrived securely packed.")).not.toBeInTheDocument();
+
+    await user.clear(screen.getByRole("textbox", { name: "Search reviews" }));
+    await user.type(screen.getByRole("textbox", { name: "Search reviews" }), "delivery");
+    expect(screen.getByRole("link", { name: /view product/i })).toHaveAttribute("href", "https://www.watsons.vn/product/cerave-473");
   });
 });
