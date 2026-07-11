@@ -77,6 +77,9 @@ export function ProductGroupSelect({ products, selectedGroupId, onChange }: Prod
         width="full"
         height="44px"
         variant="outline"
+        bg="surface"
+        _hover={{ bg: "surface" }}
+        _expanded={{ bg: "surface" }}
         px="3"
         justifyContent="space-between"
         onClick={() => setOpen((value) => !value)}
