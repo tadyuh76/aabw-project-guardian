@@ -267,7 +267,6 @@ function WeeklySummaryCard({ message }: { message: string }) {
         color="brand.500"
         aria-hidden="true"
       >
-        <Box position="absolute" insetY="3" right="0" w="128px" bg="rgba(255, 248, 241, 0.82)" borderWidth="1px" borderColor="brand.200" borderRadius="12px" transform="rotate(-3deg)" />
         <Stack position="absolute" left="0" gap="2" align="flex-start">
           <Box h="3px" w="62px" bg="brand.300" borderRadius="full" />
           <Box h="3px" w="42px" bg="brand.200" borderRadius="full" />
