@@ -83,6 +83,36 @@ const problemMatchers: Array<{ category: ProblemCategory; patterns: RegExp[] }> 
   { category: "Poor packaging", patterns: [/poor\s+packaging/i, /bad\s+packaging/i, /pack(?:ed|aging)\s+poorly/i, /\bpackaging\b/i] },
 ];
 
+const problemLabelOverrides: Record<string, string> = {
+  adverse_reaction: "Skin Irritation",
+  damaged_package: "Delivery Damage",
+  delivery: "Delivery",
+  expired_product: "Expired Product",
+  missing_gift: "Missing Gift",
+  other: "Other",
+  packaging: "Packaging",
+  packaging_quality: "Packaging Quality",
+  price_promotion: "Price Promotion",
+  product_performance: "Product Performance",
+  product_quality_authenticity: "Product Quality",
+  seal: "Seal quality",
+  suspected_counterfeit: "Suspected Counterfeit",
+};
+
+function problemLabel(value: string): string {
+  const normalized = value.trim().toLocaleLowerCase().replace(/[\s-]+/g, "_");
+  return problemLabelOverrides[normalized] ?? humanize(cleanDisplayText(value));
+}
+
+function hasSpecificTaxonomy(value: string | null): boolean {
+  const normalized = value?.trim().toLocaleLowerCase().replace(/[\s-]+/g, "_");
+  return Boolean(normalized && normalized !== "other" && normalized !== "unknown");
+}
+
+function isOtherTaxonomy(value: string | null): boolean {
+  return value?.trim().toLocaleLowerCase().replace(/[\s-]+/g, "_") === "other";
+}
+
 function humanize(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
@@ -147,12 +177,14 @@ function sentimentPalette(sentiment: string | null): "green" | "red" | "gray" | 
   return "orange";
 }
 
-function problemPalette(problem: ProblemCategory): "red" | "orange" | "yellow" | "purple" | "blue" | "pink" {
-  if (problem === "Leaking" || problem === "Product leakage") return "red";
-  if (problem === "Poor packaging" || problem === "Packaging deformation") return "orange";
-  if (problem === "Seal quality" || problem === "Broken cap") return "yellow";
-  if (problem === "Wrong item received") return "purple";
-  if (problem === "Delivery damage" || problem === "Late delivery") return "blue";
+function problemPalette(problem: string): "red" | "orange" | "yellow" | "purple" | "blue" | "pink" | "gray" {
+  const normalized = problem.toLocaleLowerCase();
+  if (normalized.includes("leak")) return "red";
+  if (normalized.includes("packag") || normalized.includes("deform") || normalized.includes("damaged product")) return "orange";
+  if (normalized.includes("seal") || normalized.includes("cap") || normalized.includes("expired")) return "yellow";
+  if (normalized.includes("wrong") || normalized.includes("missing")) return "purple";
+  if (normalized.includes("delivery") || normalized.includes("tracking") || normalized.includes("late")) return "blue";
+  if (normalized === "other" || normalized === "unclassified") return "gray";
   return "pink";
 }
 
@@ -209,9 +241,13 @@ function reviewSearchText(item: ReviewItem, productName: string): string {
   ].filter(Boolean).join(" ").toLocaleLowerCase();
 }
 
-function categorizeProblem(item: DashboardEvidence): ProblemCategory {
-  const source = [item.topic, item.subtopic, item.text].filter(Boolean).join(" ");
-  return problemMatchers.find((matcher) => matcher.patterns.some((pattern) => pattern.test(source)))?.category ?? "Poor packaging";
+export function categorizeProblem(item: DashboardEvidence): string {
+  if (item.subtopic && hasSpecificTaxonomy(item.subtopic)) return problemLabel(item.subtopic);
+  const textProblem = problemMatchers.find((matcher) => matcher.patterns.some((pattern) => pattern.test(item.text)));
+  if (textProblem) return textProblem.category;
+  if (item.topic && hasSpecificTaxonomy(item.topic)) return problemLabel(item.topic);
+  if (isOtherTaxonomy(item.topic) || isOtherTaxonomy(item.subtopic)) return "Other";
+  return "Unclassified";
 }
 
 function isSocialSource(item: DashboardEvidence): boolean {
