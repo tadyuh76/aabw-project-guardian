@@ -47,13 +47,10 @@ describe("App dashboard states", () => {
     expect(await screen.findByText("Packaging complaints declined")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recent review signals" })).not.toBeInTheDocument();
     expect(screen.queryByText("The cleanser arrived securely packed.", { exact: false })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
-    expect(within(screen.getByRole("list", { name: "Rating buckets" })).getAllByRole("listitem").map((item) => item.getAttribute("aria-label"))).toEqual([
-      "1 star: 20",
-      "2 stars: 30",
-      "3 stars: 60",
-      "4 stars: 130",
-      "5 stars: 480",
+    expect(screen.getByRole("heading", { name: "Review sentiment" })).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Review sentiment" })).getAllByRole("listitem").map((item) => item.getAttribute("aria-label"))).toEqual([
+      "Positive reviews: 520 (72%)",
+      "Negative reviews: 80 (11%)",
     ]);
     expect(screen.queryByRole("heading", { name: "Top 5 negative feedback" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
@@ -63,7 +60,7 @@ describe("App dashboard states", () => {
     expect(screen.queryByText("cleanser")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products to watch" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
-    expect(screen.getByText("480")).toBeInTheDocument();
+    expect(screen.getByText("520")).toBeInTheDocument();
     expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
     expect(screen.queryByText(/Directional all-source comparison/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Net Sentiment Score/)).not.toBeInTheDocument();
@@ -95,7 +92,7 @@ describe("App dashboard states", () => {
     render(<App />);
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
-    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review sentiment" })).toBeInTheDocument();
     expect(screen.queryByText("Only marketplace sources completed in this window.")).not.toBeInTheDocument();
   });
 
@@ -108,7 +105,7 @@ describe("App dashboard states", () => {
     render(<App />);
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
-    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review sentiment" })).toBeInTheDocument();
     expect(screen.queryByText("Backend data notes")).not.toBeInTheDocument();
     expect(screen.queryByText(/Some Guardian feedback has no trustworthy occurrence date/)).not.toBeInTheDocument();
   });
@@ -132,7 +129,10 @@ describe("App dashboard states", () => {
 
     expect(await screen.findByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Change product group/ })).not.toBeInTheDocument();
-    expect(screen.getByText("960")).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Review sentiment" })).getAllByRole("listitem").map((item) => item.getAttribute("aria-label"))).toEqual([
+      "Positive reviews: 1,040 (72%)",
+      "Negative reviews: 160 (11%)",
+    ]);
   });
 
   it("shows an honest empty state without product fixtures", async () => {
@@ -163,7 +163,7 @@ describe("App dashboard states", () => {
 
     expect(await screen.findByText("Dashboard data could not be loaded")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry dashboard" }));
-    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review sentiment" })).toBeInTheDocument();
     expect(api.fetchDashboard).toHaveBeenCalledTimes(2);
   });
 
@@ -172,7 +172,7 @@ describe("App dashboard states", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review sentiment" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Import reviews" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Import" }));

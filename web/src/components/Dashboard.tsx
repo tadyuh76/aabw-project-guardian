@@ -12,7 +12,6 @@ type DatePreset = DashboardRangePreset;
 type DateMode = "current" | "combined" | "all";
 
 const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
-const ratingColor = "#ec7e24";
 const chartViewBoxWidth = 760;
 const chartTextSize = 13;
 const chartLabelSize = 20;
@@ -249,18 +248,29 @@ function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: 
   );
 }
 
-function RatingBars({ items }: { items: Array<{ label: string; count: number }> }) {
+function SentimentBars({ positive, negative, total }: { positive: number; negative: number; total: number }) {
+  const items = [
+    { label: "Positive reviews", count: positive, color: "#16a34a" },
+    { label: "Negative reviews", count: negative, color: "#e11d48" },
+  ];
   const max = Math.max(1, ...items.map((item) => item.count));
   return (
-    <Grid role="list" aria-label="Rating buckets" gridTemplateColumns="repeat(5, minmax(0, 1fr))" gap={{ base: "2", md: "3" }} h="190px" alignItems="end">
+    <Stack role="list" aria-label="Review sentiment" gap="6" py="5">
       {items.map((item) => (
-        <Flex key={item.label} role="listitem" aria-label={`${item.label} ${item.label === "1" ? "star" : "stars"}: ${item.count.toLocaleString()}`} direction="column" align="center" justify="flex-end" h="full" gap="2">
-          <Text fontSize="xs" fontWeight="750">{item.count.toLocaleString()}</Text>
-          <Flex w="full" maxW="44px" h={`${Math.max(8, (item.count / max) * 104)}px`} bg={ratingColor} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
-          <Flex align="center" gap="1" fontSize="xs" fontWeight="700"><Star size={13} weight="fill" color={ratingColor} />{item.label}</Flex>
-        </Flex>
+        <Box key={item.label} role="listitem" aria-label={`${item.label}: ${item.count.toLocaleString()} (${percent(ratio(item.count, total), 0)})`}>
+          <Flex justify="space-between" align="baseline" gap="4" mb="2">
+            <Text fontSize="sm" fontWeight="750">{item.label}</Text>
+            <Flex align="baseline" gap="2">
+              <Text fontSize="lg" fontWeight="780">{item.count.toLocaleString()}</Text>
+              <Text color="muted" fontSize="sm" fontWeight="650">{percent(ratio(item.count, total), 0)}</Text>
+            </Flex>
+          </Flex>
+          <Box h="18px" bg="subtle" borderRadius="full" overflow="hidden">
+            <Box h="full" width={`${item.count === 0 ? 0 : Math.max(3, (item.count / max) * 100)}%`} bg={item.color} borderRadius="full" transition="width .25s ease" />
+          </Box>
+        </Box>
       ))}
-    </Grid>
+    </Stack>
   );
 }
 
@@ -589,17 +599,6 @@ export function Dashboard({ data }: DashboardProps) {
     return { feedback: result.feedback + period.feedback, complaints: result.complaints + period.complaints, positive: result.positive + period.positive, neutral: result.neutral + period.neutral };
   }, { feedback: 0, complaints: 0, positive: 0, neutral: 0 });
   const negative = Math.max(0, totals.feedback - totals.positive - totals.neutral);
-  const ratingCounts = new Map<number, number>([5, 4, 3, 2, 1].map((rating) => [rating, 0]));
-  activeData.products.forEach((product) => {
-    const allRatings = product.allRatingDistribution ?? [];
-    const distributions = dateMode === "all"
-      ? [allRatings.length ? allRatings : [...product.ratingDistribution, ...product.baselineRatingDistribution]]
-      : dateMode === "current"
-        ? [product.ratingDistribution]
-        : [product.ratingDistribution, product.baselineRatingDistribution];
-    distributions.flat().forEach((item) => ratingCounts.set(item.rating, (ratingCounts.get(item.rating) ?? 0) + item.count));
-  });
-  const ratingDistribution = [1, 2, 3, 4, 5].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
   const displayedIssueCount = (item: ProductTheme) => dateMode === "current" || dateMode === "all" ? item.count : item.count + item.baselineCount;
   const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
   const allProblems = aggregateThemes(activeData.products, "allProblems");
@@ -669,7 +668,7 @@ export function Dashboard({ data }: DashboardProps) {
       </Grid>
 
       <Grid gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }} gap="4">
-        <Section title="Rating distribution"><RatingBars items={ratingDistribution} /></Section>
+        <Section title="Review sentiment"><SentimentBars positive={totals.positive} negative={negative} total={totals.feedback} /></Section>
         <Section title="Top 5 product problems"><ProblemCategoryChart items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
         <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
         <Section title="Social experience score" titleInfo={socialExperienceScoreInfo}><SocialExperienceScore benchmark={activeData.benchmark} /></Section>
