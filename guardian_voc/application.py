@@ -3961,6 +3961,7 @@ class GuardianService:
                     sentiment_trend.append(
                         DashboardSentimentTrendPointView(
                             date=(trend_start + timedelta(days=week * 7)).date(),
+                            total=sum(counts.values()),
                             positive=counts["positive"],
                             negative=counts["negative"],
                             neutral=counts["neutral"],
