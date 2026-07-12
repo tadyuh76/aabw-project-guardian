@@ -2,7 +2,7 @@ import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@ch
 import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import cloud from "d3-cloud";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
 import { openDashboardPdfReport } from "../utils/dashboardPdf";
 import { cleanDisplayText } from "../utils/displayText";
@@ -118,6 +118,7 @@ function monthStart(date: Date): Date {
 }
 
 function CalendarDateField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const selectedDate = parseDisplayDate(value);
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => monthStart(selectedDate ?? new Date()));
@@ -133,8 +134,24 @@ function CalendarDateField({ label, value, onChange }: { label: string; value: s
     setOpen(true);
   };
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOutside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeEscape);
+    };
+  }, [open]);
+
   return (
-    <Box position="relative">
+    <Box position="relative" ref={rootRef}>
       <Flex align="center" gap="2" px="3" h="40px" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface">
         <CalendarBlank size={16} />
         <Input
