@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dashboardFixture } from "./test/dashboardFixture";
@@ -41,6 +41,13 @@ describe("App dashboard states", () => {
     expect(screen.queryByRole("heading", { name: "Recent review signals" })).not.toBeInTheDocument();
     expect(screen.queryByText("The cleanser arrived securely packed.", { exact: false })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Rating buckets" })).getAllByRole("listitem").map((item) => item.getAttribute("aria-label"))).toEqual([
+      "1 star: 20",
+      "2 stars: 30",
+      "3 stars: 60",
+      "4 stars: 130",
+      "5 stars: 480",
+    ]);
     expect(screen.queryByRole("heading", { name: "Top 5 negative feedback" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating trend & forecast" })).toBeInTheDocument();

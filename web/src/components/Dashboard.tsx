@@ -1,7 +1,8 @@
 import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
 import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import cloud from "d3-cloud";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
 import { openDashboardPdfReport } from "../utils/dashboardPdf";
 import { cleanDisplayText } from "../utils/displayText";
@@ -14,7 +15,7 @@ const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
 const ratingColor = "#ec7e24";
 const chartViewBoxWidth = 760;
 const chartTextSize = 13;
-const chartLabelSize = 14;
+const chartLabelSize = 20;
 const chartValueSize = 13;
 const platformColors: Record<string, string> = {
   "TikTok Shop": "#18181b",
@@ -24,6 +25,21 @@ const platformColors: Record<string, string> = {
 };
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "4", md: "5" } } as const;
 const svgChartStyle = { width: "100%", minWidth: "340px", display: "block" } as const;
+const wordCloudWidth = 760;
+const wordCloudHeight = 320;
+
+interface WordCloudWord {
+  text: string;
+  display: string;
+  title: string;
+  count: number;
+  color: string;
+  weight: number;
+  size?: number;
+  rotate?: number;
+  x?: number;
+  y?: number;
+}
 
 function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
@@ -35,6 +51,10 @@ function percent(value: number | null, digits = 1): string {
 
 function humanize(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function chartColor(index: number): string {
+  return chartColors[index % chartColors.length] ?? chartColors[0]!;
 }
 
 function aggregateThemes(products: DashboardProduct[], key: "problems" | "allProblems"): ProductTheme[] {
@@ -195,9 +215,9 @@ function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: 
 function RatingBars({ items }: { items: Array<{ label: string; count: number }> }) {
   const max = Math.max(1, ...items.map((item) => item.count));
   return (
-    <Grid gridTemplateColumns="repeat(5, minmax(0, 1fr))" gap={{ base: "2", md: "3" }} h="190px" alignItems="end">
+    <Grid role="list" aria-label="Rating buckets" gridTemplateColumns="repeat(5, minmax(0, 1fr))" gap={{ base: "2", md: "3" }} h="190px" alignItems="end">
       {items.map((item) => (
-        <Flex key={item.label} direction="column" align="center" justify="flex-end" h="full" gap="2">
+        <Flex key={item.label} role="listitem" aria-label={`${item.label} ${item.label === "1" ? "star" : "stars"}: ${item.count.toLocaleString()}`} direction="column" align="center" justify="flex-end" h="full" gap="2">
           <Text fontSize="xs" fontWeight="750">{item.count.toLocaleString()}</Text>
           <Flex w="full" maxW="44px" h={`${Math.max(8, (item.count / max) * 104)}px`} bg={ratingColor} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
           <Flex align="center" gap="1" fontSize="xs" fontWeight="700"><Star size={13} weight="fill" color={ratingColor} />{item.label}</Flex>
@@ -244,7 +264,7 @@ function ProblemCategoryChart({ items, mode, empty }: { items: ProductTheme[]; m
               <text x="0" y={y + 25} fill="var(--chakra-colors-ink)" fontSize={chartLabelSize} fontWeight="650">
                 {label.length > 30 ? `${label.slice(0, 29)}...` : label}
               </text>
-              <rect x={labelWidth} y={y + 10} width={bar} height="18" rx="4" fill={chartColors[(index + 1) % chartColors.length]} />
+              <rect x={labelWidth} y={y + 10} width={bar} height="18" rx="4" fill={chartColor(index + 1)} />
               <text x={labelWidth + bar + 10} y={y + 25} fill="var(--chakra-colors-ink)" fontSize={chartValueSize} fontWeight="750">
                 {item.displayCount.toLocaleString()}
               </text>
@@ -379,7 +399,7 @@ function SocialExperienceScore({ benchmark }: { benchmark: DashboardData["benchm
               <Text fontSize="sm" fontWeight="780">{score === null ? "-" : score.toFixed(1)}</Text>
             </Flex>
             <Box h="10px" bg="subtle" borderRadius="full" overflow="hidden">
-              <Box h="full" bg={chartColors[index % chartColors.length]} borderRadius="full" width={`${Math.max(0, Math.min(100, score ?? 0))}%`} />
+              <Box h="full" bg={chartColor(index)} borderRadius="full" width={`${Math.max(0, Math.min(100, score ?? 0))}%`} />
             </Box>
           </Box>
         );
@@ -388,57 +408,102 @@ function SocialExperienceScore({ benchmark }: { benchmark: DashboardData["benchm
   );
 }
 
+function seededRandom(seed: number) {
+  let value = seed;
+  return () => {
+    value = (value * 1664525 + 1013904223) % 4294967296;
+    return value / 4294967296;
+  };
+}
+
 function GuardianWordCloud({ terms }: { terms: DashboardData["wordCloud"] }) {
-  const visibleTerms = terms.filter((term) => term.count > 0).slice(0, 60);
+  const visibleTerms = useMemo(() => terms.filter((term) => term.count > 0).slice(0, 60), [terms]);
+  const [layoutWords, setLayoutWords] = useState<WordCloudWord[]>([]);
+
+  useEffect(() => {
+    if (!visibleTerms.length) {
+      setLayoutWords([]);
+      return undefined;
+    }
+
+    const max = Math.max(...visibleTerms.map((term) => term.count));
+    const min = Math.min(...visibleTerms.map((term) => term.count));
+    const scale = (count: number) => max === min ? 1 : (count - min) / (max - min);
+    const words: WordCloudWord[] = visibleTerms.map((term, index) => {
+      const weight = scale(term.count);
+      return {
+        text: cleanDisplayText(term.keyword),
+        display: cleanDisplayText(term.keyword),
+        title: `${term.keyword}: ${term.count.toLocaleString()} mentions`,
+        count: term.count,
+        color: chartColor(index),
+        weight: Math.round(600 + weight * 200),
+        size: Math.round(17 + weight * 34),
+      };
+    });
+
+    let cancelled = false;
+    const layout = cloud<WordCloudWord>()
+      .size([wordCloudWidth, wordCloudHeight])
+      .words(words)
+      .font("Inter, Arial, sans-serif")
+      .fontWeight((word) => word.weight)
+      .fontSize((word) => word.size ?? 17)
+      .padding(6)
+      .rotate((_, index) => index % 9 === 0 ? -18 : index % 7 === 0 ? 18 : 0)
+      .random(seededRandom(42))
+      .on("end", (nextWords) => {
+        if (!cancelled) setLayoutWords(nextWords.filter((word) => word.x !== undefined && word.y !== undefined));
+      });
+
+    layout.start();
+    return () => {
+      cancelled = true;
+      layout.stop();
+    };
+  }, [visibleTerms]);
+
   if (!visibleTerms.length) return (
     <Section title="Guardian review keyword cloud">
       <Text color="muted">No Guardian review keywords are available yet.</Text>
     </Section>
   );
-  const max = Math.max(...visibleTerms.map((term) => term.count));
-  const min = Math.min(...visibleTerms.map((term) => term.count));
-  const scale = (count: number) => {
-    if (max === min) return 1;
-    return (count - min) / (max - min);
-  };
+
   return (
     <Section title="Guardian review keyword cloud" action={<Badge colorPalette="orange" variant="subtle">{visibleTerms.length} keywords</Badge>}>
-      <Flex
+      <Box
         role="img"
         aria-label="Word cloud of keywords from all Guardian reviews"
-        minH={{ base: "260px", md: "320px" }}
-        align="center"
-        justify="center"
-        alignContent="center"
-        gap={{ base: "2.5", md: "3.5" }}
-        wrap="wrap"
-        px={{ base: "1", md: "5" }}
-        py={{ base: "5", md: "7" }}
+        overflowX="auto"
         bg="subtle"
         borderRadius="control"
+        minH={{ base: "260px", md: "320px" }}
       >
-        {visibleTerms.map((term, index) => {
-          const weight = scale(term.count);
-          const color = chartColors[index % chartColors.length];
-          return (
-            <Box
-              as="span"
-              key={term.keyword}
-              title={`${term.keyword}: ${term.count.toLocaleString()} mentions`}
-              color={color}
-              fontSize={`${0.9 + weight * 2.1}rem`}
-              fontWeight={Math.round(600 + weight * 200)}
-              lineHeight="1"
-              px="1"
-              py="1.5"
-              opacity={0.72 + weight * 0.28}
-              whiteSpace="nowrap"
-            >
-              {cleanDisplayText(term.keyword)}
-            </Box>
-          );
-        })}
-      </Flex>
+        {layoutWords.length ? (
+          <svg viewBox={`0 0 ${wordCloudWidth} ${wordCloudHeight}`} style={svgChartStyle} aria-hidden="true">
+            <g transform={`translate(${wordCloudWidth / 2},${wordCloudHeight / 2})`}>
+              {layoutWords.map((word) => (
+                <text
+                  key={`${word.text}-${word.count}`}
+                  transform={`translate(${word.x ?? 0},${word.y ?? 0}) rotate(${word.rotate ?? 0})`}
+                  textAnchor="middle"
+                  fontFamily="Inter, Arial, sans-serif"
+                  fontSize={word.size}
+                  fontWeight={word.weight}
+                  fill={word.color}
+                >
+                  <title>{word.title}</title>
+                  {word.display}
+                </text>
+              ))}
+            </g>
+          </svg>
+        ) : (
+          <Flex minH={{ base: "260px", md: "320px" }} align="center" justify="center">
+            <Text color="muted">Laying out keywords...</Text>
+          </Flex>
+        )}
+      </Box>
     </Section>
   );
 }
@@ -551,7 +616,7 @@ export function Dashboard({ data }: DashboardProps) {
         : [product.ratingDistribution, product.baselineRatingDistribution];
     distributions.flat().forEach((item) => ratingCounts.set(item.rating, (ratingCounts.get(item.rating) ?? 0) + item.count));
   });
-  const ratingDistribution = [5, 4, 3, 2, 1].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
+  const ratingDistribution = [1, 2, 3, 4, 5].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
   const displayedIssueCount = (item: ProductTheme) => dateMode === "current" || dateMode === "all" ? item.count : item.count + item.baselineCount;
   const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
   const allProblems = aggregateThemes(data.products, "allProblems");
