@@ -1,10 +1,10 @@
 import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
+import { openDashboardPdfReport } from "../utils/dashboardPdf";
 import { cleanDisplayText } from "../utils/displayText";
-import { GUARDIAN_PRODUCT_GROUPS, ProductGroupSelect, productMatchesGroup } from "./ProductGroupSelect";
 
 interface DashboardProps { data: DashboardData; }
 type DatePreset = "7d" | "30d" | "1y" | "all" | "custom";
@@ -12,6 +12,10 @@ type DateMode = "current" | "combined" | "all";
 
 const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
 const ratingColor = "#ec7e24";
+const chartViewBoxWidth = 760;
+const chartTextSize = 13;
+const chartLabelSize = 14;
+const chartValueSize = 13;
 const platformColors: Record<string, string> = {
   "TikTok Shop": "#18181b",
   Shopee: "#f97316",
@@ -19,6 +23,7 @@ const platformColors: Record<string, string> = {
   GrabMart: "#16a34a",
 };
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "4", md: "5" } } as const;
+const svgChartStyle = { width: "100%", minWidth: "340px", display: "block" } as const;
 
 function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
@@ -193,9 +198,9 @@ function RatingBars({ items }: { items: Array<{ label: string; count: number }> 
     <Grid gridTemplateColumns="repeat(5, minmax(0, 1fr))" gap={{ base: "2", md: "3" }} h="190px" alignItems="end">
       {items.map((item) => (
         <Flex key={item.label} direction="column" align="center" justify="flex-end" h="full" gap="2">
-          <Text fontSize="sm" fontWeight="750">{item.count.toLocaleString()}</Text>
-          <Flex w="full" maxW="48px" h={`${Math.max(8, (item.count / max) * 104)}px`} bg={ratingColor} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
-          <Flex align="center" gap="1" fontSize="sm" fontWeight="700"><Star size={14} weight="fill" color={ratingColor} />{item.label}</Flex>
+          <Text fontSize="xs" fontWeight="750">{item.count.toLocaleString()}</Text>
+          <Flex w="full" maxW="44px" h={`${Math.max(8, (item.count / max) * 104)}px`} bg={ratingColor} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
+          <Flex align="center" gap="1" fontSize="xs" fontWeight="700"><Star size={13} weight="fill" color={ratingColor} />{item.label}</Flex>
         </Flex>
       ))}
     </Grid>
@@ -209,16 +214,16 @@ function ProblemCategoryChart({ items, mode, empty }: { items: ProductTheme[]; m
   }));
   const max = Math.max(1, ...displayed.map((item) => item.displayCount));
   if (!displayed.some((item) => item.displayCount > 0)) return <Text color="muted">{empty}</Text>;
-  const width = 420;
-  const rowHeight = 36;
-  const top = 10;
-  const right = 42;
-  const labelWidth = 138;
+  const width = chartViewBoxWidth;
+  const rowHeight = 42;
+  const top = 12;
+  const right = 58;
+  const labelWidth = 252;
   const barWidth = width - labelWidth - right;
   const height = top * 2 + displayed.length * rowHeight;
   return (
     <Box overflowX="auto">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Top product problem categories" style={{ width: "100%", minWidth: "300px", display: "block" }}>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Top product problem categories" style={svgChartStyle}>
         {[0.5, 1].map((tick) => (
           <line
             key={tick}
@@ -236,11 +241,11 @@ function ProblemCategoryChart({ items, mode, empty }: { items: ProductTheme[]; m
           const label = humanize(item.label);
           return (
             <g key={item.label}>
-              <text x="0" y={y + 21} fill="var(--chakra-colors-ink)" fontSize="11" fontWeight="650">
-                {label.length > 22 ? `${label.slice(0, 21)}…` : label}
+              <text x="0" y={y + 25} fill="var(--chakra-colors-ink)" fontSize={chartLabelSize} fontWeight="650">
+                {label.length > 30 ? `${label.slice(0, 29)}...` : label}
               </text>
-              <rect x={labelWidth} y={y + 8} width={bar} height="16" rx="4" fill={chartColors[(index + 1) % chartColors.length]} />
-              <text x={labelWidth + bar + 8} y={y + 21} fill="var(--chakra-colors-ink)" fontSize="11" fontWeight="750">
+              <rect x={labelWidth} y={y + 10} width={bar} height="18" rx="4" fill={chartColors[(index + 1) % chartColors.length]} />
+              <text x={labelWidth + bar + 10} y={y + 25} fill="var(--chakra-colors-ink)" fontSize={chartValueSize} fontWeight="750">
                 {item.displayCount.toLocaleString()}
               </text>
             </g>
@@ -317,24 +322,30 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
   const platforms = Object.keys(platformColors).filter((platform) => points.some((point) => point.platform === platform));
   const dates = [...new Set(points.map((point) => point.date))].sort();
   if (!platforms.length || dates.length < 2) return <Text color="muted">A dated platform rating series is not available yet.</Text>;
-  const width = 560;
+  const width = chartViewBoxWidth;
   const height = 250;
-  const left = 48;
-  const right = 18;
+  const left = 56;
+  const right = 22;
   const top = 18;
   const bottom = 46;
+  const minRating = 3;
+  const maxRating = 5;
+  const ratingTicks = [3, 3.5, 4, 4.5, 5];
   const x = (date: string) => left + (dates.indexOf(date) / Math.max(1, dates.length - 1)) * (width - left - right);
-  const y = (rating: number) => top + ((5 - rating) / 4) * (height - top - bottom);
+  const y = (rating: number) => {
+    const clamped = Math.max(minRating, Math.min(maxRating, rating));
+    return top + ((maxRating - clamped) / (maxRating - minRating)) * (height - top - bottom);
+  };
   const firstPrediction = dates.find((date) => points.some((point) => point.date === date && point.predicted));
   const predictionX = firstPrediction ? Math.max(left, x(firstPrediction) - ((width - left - right) / Math.max(1, dates.length - 1)) / 2) : width;
   const line = (items: ProductRatingTrendPoint[]) => items.map((point, index) => `${index ? "L" : "M"}${x(point.date).toFixed(1)},${y(point.averageRating).toFixed(1)}`).join(" ");
   return (
     <Stack gap="4">
       <Box overflowX="auto">
-        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Historical and predicted average ratings by marketplace" style={{ width: "100%", minWidth: "320px", display: "block" }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Historical and predicted average ratings by marketplace" style={svgChartStyle}>
           <rect x={predictionX} y="0" width={width - predictionX} height={height - bottom + 12} fill="var(--chakra-colors-subtle)" opacity="0.72" />
-          {[1, 2, 3, 4, 5].map((rating) => <g key={rating}><line x1={left} y1={y(rating)} x2={width - right} y2={y(rating)} stroke="var(--chakra-colors-border)" /><text x={left - 12} y={y(rating) + 4} textAnchor="end" fill="var(--chakra-colors-muted)" fontSize="11">{rating}.0</text></g>)}
-          {firstPrediction && <text x={predictionX + 12} y="18" fill="var(--chakra-colors-muted)" fontSize="11" fontWeight="600">PREDICTED</text>}
+          {ratingTicks.map((rating) => <g key={rating}><line x1={left} y1={y(rating)} x2={width - right} y2={y(rating)} stroke="var(--chakra-colors-border)" /><text x={left - 12} y={y(rating) + 4} textAnchor="end" fill="var(--chakra-colors-muted)" fontSize={chartTextSize}>{rating.toFixed(1)}</text></g>)}
+          {firstPrediction && <text x={predictionX + 12} y="18" fill="var(--chakra-colors-muted)" fontSize={chartTextSize} fontWeight="600">PREDICTED</text>}
           {platforms.map((platform) => {
             const platformPoints = points.filter((point) => point.platform === platform).sort((a, b) => a.date.localeCompare(b.date));
             const observed = platformPoints.filter((point) => !point.predicted);
@@ -342,11 +353,11 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
             const projected = observed.length && predicted.length ? [observed[observed.length - 1]!, ...predicted] : predicted;
             return <g key={platform}><path d={line(observed)} fill="none" stroke={platformColors[platform]} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />{projected.length > 1 && <path d={line(projected)} fill="none" stroke={platformColors[platform]} strokeWidth="2.5" strokeDasharray="7 6" strokeLinecap="round" />}{platformPoints.map((point) => <circle key={`${point.date}-${point.predicted}`} cx={x(point.date)} cy={y(point.averageRating)} r="3.5" fill={point.predicted ? "var(--chakra-colors-surface)" : platformColors[platform]} stroke={platformColors[platform]} strokeWidth="2" />)}</g>;
           })}
-          {dates.map((date, index) => (index === 0 || index === dates.length - 1 || index % 2 === 0) && <text key={date} x={x(date)} y={height - 14} textAnchor="middle" fill="var(--chakra-colors-muted)" fontSize="11">{new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(new Date(`${date}T00:00:00`))}</text>)}
+          {dates.map((date, index) => (index === 0 || index === dates.length - 1 || index % 2 === 0) && <text key={date} x={x(date)} y={height - 14} textAnchor="middle" fill="var(--chakra-colors-muted)" fontSize={chartTextSize}>{new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(new Date(`${date}T00:00:00`))}</text>)}
         </svg>
       </Box>
       <Flex gap="4" wrap="wrap">
-        {platforms.map((platform) => <Flex key={platform} align="center" gap="2"><Box w="8px" h="8px" borderRadius="full" bg={platformColors[platform]} /><Text fontSize="sm" fontWeight="600">{platform}</Text></Flex>)}
+        {platforms.map((platform) => <Flex key={platform} align="center" gap="2"><Box w="8px" h="8px" borderRadius="full" bg={platformColors[platform]} /><Text fontSize="xs" fontWeight="600">{platform}</Text></Flex>)}
       </Flex>
     </Stack>
   );
@@ -355,7 +366,7 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
 function SocialExperienceScore({ benchmark }: { benchmark: DashboardData["benchmark"] }) {
   if (!benchmark?.comparable) return <Text color="muted">{cleanDisplayText(benchmark?.reason ?? "Comparison not available.")}</Text>;
   return (
-    <Stack gap="5">
+    <Stack gap="5" pt="1">
       {benchmark.brands.map((brand, index) => {
         const totalMentions = brand.feedback ?? 0;
         const positiveMentions = brand.positive ?? 0;
@@ -364,20 +375,71 @@ function SocialExperienceScore({ benchmark }: { benchmark: DashboardData["benchm
         return (
           <Box key={brand.brand}>
             <Flex justify="space-between" mb="2" gap="3">
-              <Text fontWeight="650">{humanize(brand.brand)}</Text>
-              <Text fontWeight="780">{score === null ? "-" : score.toFixed(1)}</Text>
+              <Text fontSize="sm" fontWeight="650">{humanize(brand.brand)}</Text>
+              <Text fontSize="sm" fontWeight="780">{score === null ? "-" : score.toFixed(1)}</Text>
             </Flex>
-            <Box h="12px" bg="subtle" borderRadius="full" overflow="hidden">
+            <Box h="10px" bg="subtle" borderRadius="full" overflow="hidden">
               <Box h="full" bg={chartColors[index % chartColors.length]} borderRadius="full" width={`${Math.max(0, Math.min(100, score ?? 0))}%`} />
             </Box>
           </Box>
         );
       })}
-      {benchmark.reason && <Text color="muted" fontSize="xs" lineHeight="1.45">{cleanDisplayText(benchmark.reason)}</Text>}
-      <Text color="muted" fontSize="xs" lineHeight="1.45">
-        So sánh hiệu suất cạnh tranh bằng Net Sentiment Score = 50 + 50 * ((Positive Mentions - Negative Mentions) / Total Mentions) để đo lường sự hài lòng của khách hàng và phản ánh thái độ của họ.
-      </Text>
     </Stack>
+  );
+}
+
+function GuardianWordCloud({ terms }: { terms: DashboardData["wordCloud"] }) {
+  const visibleTerms = terms.filter((term) => term.count > 0).slice(0, 60);
+  if (!visibleTerms.length) return (
+    <Section title="Guardian review keyword cloud">
+      <Text color="muted">No Guardian review keywords are available yet.</Text>
+    </Section>
+  );
+  const max = Math.max(...visibleTerms.map((term) => term.count));
+  const min = Math.min(...visibleTerms.map((term) => term.count));
+  const scale = (count: number) => {
+    if (max === min) return 1;
+    return (count - min) / (max - min);
+  };
+  return (
+    <Section title="Guardian review keyword cloud" action={<Badge colorPalette="orange" variant="subtle">{visibleTerms.length} keywords</Badge>}>
+      <Flex
+        role="img"
+        aria-label="Word cloud of keywords from all Guardian reviews"
+        minH={{ base: "260px", md: "320px" }}
+        align="center"
+        justify="center"
+        alignContent="center"
+        gap={{ base: "2.5", md: "3.5" }}
+        wrap="wrap"
+        px={{ base: "1", md: "5" }}
+        py={{ base: "5", md: "7" }}
+        bg="subtle"
+        borderRadius="control"
+      >
+        {visibleTerms.map((term, index) => {
+          const weight = scale(term.count);
+          const color = chartColors[index % chartColors.length];
+          return (
+            <Box
+              as="span"
+              key={term.keyword}
+              title={`${term.keyword}: ${term.count.toLocaleString()} mentions`}
+              color={color}
+              fontSize={`${0.9 + weight * 2.1}rem`}
+              fontWeight={Math.round(600 + weight * 200)}
+              lineHeight="1"
+              px="1"
+              py="1.5"
+              opacity={0.72 + weight * 0.28}
+              whiteSpace="nowrap"
+            >
+              {cleanDisplayText(term.keyword)}
+            </Box>
+          );
+        })}
+      </Flex>
+    </Section>
   );
 }
 
@@ -471,18 +533,16 @@ function WeeklySummaryCard({ message }: { message: string }) {
 export function Dashboard({ data }: DashboardProps) {
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
-  const [selectedGroupId, setSelectedGroupId] = useState("all");
-  const selectedGroup = GUARDIAN_PRODUCT_GROUPS.find((group) => group.id === selectedGroupId) ?? GUARDIAN_PRODUCT_GROUPS[0]!;
+  const [exportError, setExportError] = useState<string | null>(null);
   const dateMode: DateMode = datePreset === "all" ? "all" : datePreset === "7d" ? "current" : "combined";
 
-  const selectedProducts = useMemo(() => data.products.filter((product) => productMatchesGroup(product, selectedGroup)), [data.products, selectedGroup]);
-  const totals = selectedProducts.reduce((result, product) => {
+  const totals = data.products.reduce((result, product) => {
     const period = periodForMode(product, dateMode);
     return { feedback: result.feedback + period.feedback, complaints: result.complaints + period.complaints, positive: result.positive + period.positive, neutral: result.neutral + period.neutral };
   }, { feedback: 0, complaints: 0, positive: 0, neutral: 0 });
   const negative = Math.max(0, totals.feedback - totals.positive - totals.neutral);
   const ratingCounts = new Map<number, number>([5, 4, 3, 2, 1].map((rating) => [rating, 0]));
-  selectedProducts.forEach((product) => {
+  data.products.forEach((product) => {
     const allRatings = product.allRatingDistribution ?? [];
     const distributions = dateMode === "all"
       ? [allRatings.length ? allRatings : [...product.ratingDistribution, ...product.baselineRatingDistribution]]
@@ -494,9 +554,9 @@ export function Dashboard({ data }: DashboardProps) {
   const ratingDistribution = [5, 4, 3, 2, 1].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
   const displayedIssueCount = (item: ProductTheme) => dateMode === "current" || dateMode === "all" ? item.count : item.count + item.baselineCount;
   const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
-  const allProblems = aggregateThemes(selectedProducts, "allProblems");
-  const problems = (dateMode === "all" && allProblems.length ? allProblems : aggregateThemes(selectedProducts, "problems")).sort(periodIssueSort).slice(0, 5);
-  const ratingTrend = filterRatingTrend(aggregateRatingTrend(selectedProducts), trendDateRange(data, datePreset, customRange));
+  const allProblems = aggregateThemes(data.products, "allProblems");
+  const problems = (dateMode === "all" && allProblems.length ? allProblems : aggregateThemes(data.products, "problems")).sort(periodIssueSort).slice(0, 5);
+  const ratingTrend = filterRatingTrend(aggregateRatingTrend(data.products), trendDateRange(data, datePreset, customRange));
   const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
   const weeklyMessage = weeklySummaryMessage({ insight, feedback: totals.feedback, positive: totals.positive, neutral: totals.neutral, issue: problems[0] });
 
@@ -516,29 +576,42 @@ export function Dashboard({ data }: DashboardProps) {
         direction={{ base: "column", lg: "row" }}
         gap="4"
       >
-        <DateRangeFilter value={datePreset} onChange={setDatePreset} customRange={customRange} onCustomRangeChange={setCustomRange} />
-        <ProductGroupSelect products={data.products} selectedGroupId={selectedGroupId} onChange={setSelectedGroupId} />
+        <Flex align="center" gap="3" wrap="wrap">
+          <DateRangeFilter value={datePreset} onChange={setDatePreset} customRange={customRange} onCustomRangeChange={setCustomRange} />
+        </Flex>
+        <Flex align={{ base: "stretch", sm: "center" }} justify={{ base: "stretch", sm: "flex-end" }} direction={{ base: "column", sm: "row" }} gap="3">
+          <Button
+            colorPalette="orange"
+            variant="outline"
+            onClick={() => {
+              setExportError(null);
+              if (!openDashboardPdfReport(data)) setExportError("Allow pop-ups to export the PDF report.");
+            }}
+          >
+            <DownloadSimple size={18} weight="bold" />
+            Export PDF
+          </Button>
+        </Flex>
       </Flex>
+      {exportError && <Text color="danger" fontSize="sm" role="alert">{exportError}</Text>}
 
-      {selectedProducts.length === 0 ? (
-        <Stack {...panelProps} align="flex-start" gap="4"><Package size={30} /><Heading size="lg">No products found in this group</Heading><Button colorPalette="orange" onClick={() => setSelectedGroupId("all")}>Show all groups</Button></Stack>
-      ) : <>
-        <WeeklySummaryCard message={weeklyMessage} />
+      <WeeklySummaryCard message={weeklyMessage} />
 
-        <Grid as="section" aria-label="Sentiment metrics" gridTemplateColumns={{ base: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
-          {metrics.map((metric) => <Flex key={metric.label} minH={{ base: "126px", md: "112px" }} p={{ base: "4", md: "4" }} gap={{ base: "2", md: "3" }} direction={{ base: "column", md: "row" }} justify={{ base: "center", md: "flex-start" }} align="center" bg="surface" borderWidth="1px" borderTopWidth="3px" borderColor="border" borderTopColor={metric.color} borderRadius="panel">
-            <Flex color={metric.color} bg={metric.iconBg} _dark={{ bg: metric.darkIconBg }} w={{ base: "10", md: "11" }} h={{ base: "10", md: "11" }} borderRadius="control" align="center" justify="center" flex="0 0 auto">{metric.icon}</Flex>
-            <Box minW="0" textAlign={{ base: "center", md: "left" }}><Text color="muted" fontSize="sm" fontWeight="600" whiteSpace="nowrap">{metric.label}</Text><Text fontSize={{ base: "xl", md: "2xl" }} lineHeight="1.1" fontWeight="780" letterSpacing="0" whiteSpace="nowrap">{metric.value}</Text></Box>
-          </Flex>)}
-        </Grid>
+      <Grid as="section" aria-label="Sentiment metrics" gridTemplateColumns={{ base: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
+        {metrics.map((metric) => <Flex key={metric.label} minH={{ base: "126px", md: "112px" }} p={{ base: "4", md: "4" }} gap={{ base: "2", md: "3" }} direction={{ base: "column", md: "row" }} justify={{ base: "center", md: "flex-start" }} align="center" bg="surface" borderWidth="1px" borderTopWidth="3px" borderColor="border" borderTopColor={metric.color} borderRadius="panel">
+          <Flex color={metric.color} bg={metric.iconBg} _dark={{ bg: metric.darkIconBg }} w={{ base: "10", md: "11" }} h={{ base: "10", md: "11" }} borderRadius="control" align="center" justify="center" flex="0 0 auto">{metric.icon}</Flex>
+          <Box minW="0" textAlign={{ base: "center", md: "left" }}><Text color="muted" fontSize="sm" fontWeight="600" whiteSpace="nowrap">{metric.label}</Text><Text fontSize={{ base: "xl", md: "2xl" }} lineHeight="1.1" fontWeight="780" letterSpacing="0" whiteSpace="nowrap">{metric.value}</Text></Box>
+        </Flex>)}
+      </Grid>
 
-        <Grid gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
-          <Section title="Rating distribution"><RatingBars items={ratingDistribution} /></Section>
-          <Section title="Top 5 product problems"><ProblemCategoryChart items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
-          <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
-          <Section title="Social experience score"><SocialExperienceScore benchmark={data.benchmark} /></Section>
-        </Grid>
-      </>}
+      <Grid gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }} gap="4">
+        <Section title="Rating distribution"><RatingBars items={ratingDistribution} /></Section>
+        <Section title="Top 5 product problems"><ProblemCategoryChart items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
+        <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
+        <Section title="Social experience score"><SocialExperienceScore benchmark={data.benchmark} /></Section>
+      </Grid>
+
+      <GuardianWordCloud terms={data.wordCloud} />
     </Stack>
   );
 }

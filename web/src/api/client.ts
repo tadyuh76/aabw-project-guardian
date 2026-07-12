@@ -8,6 +8,7 @@ import {
   type DashboardInsight,
   type DashboardProduct,
   type DashboardState,
+  type DashboardWordCloudTerm,
   type DashboardWindows,
   type HealthStatus,
   type ImportConfigResponse,
@@ -157,6 +158,7 @@ function normalizeProduct(value: unknown): DashboardProduct | null {
     ratingTrend: normalizeRatingTrend(value.rating_trend ?? value.ratingTrend),
     negativeFeedback: normalizeThemes(value.negative_feedback ?? value.negativeFeedback),
     problems: normalizeThemes(value.problems ?? value.themes),
+    allNegativeFeedback: normalizeThemes(value.all_negative_feedback ?? value.allNegativeFeedback),
     allProblems: normalizeThemes(value.all_problems ?? value.allProblems),
   };
 }
@@ -246,6 +248,17 @@ function normalizeBenchmark(value: unknown): DashboardBenchmark | null {
   };
 }
 
+function normalizeWordCloud(value: unknown): DashboardWordCloudTerm[] {
+  return Array.isArray(value)
+    ? value.flatMap((item) => {
+        if (!isRecord(item)) return [];
+        const keyword = stringValue(item.keyword ?? item.label);
+        if (!keyword) return [];
+        return [{ keyword, count: countValue(item.count) }];
+      })
+    : [];
+}
+
 function normalizeWindows(record: Record<string, unknown>): DashboardWindows {
   const windows = getRecord(record, "windows");
   const current = getRecord(record, "window");
@@ -303,6 +316,7 @@ export function normalizeDashboard(payload: unknown): DashboardData {
       const evidence = normalizeEvidence(item);
       return evidence ? [evidence] : [];
     }),
+    wordCloud: normalizeWordCloud(payload.word_cloud ?? payload.wordCloud),
     primaryInsight: normalizeInsight(payload.primary_insight),
     benchmark: normalizeBenchmark(payload.benchmark ?? payload.competitors),
   };

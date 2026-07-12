@@ -51,6 +51,7 @@ def _raw(
     product: bool = True,
     product_id: str = "P-1",
     product_name: str = "Serum A",
+    brand: str = "guardian",
     source_group: str = "marketplace",
     source_platform: str = "shopee",
     visibility: str = "public",
@@ -62,8 +63,8 @@ def _raw(
         source_group=source_group,
         source_platform=source_platform,
         visibility=visibility,
-        brand="guardian",
-        brand_candidates=["guardian"],
+        brand=brand,
+        brand_candidates=[brand],
         occurred_at=datetime.fromisoformat(occurred_at) if occurred_at else None,
         observed_at=datetime.fromisoformat("2026-07-11T10:00:00+07:00"),
         occurred_at_quality="exact" if occurred_at else "missing",
@@ -247,12 +248,11 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
     shopee_trend = [item for item in product.rating_trend if item.platform == "Shopee"]
     assert len([item for item in shopee_trend if not item.predicted]) == 2
     assert len([item for item in shopee_trend if item.predicted]) == 1
-    assert {item.platform for item in product.rating_trend} == {
-        "TikTok Shop",
-        "Shopee",
-        "Lazada",
-        "GrabMart",
-    }
+    assert {item.platform for item in product.rating_trend} == {"Shopee"}
+    assert [item.average_rating for item in shopee_trend if not item.predicted] == [
+        pytest.approx(3.0),
+        pytest.approx(3.0),
+    ]
     assert [item.model_dump() for item in product.negative_feedback] == [
         {
             "label": "product_quality_authenticity",
@@ -271,6 +271,10 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
     ]
     assert len(result.evidence) == 5
     assert all(item.product_id == "P-1" for item in result.evidence)
+    word_counts = {item.keyword: item.count for item in result.word_cloud}
+    assert word_counts["serum"] == 5
+    assert "guardian" not in word_counts
+    assert "synthetic" not in word_counts
     assert result.benchmark.comparable is False
     assert result.benchmark.aggregates == []
     assert result.benchmark.reason
@@ -284,6 +288,7 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
         assert payload["products"][0]["id"] == "P-1"
         assert payload["products"][0]["current"]["complaints"] == 1
         assert payload["coverage"]["feedback_items"] == 5
+        assert payload["word_cloud"][0]["keyword"] == "serum"
     finally:
         client.close()
         app.dependency_overrides.pop(service_from_request, None)
@@ -553,6 +558,73 @@ def test_matched_benchmark_returns_guardian_and_competitors_from_same_cohort(
     assert all(aggregate.feedback == 1 for aggregate in benchmark.aggregates)
     assert benchmark.aggregates[0].complaints == 1
     assert benchmark.aggregates[1].positive == 1
+    assert benchmark.aggregates[2].neutral == 1
+    service.close()
+
+
+def test_dashboard_benchmark_falls_back_to_all_source_brand_scores(
+    tmp_path: Path,
+) -> None:
+    service = _service(
+        tmp_path, "dashboard-benchmark-all-source", competitor_min_sample=2
+    )
+    rows: list[RawFeedback] = []
+    sentiments = {
+        "guardian": [("praise", "positive", 0.8), ("complaint", "negative", -0.6)],
+        "hasaki": [("praise", "positive", 0.7), ("praise", "positive", 0.6)],
+        "watsons": [("question_request", "neutral", 0.0), ("complaint", "negative", -0.5)],
+    }
+    for brand, classifications in sentiments.items():
+        for index, _classification_values in enumerate(classifications, start=1):
+            rows.append(
+                _raw(
+                    f"fallback-{brand}-{index}",
+                    brand=brand,
+                    source_group="owned",
+                    source_platform=f"{brand}_ecommerce",
+                    visibility="owned",
+                    occurred_at="2026-05-10T09:00:00+07:00",
+                    text=f"{brand} official product review {index}.",
+                    rating=5 if index == 1 else 2,
+                    product_id=f"{brand}-product",
+                    product_name=f"{brand.title()} Product",
+                )
+            )
+    assert service._ingest_raw_rows(
+        rows, source_name="dashboard_benchmark_fallback_fixture", source_file=None
+    )["inserted"] == 6
+    for row in service.database.query(
+        "SELECT feedback_id, source_external_id, text_redacted FROM feedback_items"
+    ):
+        external_id = str(row["source_external_id"])
+        brand = external_id.split("-")[1]
+        index = int(external_id.rsplit("-", 1)[1]) - 1
+        intent, sentiment, score = sentiments[brand][index]
+        service._persist_analysis(
+            str(row["feedback_id"]),
+            _classification(
+                str(row["text_redacted"]),
+                intent=intent,
+                sentiment=sentiment,
+                sentiment_score=score,
+                brand=brand,
+            ),
+            model_version="dashboard-test",
+            review_required=False,
+        )
+
+    benchmark = service.dashboard().benchmark
+
+    assert benchmark.comparable is True
+    assert benchmark.reason
+    assert [aggregate.brand for aggregate in benchmark.aggregates] == [
+        "guardian",
+        "hasaki",
+        "watsons",
+    ]
+    assert all(aggregate.feedback == 2 for aggregate in benchmark.aggregates)
+    assert benchmark.aggregates[0].positive == 1
+    assert benchmark.aggregates[1].positive == 2
     assert benchmark.aggregates[2].neutral == 1
     service.close()
 

@@ -53,6 +53,10 @@ const wirePayload = {
     subtopic: "late",
     sentiment: "negative",
   }],
+  word_cloud: [
+    { keyword: "delivery", count: 4 },
+    { keyword: "late", count: 2 },
+  ],
   primary_insight: {
     insight_id: "insight-1",
     title: "Delivery mentions increased",
@@ -101,6 +105,7 @@ describe("dashboard API contract", () => {
     expect(result.benchmark?.brands.map((brand) => brand.brand)).toEqual(["guardian", "hasaki", "watsons"]);
     expect(result.benchmark?.brands[0]?.share).toBe(0.25);
     expect(result.evidence[0]?.sourceUrl).toBeNull();
+    expect(result.wordCloud).toEqual([{ keyword: "delivery", count: 4 }, { keyword: "late", count: 2 }]);
   });
 
   it("rejects an invalid truth state instead of inventing a fallback", () => {

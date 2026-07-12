@@ -216,14 +216,18 @@ class DashboardProductView(BaseModel):
     total_feedback: int = Field(ge=0)
     current: DashboardPeriodCountsView
     baseline: DashboardPeriodCountsView
+    overall: DashboardPeriodCountsView
     sentiment_delta: float | None = None
     sources: dict[str, int] = Field(default_factory=dict)
     themes: list[DashboardThemeView] = Field(default_factory=list)
     rating_distribution: list[DashboardRatingCountView] = Field(default_factory=list)
     baseline_rating_distribution: list[DashboardRatingCountView] = Field(default_factory=list)
+    all_rating_distribution: list[DashboardRatingCountView] = Field(default_factory=list)
     rating_trend: list[DashboardRatingTrendPointView] = Field(default_factory=list)
     negative_feedback: list[DashboardComparisonThemeView] = Field(default_factory=list)
     problems: list[DashboardComparisonThemeView] = Field(default_factory=list)
+    all_negative_feedback: list[DashboardComparisonThemeView] = Field(default_factory=list)
+    all_problems: list[DashboardComparisonThemeView] = Field(default_factory=list)
 
 
 class DashboardEvidenceView(BaseModel):
@@ -239,6 +243,11 @@ class DashboardEvidenceView(BaseModel):
     topic: str
     subtopic: str
     sentiment: str
+
+
+class DashboardWordCloudTermView(BaseModel):
+    keyword: str
+    count: int = Field(ge=0)
 
 
 class DashboardBenchmarkAggregateView(BaseModel):
@@ -268,6 +277,7 @@ class DashboardResponse(BaseModel):
     messages: list[str] = Field(default_factory=list)
     products: list[DashboardProductView] = Field(default_factory=list)
     evidence: list[DashboardEvidenceView] = Field(default_factory=list)
+    word_cloud: list[DashboardWordCloudTermView] = Field(default_factory=list)
     primary_insight: InsightCardView | None = None
     benchmark: DashboardBenchmarkView
 

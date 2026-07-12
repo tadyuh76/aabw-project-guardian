@@ -45,11 +45,38 @@ describe("App dashboard states", () => {
     expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating trend & forecast" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Guardian review keyword cloud" })).toBeInTheDocument();
+    expect(screen.getByText("cleanser")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products to watch" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
     expect(screen.getByText("480")).toBeInTheDocument();
     expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Directional all-source comparison/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Net Sentiment Score/)).not.toBeInTheDocument();
     expect(screen.queryByText("Demo", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("exports the full dashboard payload as a PDF report", async () => {
+    api.fetchDashboard.mockResolvedValue(dashboardFixture());
+    const write = vi.fn();
+    const print = vi.fn();
+    vi.spyOn(window, "open").mockReturnValue({
+      document: { open: vi.fn(), write, close: vi.fn() },
+      focus: vi.fn(),
+      print,
+    } as unknown as Window);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Export PDF" }));
+
+    expect(window.open).toHaveBeenCalledWith("", "_blank");
+    expect(print).toHaveBeenCalled();
+    const html = String(write.mock.calls[0]?.[0] ?? "");
+    expect(html).toContain("Guardian VOC Dashboard");
+    expect(html).toContain("CeraVe Foaming Cleanser");
+    expect(html).toContain("The cleanser arrived securely packed.");
+    expect(html).toContain("Product attributed items");
   });
 
   it("keeps partial backend copy out of the dashboard", async () => {
@@ -80,7 +107,7 @@ describe("App dashboard states", () => {
     expect(screen.queryByText(/Some Guardian feedback has no trustworthy occurrence date/)).not.toBeInTheDocument();
   });
 
-  it("keeps the benchmark visible after product group filtering", async () => {
+  it("opens dashboard all-time without a product group filter", async () => {
     const fixture = dashboardFixture();
     const first = fixture.products[0]!;
     api.fetchDashboard.mockResolvedValue({
@@ -98,9 +125,8 @@ describe("App dashboard states", () => {
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
     expect(await screen.findByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Change product group/ }));
-    await user.click(screen.getByRole("button", { name: /Chăm sóc da mặt/ }));
-    expect(screen.getByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Change product group/ })).not.toBeInTheDocument();
+    expect(screen.getByText("960")).toBeInTheDocument();
   });
 
   it("shows an honest empty state without product fixtures", async () => {

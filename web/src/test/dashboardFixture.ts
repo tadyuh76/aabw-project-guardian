@@ -50,6 +50,7 @@ export function dashboardFixture(overrides: Partial<DashboardData> = {}): Dashbo
       ],
       negativeFeedback: [{ label: "product_quality", subtopic: null, count: 6, baselineCount: 4, percentageChange: 50 }],
       problems: [{ label: "damaged_packaging", subtopic: null, count: 6, baselineCount: 8, percentageChange: -25 }],
+      allNegativeFeedback: [{ label: "product_quality", subtopic: null, count: 15, baselineCount: 0, percentageChange: null }],
       allProblems: [{ label: "damaged_packaging", subtopic: null, count: 14, baselineCount: 0, percentageChange: null }],
     }],
     evidence: [{
@@ -66,6 +67,11 @@ export function dashboardFixture(overrides: Partial<DashboardData> = {}): Dashbo
       subtopic: "seal",
       sentiment: "positive",
     }],
+    wordCloud: [
+      { keyword: "cleanser", count: 8 },
+      { keyword: "packed", count: 5 },
+      { keyword: "securely", count: 3 },
+    ],
     primaryInsight: {
       id: "insight-1",
       title: "Packaging complaints declined",

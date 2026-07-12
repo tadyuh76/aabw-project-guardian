@@ -68,6 +68,7 @@ export interface DashboardProduct {
   ratingTrend: ProductRatingTrendPoint[];
   negativeFeedback: ProductTheme[];
   problems: ProductTheme[];
+  allNegativeFeedback?: ProductTheme[];
   allProblems?: ProductTheme[];
 }
 
@@ -84,6 +85,11 @@ export interface DashboardEvidence {
   topic: string | null;
   subtopic: string | null;
   sentiment: string | null;
+}
+
+export interface DashboardWordCloudTerm {
+  keyword: string;
+  count: number;
 }
 
 export interface DashboardInsight {
@@ -130,6 +136,7 @@ export interface DashboardData {
   messages: string[];
   products: DashboardProduct[];
   evidence: DashboardEvidence[];
+  wordCloud: DashboardWordCloudTerm[];
   primaryInsight: DashboardInsight | null;
   benchmark: DashboardBenchmark | null;
 }

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import tempfile
 import threading
 import uuid
@@ -94,6 +95,7 @@ from guardian_voc.schemas.api import (
     DashboardRatingTrendPointView,
     DashboardResponse,
     DashboardThemeView,
+    DashboardWordCloudTermView,
     DashboardWindowsView,
     EvidencePreviewView,
     EvidenceResponse,
@@ -130,6 +132,13 @@ from guardian_voc.schemas.insights import (
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "fixtures"
 DASHBOARD_EVIDENCE_LIMIT = 200
+DASHBOARD_WORD_CLOUD_LIMIT = 70
+WORD_CLOUD_STOPWORDS = {
+    "and", "are", "but", "can", "cho", "cua", "cung", "duoc", "for",
+    "guardian", "hang", "khi", "khong", "mot", "nay", "nhung", "qua",
+    "san", "the", "thi", "toi", "trong", "voi", "was", "were", "you",
+}
+WORD_CLOUD_TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 
 
 def _json_dump(value: object) -> str:
@@ -177,6 +186,27 @@ def _dashboard_metadata_value(
         if value is not None and value != "[REDACTED]":
             return value
     return None
+
+
+def _dashboard_word_cloud(
+    rows: Sequence[Mapping[str, Any]],
+) -> list[DashboardWordCloudTermView]:
+    counts: Counter[str] = Counter()
+    for row in rows:
+        text = _dashboard_text(row.get("text_redacted"))
+        if text is None:
+            continue
+        for match in WORD_CLOUD_TOKEN_RE.finditer(text.lower()):
+            keyword = match.group(0)
+            if keyword in WORD_CLOUD_STOPWORDS:
+                continue
+            counts[keyword] += 1
+    return [
+        DashboardWordCloudTermView(keyword=keyword, count=count)
+        for keyword, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[
+            :DASHBOARD_WORD_CLOUD_LIMIT
+        ]
+    ]
 
 
 def _dashboard_product_id(row: Mapping[str, Any]) -> str:
@@ -3251,6 +3281,35 @@ class GuardianService:
         current_end: datetime,
     ) -> DashboardBenchmarkView:
         brands = ("guardian", "hasaki", "watsons")
+
+        def aggregate_brand_rows(
+            brand_rows: Sequence[Mapping[str, Any]],
+        ) -> list[DashboardBenchmarkAggregateView]:
+            aggregates: list[DashboardBenchmarkAggregateView] = []
+            for brand in brands:
+                matched = [
+                    row
+                    for row in brand_rows
+                    if self._dashboard_resolved_brand(row) == brand
+                ]
+                ratings = [
+                    float(row["rating"])
+                    for row in matched
+                    if row.get("rating") is not None
+                ]
+                aggregates.append(
+                    DashboardBenchmarkAggregateView(
+                        brand=brand,
+                        feedback=len(matched),
+                        complaints=sum(str(row.get("intent")) == "complaint" for row in matched),
+                        positive=sum(str(row.get("sentiment")) == "positive" for row in matched),
+                        neutral=sum(str(row.get("sentiment")) == "neutral" for row in matched),
+                        rating=(sum(ratings) / len(ratings) if ratings else None),
+                        rating_count=len(ratings),
+                    )
+                )
+            return aggregates
+
         grouped: dict[
             tuple[str, str, str, str, str],
             dict[str, list[Mapping[str, Any]]],
@@ -3293,6 +3352,26 @@ class GuardianService:
             if all(len(cohort.get(brand, ())) >= minimum for brand in brands)
         ]
         if not common:
+            fallback_rows = [
+                row
+                for row in rows
+                if self._dashboard_resolved_brand(row) in brands
+                and str(row.get("analysis_status")) == "completed"
+                and bool(row.get("is_relevant"))
+            ]
+            fallback_counts = Counter(
+                self._dashboard_resolved_brand(row)
+                for row in fallback_rows
+            )
+            if all(fallback_counts[brand] >= minimum for brand in brands):
+                return DashboardBenchmarkView(
+                    comparable=True,
+                    reason=(
+                        "Directional all-source comparison across analyzed Guardian, "
+                        "Hasaki, and Watsons feedback."
+                    ),
+                    aggregates=aggregate_brand_rows(fallback_rows),
+                )
             reason = (
                 "No dated feedback is available in the current analysis window."
                 if current_dated == 0
@@ -3305,25 +3384,12 @@ class GuardianService:
                 aggregates=[],
             )
 
-        aggregates: list[DashboardBenchmarkAggregateView] = []
-        for brand in brands:
-            matched = [row for cohort in common for row in cohort[brand]]
-            ratings = [float(row["rating"]) for row in matched if row.get("rating") is not None]
-            aggregates.append(
-                DashboardBenchmarkAggregateView(
-                    brand=brand,
-                    feedback=len(matched),
-                    complaints=sum(str(row.get("intent")) == "complaint" for row in matched),
-                    positive=sum(str(row.get("sentiment")) == "positive" for row in matched),
-                    neutral=sum(str(row.get("sentiment")) == "neutral" for row in matched),
-                    rating=(sum(ratings) / len(ratings) if ratings else None),
-                    rating_count=len(ratings),
-                )
-            )
         return DashboardBenchmarkView(
             comparable=True,
             reason=None,
-            aggregates=aggregates,
+            aggregates=aggregate_brand_rows(
+                [row for cohort in common for matched_rows in cohort.values() for row in matched_rows]
+            ),
         )
 
     def dashboard(self) -> DashboardResponse:
@@ -3510,12 +3576,6 @@ class GuardianService:
             "grabmart": "GrabMart",
         }
         marketplace_platforms = tuple(dict.fromkeys(platform_aliases.values()))
-        platform_seed_base = {
-            "TikTok Shop": 4.18,
-            "Shopee": 4.24,
-            "Lazada": 4.12,
-            "GrabMart": 4.30,
-        }
 
         def projected_rating_point(
             platform: str,
@@ -3544,31 +3604,6 @@ class GuardianService:
                 count=sample_size,
                 predicted=True,
             )
-
-        def seeded_rating_series(product_id: str, platform: str) -> list[DashboardRatingTrendPointView]:
-            digest = hashlib.sha256(f"{product_id}|{platform}".encode("utf-8")).digest()
-            start = windows.current_end - timedelta(days=28)
-            base = platform_seed_base[platform] + ((digest[0] % 9) - 4) / 100
-            slope = ((digest[1] % 7) - 2) / 100
-            sample_size = 18 + digest[2] % 18
-            observed: list[tuple[int, date, float, int]] = []
-            for week in range(4):
-                weekly_noise = ((digest[3 + week] % 5) - 2) / 100
-                average = max(1.0, min(5.0, base + slope * week + weekly_noise))
-                observed.append((week, (start + timedelta(days=week * 7)).date(), average, sample_size))
-            result = [
-                DashboardRatingTrendPointView(
-                    date=point_date,
-                    platform=platform,
-                    average_rating=average,
-                    count=count,
-                )
-                for _, point_date, average, count in observed
-            ]
-            projection = projected_rating_point(platform, observed)
-            if projection is not None:
-                result.append(projection)
-            return result
 
         products: list[DashboardProductView] = []
         for product_id, product_rows in by_product.items():
@@ -3613,6 +3648,12 @@ class GuardianService:
             )
             current_analyzed = analyzed_period_rows(current_rows)
             baseline_analyzed = analyzed_period_rows(baseline_rows)
+            all_analyzed = [
+                row
+                for row in product_rows
+                if row.get("analysis_feedback_id") is not None
+                and bool(row.get("is_relevant"))
+            ]
             current_scores = [
                 float(row["sentiment_score"])
                 for row in current_analyzed
@@ -3628,6 +3669,9 @@ class GuardianService:
             ]
             baseline_complaint_rows = [
                 row for row in baseline_analyzed if str(row.get("intent")) == "complaint"
+            ]
+            all_complaint_rows = [
+                row for row in all_analyzed if str(row.get("intent")) == "complaint"
             ]
             source_counts = Counter(str(row.get("source_group")) for row in current_rows)
             feedback_counts = Counter(
@@ -3646,6 +3690,14 @@ class GuardianService:
                 str(row.get("subtopic") or row.get("primary_topic") or "other")
                 for row in baseline_complaint_rows
             )
+            all_feedback_counts = Counter(
+                str(row.get("primary_topic") or "other")
+                for row in all_complaint_rows
+            )
+            all_problem_counts = Counter(
+                str(row.get("subtopic") or row.get("primary_topic") or "other")
+                for row in all_complaint_rows
+            )
             rating_counts = Counter(
                 max(1, min(5, int(float(row["rating"]) + 0.5)))
                 for row in current_rows
@@ -3654,6 +3706,11 @@ class GuardianService:
             baseline_rating_counts = Counter(
                 max(1, min(5, int(float(row["rating"]) + 0.5)))
                 for row in baseline_rows
+                if row.get("rating") is not None
+            )
+            all_rating_counts = Counter(
+                max(1, min(5, int(float(row["rating"]) + 0.5)))
+                for row in product_rows
                 if row.get("rating") is not None
             )
 
@@ -3681,8 +3738,7 @@ class GuardianService:
                     for (candidate, week), values in trend_rows.items()
                     if candidate == platform
                 )
-                if len(observed) < 2:
-                    rating_trend.extend(seeded_rating_series(product_id, platform))
+                if not observed:
                     continue
                 observed_points: list[tuple[int, date, float, int]] = []
                 for week, values in observed:
@@ -3708,6 +3764,14 @@ class GuardianService:
                 ((label, problem_counts[label]) for label in set(problem_counts) | set(baseline_problem_counts)),
                 key=lambda item: (-item[1], item[0]),
             )
+            sorted_all_feedback = sorted(
+                all_feedback_counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+            sorted_all_problems = sorted(
+                all_problem_counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
             products.append(
                 DashboardProductView(
                     id=product_id,
@@ -3728,6 +3792,7 @@ class GuardianService:
                     total_feedback=len(product_rows),
                     current=period_counts(current_rows),
                     baseline=period_counts(baseline_rows),
+                    overall=period_counts(product_rows),
                     sentiment_delta=(
                         100
                         * (
@@ -3751,6 +3816,11 @@ class GuardianService:
                         DashboardRatingCountView(rating=rating, count=baseline_rating_counts[rating])
                         for rating in range(5, 0, -1)
                         if baseline_rating_counts[rating]
+                    ],
+                    all_rating_distribution=[
+                        DashboardRatingCountView(rating=rating, count=all_rating_counts[rating])
+                        for rating in range(5, 0, -1)
+                        if all_rating_counts[rating]
                     ],
                     rating_trend=rating_trend,
                     negative_feedback=[
@@ -3778,6 +3848,14 @@ class GuardianService:
                             ),
                         )
                         for label, count in sorted_problems
+                    ],
+                    all_negative_feedback=[
+                        DashboardComparisonThemeView(label=label, count=count)
+                        for label, count in sorted_all_feedback
+                    ],
+                    all_problems=[
+                        DashboardComparisonThemeView(label=label, count=count)
+                        for label, count in sorted_all_problems
                     ],
                 )
             )
@@ -3893,6 +3971,7 @@ class GuardianService:
             messages=messages,
             products=products,
             evidence=evidence,
+            word_cloud=_dashboard_word_cloud(guardian_independent),
             primary_insight=primary_insight,
             benchmark=self._dashboard_benchmark(
                 independent,
