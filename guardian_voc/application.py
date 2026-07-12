@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 
 from guardian_voc.ai.openai_compatible import OpenAICompatibleProvider
+from guardian_voc.ai.provider import AIProviderError
 from guardian_voc.ai.prompts import ITEM_CLASSIFIER_PROMPT_VERSION
 from guardian_voc.ai.validator import apply_low_confidence_policy, validate_classification
 from guardian_voc.analytics import (
@@ -91,6 +92,7 @@ from guardian_voc.schemas.api import (
     DashboardComparisonThemeView,
     DashboardCoverageView,
     DashboardEvidenceView,
+    DashboardProblemDetailView,
     DashboardPeriodCountsView,
     DashboardProductView,
     DashboardRatingCountView,
@@ -106,6 +108,10 @@ from guardian_voc.schemas.api import (
     FeedbackListResponse,
     InsightCardView,
     InsightPatchRequest,
+    ProblemBreakdownView,
+    ProblemReviewView,
+    ProblemSummaryThemeView,
+    ProblemTrendPointView,
     Role,
     RunResponse,
     SourceStatusView,
@@ -3459,6 +3465,9 @@ class GuardianService:
         dashboard_range: str = "all",
         date_from: date | None = None,
         date_to: date | None = None,
+        preset: str = "all",
+        start_date: date | None = None,
+        end_date: date | None = None,
     ) -> DashboardResponse:
         """Return the product dashboard from canonical, non-duplicate feedback.
 
@@ -3490,11 +3499,41 @@ class GuardianService:
             ORDER BY fi.feedback_id
             """
         )
-        windows = self._dashboard_windows(
-            dashboard_range,
-            date_from=date_from,
-            date_to=date_to,
-        )
+        if dashboard_range != "all" or date_from is not None or date_to is not None:
+            windows = self._dashboard_windows(
+                dashboard_range,
+                date_from=date_from,
+                date_to=date_to,
+            )
+        elif preset not in {"7d", "30d", "1y", "all", "custom"}:
+            raise ValueError("preset must be one of 7d, 30d, 1y, all, custom")
+        elif preset == "custom":
+            if start_date is None or end_date is None or end_date < start_date:
+                raise ValueError("custom range requires a valid start and end date")
+            business_zone = ZoneInfo(self.settings.voc_business_timezone)
+            current_start = datetime.combine(start_date, datetime.min.time(), business_zone)
+            current_end = datetime.combine(end_date + timedelta(days=1), datetime.min.time(), business_zone)
+            duration = current_end - current_start
+            windows = AnalysisWindows(
+                current_start=current_start.astimezone(timezone.utc),
+                current_end=current_end.astimezone(timezone.utc),
+                baseline_start=(current_start - duration).astimezone(timezone.utc),
+                baseline_end=current_start.astimezone(timezone.utc),
+                business_timezone=self.settings.voc_business_timezone,
+                current_days=duration.days,
+                baseline_days=duration.days,
+            )
+        elif preset == "all":
+            windows = self._windows()
+        else:
+            days = {"7d": 7, "30d": 30, "1y": 365}[preset]
+            windows = build_analysis_windows(
+                self.as_of,
+                current_days=days,
+                baseline_days=days,
+                business_timezone=self.settings.voc_business_timezone,
+                as_of_date_is_complete=self.settings.voc_demo_mode,
+            )
 
         representatives: dict[str, Mapping[str, Any]] = {}
         for row in rows:
@@ -3639,6 +3678,65 @@ class GuardianService:
                 neutral=sum(str(row.get("sentiment")) == "neutral" for row in analyzed),
             )
 
+        def shift_month(value: date, offset: int) -> date:
+            index = value.year * 12 + value.month - 1 + offset
+            return date(index // 12, index % 12 + 1, 1)
+
+        business_zone = ZoneInfo(self.settings.voc_business_timezone)
+        trend_start_date = windows.current_start.astimezone(business_zone).date()
+        trend_end_date = (windows.current_end - timedelta(microseconds=1)).astimezone(business_zone).date()
+        trend_days = (trend_end_date - trend_start_date).days + 1
+        sentiment_trend_granularity = (
+            "month"
+            if preset in {"all", "1y"} or trend_days > 62
+            else "day"
+        )
+        if sentiment_trend_granularity == "day":
+            trend_periods = [trend_start_date + timedelta(days=index) for index in range(trend_days)]
+        else:
+            trend_end_month = trend_end_date.replace(day=1)
+            trend_start_month = (
+                shift_month(trend_end_month, -11)
+                if preset in {"all", "1y"}
+                else trend_start_date.replace(day=1)
+            )
+            month_count = (
+                12
+                if preset in {"all", "1y"}
+                else (trend_end_month.year - trend_start_month.year) * 12
+                + trend_end_month.month - trend_start_month.month
+                + 1
+            )
+            trend_periods = [shift_month(trend_start_month, index) for index in range(month_count)]
+        sentiment_months: dict[date, Counter[str]] = {
+            period: Counter() for period in trend_periods
+        }
+        for row in guardian_independent:
+            if not self._dashboard_time_eligible(row):
+                continue
+            occurred_at = row.get("occurred_at")
+            if not isinstance(occurred_at, datetime):
+                continue
+            occurred_date = occurred_at.astimezone(business_zone).date()
+            period = occurred_date if sentiment_trend_granularity == "day" else occurred_date.replace(day=1)
+            if period not in sentiment_months:
+                continue
+            if str(row.get("analysis_status")) != "completed" or not bool(row.get("is_relevant")):
+                continue
+            sentiment = str(row.get("sentiment"))
+            if sentiment in {"positive", "neutral", "negative"}:
+                sentiment_months[period][sentiment] += 1
+        sentiment_trend = [
+            DashboardSentimentTrendPointView(
+                date=period,
+                total=sum(counts.values()),
+                positive=counts["positive"],
+                neutral=counts["neutral"],
+                negative=counts["negative"],
+            )
+            for period, counts in sorted(sentiment_months.items())
+        ]
+
         platform_aliases = {
             "guardian_ecommerce": "Guardian.com.vn",
             "tiktok": "TikTok Shop",
@@ -3667,10 +3765,10 @@ class GuardianService:
                 / denominator
             )
             intercept = y_mean - slope * x_mean
-            last_week, _, _, sample_size = observed[-1]
+            last_week, last_date, _, sample_size = observed[-1]
             next_week = last_week + 1
             return DashboardRatingTrendPointView(
-                date=(trend_start + timedelta(days=next_week * 7)).date(),
+                date=last_date + timedelta(days=7),
                 platform=platform,
                 average_rating=max(1.0, min(5.0, intercept + slope * next_week)),
                 count=sample_size,
@@ -3786,9 +3884,15 @@ class GuardianService:
                 if row.get("rating") is not None
             )
 
+            eligible_occurrences = [
+                row["occurred_at"]
+                for row in product_rows
+                if self._dashboard_time_eligible(row)
+                and isinstance(row.get("occurred_at"), datetime)
+            ]
             trend_start = (
-                windows.current_end - timedelta(days=28)
-                if dashboard_range == "all"
+                min(eligible_occurrences)
+                if dashboard_range == "all" and preset == "all" and eligible_occurrences
                 else windows.current_start
             )
             trend_rows: dict[tuple[str, int], list[float]] = defaultdict(list)
@@ -4085,6 +4189,8 @@ class GuardianService:
             coverage=coverage,
             messages=messages,
             products=products,
+            sentiment_trend=sentiment_trend,
+            sentiment_trend_granularity=sentiment_trend_granularity,
             evidence=evidence,
             word_cloud=_dashboard_word_cloud(
                 guardian_independent if dashboard_range == "all" else guardian_current_rows
@@ -4095,6 +4201,207 @@ class GuardianService:
                 current_start=windows.current_start,
                 current_end=windows.current_end,
             ),
+        )
+
+    async def problem_detail(
+        self,
+        *,
+        problem: str,
+        preset: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> DashboardProblemDetailView:
+        """Return one complaint cohort and an optional grounded AI summary."""
+
+        self.initialize(seed_demo=self.settings.voc_demo_mode)
+        normalized_problem = problem.strip().lower()
+        if not re.fullmatch(r"[a-z0-9_]{1,80}", normalized_problem):
+            raise ValueError("problem must be a valid taxonomy label")
+        if preset not in {"7d", "30d", "1y", "all", "custom"}:
+            raise ValueError("preset must be one of 7d, 30d, 1y, all, custom")
+
+        windows = self._windows()
+        business_zone = ZoneInfo(self.settings.voc_business_timezone)
+        current_end = windows.current_end
+        if preset == "all":
+            period_start = period_end = None
+            previous_start = previous_end = None
+            period_label = "All time"
+        elif preset == "custom":
+            if start_date is None or end_date is None or end_date < start_date:
+                raise ValueError("custom range requires a valid start and end date")
+            period_start = datetime.combine(start_date, datetime.min.time(), business_zone)
+            period_end = datetime.combine(end_date + timedelta(days=1), datetime.min.time(), business_zone)
+            duration = period_end - period_start
+            previous_start = period_start - duration
+            previous_end = period_start
+            period_label = f"{start_date.isoformat()} to {end_date.isoformat()}"
+        else:
+            days = {"7d": 7, "30d": 30, "1y": 365}[preset]
+            period_end = current_end
+            period_start = period_end - timedelta(days=days)
+            previous_start = period_start - timedelta(days=days)
+            previous_end = period_start
+            period_label = {"7d": "Last 7 days", "30d": "Last 30 days", "1y": "Last year"}[preset]
+
+        synthetic_clause = "" if self.settings.voc_demo_mode else "AND fi.is_synthetic = FALSE"
+        rows = self.database.query(
+            f"""
+            SELECT fi.feedback_id, fi.repost_group_id, fi.source_group,
+                fi.source_platform, fi.occurred_at, fi.text_redacted, fi.rating,
+                fi.product_name, fi.sanitized_metadata, fi.source_url,
+                fa.feedback_id AS analysis_feedback_id, fa.is_relevant,
+                fa.primary_brand, fa.brand_attribution_confidence,
+                fa.brand_evidence_span, fa.primary_topic, fa.subtopic,
+                fa.intent, fa.sentiment, fa.confidence
+            FROM feedback_items fi
+            LEFT JOIN feedback_analyses fa ON fa.feedback_id = fi.feedback_id
+            WHERE fi.duplicate_of IS NULL
+              {synthetic_clause}
+            ORDER BY fi.feedback_id
+            """
+        )
+        representatives: dict[str, Mapping[str, Any]] = {}
+        for row in rows:
+            unit_id = str(row.get("repost_group_id") or row["feedback_id"])
+            representatives.setdefault(unit_id, row)
+        complaints = [
+            row
+            for row in representatives.values()
+            if self._dashboard_resolved_brand(row) == "guardian"
+            and row.get("analysis_feedback_id") is not None
+            and bool(row.get("is_relevant"))
+            and str(row.get("intent")) == "complaint"
+        ]
+
+        def in_period(row: Mapping[str, Any], start: datetime | None, end: datetime | None) -> bool:
+            if start is None or end is None:
+                return True
+            occurred_at = row.get("occurred_at")
+            return isinstance(occurred_at, datetime) and start <= occurred_at < end
+
+        current_complaints = [row for row in complaints if in_period(row, period_start, period_end)]
+        problem_rows = [
+            row for row in current_complaints
+            if str(row.get("subtopic") or row.get("primary_topic") or "other") == normalized_problem
+        ]
+        previous_problem_rows = [
+            row for row in complaints
+            if in_period(row, previous_start, previous_end)
+            and str(row.get("subtopic") or row.get("primary_topic") or "other") == normalized_problem
+        ] if previous_start is not None else []
+
+        product_counts: Counter[str] = Counter()
+        source_counts: Counter[str] = Counter()
+        dated_counts: Counter[date] = Counter()
+        reviews: list[ProblemReviewView] = []
+        for row in problem_rows:
+            product_id = _dashboard_product_id(row)
+            product_name = _dashboard_text(row.get("product_name")) or (
+                "Unattributed feedback" if product_id == "unattributed" else product_id
+            )
+            source_platform = str(row.get("source_platform") or "Unknown source")
+            product_counts[product_name] += 1
+            source_counts[source_platform] += 1
+            occurred_at = row.get("occurred_at")
+            if isinstance(occurred_at, datetime):
+                dated_counts[occurred_at.date()] += 1
+            reviews.append(ProblemReviewView(
+                id=str(row["feedback_id"]),
+                product_id=product_id,
+                product_name=product_name,
+                text=str(row.get("text_redacted") or ""),
+                source_group=str(row.get("source_group") or "Unknown source group"),
+                source_platform=source_platform,
+                source_url=_dashboard_text(row.get("source_url")),
+                timestamp=occurred_at if isinstance(occurred_at, datetime) else None,
+                rating=float(row["rating"]) if row.get("rating") is not None else None,
+                sentiment=str(row.get("sentiment") or "unknown"),
+                confidence=float(row.get("confidence") or 0),
+            ))
+        reviews.sort(
+            key=lambda item: (item.timestamp or datetime.min.replace(tzinfo=timezone.utc), item.id),
+            reverse=True,
+        )
+
+        def top_breakdown(counts: Counter[str], limit: int = 5) -> list[ProblemBreakdownView]:
+            return [
+                ProblemBreakdownView(label=label, count=count)
+                for label, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+            ]
+
+        count = len(problem_rows)
+        previous_count = len(previous_problem_rows) if previous_start is not None else None
+        percentage_change = None if previous_count in {None, 0} else 100 * (count - previous_count) / previous_count
+        top_products = top_breakdown(product_counts)
+        top_sources = top_breakdown(source_counts)
+        readable_problem = normalized_problem.replace("_", " ").title()
+        if not count:
+            deterministic_summary = f"No {readable_problem.lower()} complaints match this period."
+        else:
+            product_phrase = top_products[0].label if top_products else "the selected products"
+            source_phrase = top_sources[0].label if top_sources else "the connected sources"
+            deterministic_summary = (
+                f"{count} {readable_problem.lower()} complaint{'s' if count != 1 else ''} were found "
+                f"in this period. The largest concentrations are in {product_phrase} and "
+                f"{source_phrase}; inspect the representative reviews below for the evidence."
+            )
+
+        summary = deterministic_summary
+        summary_source = "deterministic"
+        summary_model: str | None = None
+        themes: list[ProblemSummaryThemeView] = []
+        if (
+            count
+            and self.settings.ai_provider == "openai_compatible"
+            and self.settings.ai_api_key
+            and self.settings.ai_base_url
+            and self.settings.ai_model
+        ):
+            provider = OpenAICompatibleProvider(
+                base_url=self.settings.ai_base_url,
+                api_key=self.settings.ai_api_key,
+                model=self.settings.ai_model,
+                timeout_seconds=self.settings.ai_request_timeout_seconds,
+            )
+            try:
+                draft = await provider.summarize_problem(
+                    problem=readable_problem,
+                    total_complaints=count,
+                    reviews=[{
+                        "id": item.id,
+                        "product": item.product_name,
+                        "platform": item.source_platform,
+                        "rating": item.rating,
+                        "date": item.timestamp,
+                        "text": item.text,
+                    } for item in reviews[:50]],
+                )
+                summary = draft.summary
+                themes = [theme for theme in draft.themes if theme.count <= count]
+                summary_source = "ai"
+                summary_model = provider.model_version
+            except (AIProviderError, ValidationError, ValueError):
+                pass
+            finally:
+                await provider.aclose()
+
+        return DashboardProblemDetailView(
+            problem=normalized_problem,
+            count=count,
+            total_complaints=len(current_complaints),
+            share=(count / len(current_complaints)) if current_complaints else None,
+            previous_count=previous_count,
+            percentage_change=percentage_change,
+            period_label=period_label,
+            summary=summary,
+            summary_source=summary_source,
+            summary_model=summary_model,
+            themes=themes,
+            trend=[ProblemTrendPointView(date=day, count=value) for day, value in sorted(dated_counts.items())],
+            products=top_products,
+            sources=top_sources,
+            reviews=reviews[:20],
         )
 
     def today(self, *, role: Role, locale: str | None = None) -> TodayResponse:

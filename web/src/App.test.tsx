@@ -6,6 +6,7 @@ import { dashboardFixture } from "./test/dashboardFixture";
 const api = vi.hoisted(() => ({
   fetchDashboard: vi.fn(),
   fetchFeedback: vi.fn(),
+  fetchProblemDetail: vi.fn(),
   fetchImportConfig: vi.fn(),
   previewReviewImport: vi.fn(),
   commitReviewImport: vi.fn(),
@@ -47,14 +48,8 @@ describe("App dashboard states", () => {
     expect(await screen.findByText("Packaging complaints declined")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recent review signals" })).not.toBeInTheDocument();
     expect(screen.queryByText("The cleanser arrived securely packed.", { exact: false })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
-    expect(within(screen.getByRole("list", { name: "Rating buckets" })).getAllByRole("listitem").map((item) => item.getAttribute("aria-label"))).toEqual([
-      "1 star: 20",
-      "2 stars: 30",
-      "3 stars: 60",
-      "4 stars: 130",
-      "5 stars: 480",
-    ]);
+    expect(screen.getByRole("heading", { name: "Review sentiment over time" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Review sentiment over time\. Aug 25: 60 positive, 25 neutral, 15 negative/ })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Top 5 negative feedback" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating trend & forecast" })).toBeInTheDocument();
@@ -63,7 +58,6 @@ describe("App dashboard states", () => {
     expect(screen.queryByText("cleanser")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products to watch" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
-    expect(screen.getByText("480")).toBeInTheDocument();
     expect(screen.getAllByText("Damaged Packaging").length).toBeGreaterThan(0);
     expect(screen.queryByText(/Directional all-source comparison/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Net Sentiment Score/)).not.toBeInTheDocument();
@@ -85,6 +79,74 @@ describe("App dashboard states", () => {
     expect(options).toEqual({ filename: "guardian-dashboard-30d.pdf" });
   });
 
+  it("opens a product-problem drill-down without recommended actions", async () => {
+    api.fetchDashboard.mockResolvedValue(dashboardFixture());
+    api.fetchProblemDetail.mockResolvedValue({
+      problem: "damaged_packaging",
+      count: 14,
+      totalComplaints: 40,
+      share: 0.35,
+      previousCount: null,
+      percentageChange: null,
+      periodLabel: "All time",
+      summary: "Customers consistently report damaged outer packaging.",
+      summarySource: "ai",
+      summaryModel: "gpt-test",
+      themes: [{ label: "Crushed boxes", count: 8 }],
+      trend: [{ date: "2026-07-01", count: 4 }, { date: "2026-07-08", count: 10 }],
+      products: [{ label: "CeraVe Foaming Cleanser", count: 9 }],
+      sources: [{ label: "Shopee", count: 10 }],
+      reviews: [{
+        id: "review-1",
+        productId: "cerave-473",
+        productName: "CeraVe Foaming Cleanser",
+        text: "The outer box arrived crushed.",
+        sourceGroup: "marketplace",
+        sourcePlatform: "shopee",
+        sourceUrl: null,
+        timestamp: "2026-07-08T10:00:00Z",
+        rating: 2,
+        sentiment: "negative",
+        confidence: 0.95,
+      }],
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "View more about Damaged Packaging" }));
+
+    expect(await screen.findByRole("dialog", { name: "Damaged Packaging" })).toBeInTheDocument();
+    expect(screen.getByText("Customers consistently report damaged outer packaging.")).toBeInTheDocument();
+    expect(screen.getByText("Complaints over time")).toBeInTheDocument();
+    expect(screen.getByText("Affected products")).toBeInTheDocument();
+    expect(screen.getByText("Source breakdown")).toBeInTheDocument();
+    expect(screen.getByText("The outer box arrived crushed.")).toBeInTheDocument();
+    expect(screen.queryByText("Recommended actions")).not.toBeInTheDocument();
+  });
+
+  it("reloads dashboard metrics when the date preset changes", async () => {
+    api.fetchDashboard
+      .mockResolvedValueOnce(dashboardFixture())
+      .mockResolvedValueOnce(dashboardFixture({
+        products: [{
+          ...dashboardFixture().products[0]!,
+          current: { feedback: 640, complaints: 14, positive: 400, neutral: 120 },
+        }],
+      }));
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByText("720")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "1Y" }));
+
+    expect(await screen.findByText("640")).toBeInTheDocument();
+    expect(api.fetchDashboard).toHaveBeenLastCalledWith(expect.any(AbortSignal), {
+      preset: "1y",
+      startDate: undefined,
+      endDate: undefined,
+    });
+  });
+
   it("keeps partial backend copy out of the dashboard", async () => {
     api.fetchDashboard.mockResolvedValue(dashboardFixture({
       dataState: "partial",
@@ -95,7 +157,7 @@ describe("App dashboard states", () => {
     render(<App />);
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
-    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review sentiment over time" })).toBeInTheDocument();
     expect(screen.queryByText("Only marketplace sources completed in this window.")).not.toBeInTheDocument();
   });
 
@@ -108,7 +170,7 @@ describe("App dashboard states", () => {
     render(<App />);
     await user.click(screen.getByRole("tab", { name: "Dashboard" }));
 
-    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review sentiment over time" })).toBeInTheDocument();
     expect(screen.queryByText("Backend data notes")).not.toBeInTheDocument();
     expect(screen.queryByText(/Some Guardian feedback has no trustworthy occurrence date/)).not.toBeInTheDocument();
   });
@@ -132,7 +194,7 @@ describe("App dashboard states", () => {
 
     expect(await screen.findByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Change product group/ })).not.toBeInTheDocument();
-    expect(screen.getByText("960")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Review sentiment over time\. Aug 25: 60 positive, 25 neutral, 15 negative/ })).toBeInTheDocument();
   });
 
   it("shows an honest empty state without product fixtures", async () => {
@@ -163,7 +225,7 @@ describe("App dashboard states", () => {
 
     expect(await screen.findByText("Dashboard data could not be loaded")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry dashboard" }));
-    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review sentiment over time" })).toBeInTheDocument();
     expect(api.fetchDashboard).toHaveBeenCalledTimes(2);
   });
 
@@ -172,7 +234,7 @@ describe("App dashboard states", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Rating distribution" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review sentiment over time" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Import reviews" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Import" }));

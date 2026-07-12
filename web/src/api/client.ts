@@ -6,6 +6,7 @@ import {
   type DashboardData,
   type DashboardEvidence,
   type DashboardInsight,
+  type DashboardProblemDetail,
   type DashboardProduct,
   type DashboardState,
   type DashboardWordCloudTerm,
@@ -17,8 +18,10 @@ import {
   type ImportColumnMapping,
   type ImportPreviewResponse,
   type ProductPeriodCounts,
+  type ProblemBreakdown,
   type ReviewImportProfile,
   type RunResponse,
+  type SentimentTrendPoint,
 } from "./types";
 
 const configuredBase = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
@@ -150,6 +153,21 @@ function normalizeRatingTrend(value: unknown): DashboardProduct["ratingTrend"] {
     const averageRating = numberValue(item.average_rating ?? item.averageRating);
     if (!date || !platform || averageRating === null) return [];
     return [{ date, platform, averageRating, count: countValue(item.count), predicted: booleanValue(item.predicted) }];
+  }) : [];
+}
+
+function normalizeSentimentTrend(value: unknown): SentimentTrendPoint[] {
+  return Array.isArray(value) ? value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const date = stringValue(item.date ?? item.month);
+    if (!date) return [];
+    return [{
+      date,
+      total: countValue(item.total),
+      positive: countValue(item.positive),
+      neutral: countValue(item.neutral),
+      negative: countValue(item.negative),
+    }];
   }) : [];
 }
 
@@ -381,6 +399,8 @@ export function normalizeDashboard(payload: unknown): DashboardData {
       const product = normalizeProduct(item);
       return product ? [product] : [];
     }),
+    sentimentTrend: normalizeSentimentTrend(payload.sentiment_trend ?? payload.sentimentTrend),
+    sentimentTrendGranularity: payload.sentiment_trend_granularity === "day" ? "day" : "month",
     evidence: payload.evidence.flatMap((item) => {
       const evidence = normalizeEvidence(item);
       return evidence ? [evidence] : [];
@@ -405,11 +425,11 @@ async function responseError(response: Response, fallback: string): Promise<ApiE
   return new ApiError(message, response.status);
 }
 
-async function requestJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+async function requestJson<T>(path: string, signal?: AbortSignal, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
-  const timeout = globalThis.setTimeout(abort, REQUEST_TIMEOUT_MS);
+  const timeout = globalThis.setTimeout(abort, timeoutMs);
   try {
     const response = await fetch(apiUrl(path), {
       headers: { Accept: "application/json" },
@@ -505,6 +525,61 @@ export async function fetchFeedback(
   options?: FeedbackRequestOptions,
 ): Promise<FeedbackListResponse> {
   return normalizeFeedbackList(await requestJson<unknown>(feedbackPath(options), signal));
+}
+
+export async function fetchProblemDetail(
+  problem: string,
+  options: { preset: string; startDate?: string; endDate?: string },
+  signal?: AbortSignal,
+): Promise<DashboardProblemDetail> {
+  const params = new URLSearchParams({ preset: options.preset });
+  if (options.startDate) params.set("start_date", options.startDate);
+  if (options.endDate) params.set("end_date", options.endDate);
+  const payload = await requestJson<unknown>(
+    `/api/v1/dashboard/problems/${encodeURIComponent(problem)}?${params}`,
+    signal,
+    45_000,
+  );
+  if (!isRecord(payload) || !Array.isArray(payload.products) || !Array.isArray(payload.sources) || !Array.isArray(payload.reviews)) {
+    throw new ApiError("Problem detail response is invalid");
+  }
+  const breakdown = (value: unknown): ProblemBreakdown[] => Array.isArray(value) ? value.flatMap((item) => (
+    isRecord(item) && stringValue(item.label) ? [{ label: stringValue(item.label)!, count: countValue(item.count) }] : []
+  )) : [];
+  return {
+    problem: stringValue(payload.problem) ?? problem,
+    count: countValue(payload.count),
+    totalComplaints: countValue(payload.total_complaints),
+    share: numberValue(payload.share),
+    previousCount: numberValue(payload.previous_count),
+    percentageChange: numberValue(payload.percentage_change),
+    periodLabel: stringValue(payload.period_label) ?? options.preset,
+    summary: stringValue(payload.summary) ?? "No summary is available.",
+    summarySource: payload.summary_source === "ai" ? "ai" : "deterministic",
+    summaryModel: stringValue(payload.summary_model),
+    themes: breakdown(payload.themes),
+    trend: Array.isArray(payload.trend) ? payload.trend.flatMap((item) => (
+      isRecord(item) && stringValue(item.date) ? [{ date: stringValue(item.date)!, count: countValue(item.count) }] : []
+    )) : [],
+    products: breakdown(payload.products),
+    sources: breakdown(payload.sources),
+    reviews: payload.reviews.flatMap((item) => {
+      if (!isRecord(item) || !stringValue(item.id)) return [];
+      return [{
+        id: stringValue(item.id)!,
+        productId: stringValue(item.product_id) ?? "unattributed",
+        productName: stringValue(item.product_name) ?? "Unknown product",
+        text: stringValue(item.text) ?? "",
+        sourceGroup: stringValue(item.source_group) ?? "Unknown source group",
+        sourcePlatform: stringValue(item.source_platform) ?? "Unknown source",
+        sourceUrl: stringValue(item.source_url),
+        timestamp: stringValue(item.timestamp),
+        rating: numberValue(item.rating),
+        sentiment: stringValue(item.sentiment) ?? "unknown",
+        confidence: numberValue(item.confidence) ?? 0,
+      }];
+    }),
+  };
 }
 
 export async function fetchImportConfig(signal?: AbortSignal): Promise<ImportConfigResponse> {

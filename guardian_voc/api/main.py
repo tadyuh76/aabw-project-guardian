@@ -32,6 +32,7 @@ from guardian_voc.config import Settings, get_settings
 from guardian_voc.runtime import PipelineScheduler
 from guardian_voc.schemas.api import (
     DashboardResponse,
+    DashboardProblemDetailView,
     EvidenceResponse,
     FeedbackListResponse,
     InsightCardView,
@@ -229,6 +230,28 @@ def dashboard(
             dashboard_range=dashboard_range,
             date_from=date_from,
             date_to=date_to,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get(
+    "/api/v1/dashboard/problems/{problem}",
+    response_model=DashboardProblemDetailView,
+)
+async def dashboard_problem_detail(
+    problem: str,
+    service: Annotated[GuardianService, Depends(service_from_request)],
+    preset: str = Query(default="all", pattern="^(7d|30d|1y|all|custom)$"),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+) -> DashboardProblemDetailView:
+    try:
+        return await service.problem_detail(
+            problem=problem,
+            preset=preset,
+            start_date=start_date,
+            end_date=end_date,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

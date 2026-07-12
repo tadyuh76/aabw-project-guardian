@@ -205,6 +205,7 @@ class DashboardRatingTrendPointView(BaseModel):
 
 class DashboardSentimentTrendPointView(BaseModel):
     date: date
+    total: int = Field(ge=0)
     positive: int = Field(ge=0)
     negative: int = Field(ge=0)
     neutral: int = Field(ge=0)
@@ -253,6 +254,58 @@ class DashboardEvidenceView(BaseModel):
     sentiment: str
 
 
+class ProblemSummaryThemeView(BaseModel):
+    label: str
+    count: int = Field(ge=1)
+
+
+class ProblemSummaryDraft(BaseModel):
+    summary: str = Field(min_length=1, max_length=700)
+    themes: list[ProblemSummaryThemeView] = Field(max_length=4)
+
+
+class ProblemBreakdownView(BaseModel):
+    label: str
+    count: int = Field(ge=0)
+
+
+class ProblemTrendPointView(BaseModel):
+    date: date
+    count: int = Field(ge=0)
+
+
+class ProblemReviewView(BaseModel):
+    id: str
+    product_id: str
+    product_name: str
+    text: str
+    source_group: str
+    source_platform: str
+    source_url: str | None = None
+    timestamp: datetime | None = None
+    rating: float | None = Field(default=None, ge=0, le=5)
+    sentiment: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class DashboardProblemDetailView(BaseModel):
+    problem: str
+    count: int = Field(ge=0)
+    total_complaints: int = Field(ge=0)
+    share: float | None = Field(default=None, ge=0, le=1)
+    previous_count: int | None = Field(default=None, ge=0)
+    percentage_change: float | None = None
+    period_label: str
+    summary: str
+    summary_source: Literal["ai", "deterministic"]
+    summary_model: str | None = None
+    themes: list[ProblemSummaryThemeView] = Field(default_factory=list)
+    trend: list[ProblemTrendPointView] = Field(default_factory=list)
+    products: list[ProblemBreakdownView] = Field(default_factory=list)
+    sources: list[ProblemBreakdownView] = Field(default_factory=list)
+    reviews: list[ProblemReviewView] = Field(default_factory=list)
+
+
 class DashboardWordCloudTermView(BaseModel):
     keyword: str
     count: int = Field(ge=0)
@@ -284,6 +337,8 @@ class DashboardResponse(BaseModel):
     coverage: DashboardCoverageView
     messages: list[str] = Field(default_factory=list)
     products: list[DashboardProductView] = Field(default_factory=list)
+    sentiment_trend: list[DashboardSentimentTrendPointView] = Field(default_factory=list)
+    sentiment_trend_granularity: Literal["day", "month"] = "month"
     evidence: list[DashboardEvidenceView] = Field(default_factory=list)
     word_cloud: list[DashboardWordCloudTermView] = Field(default_factory=list)
     primary_insight: InsightCardView | None = None

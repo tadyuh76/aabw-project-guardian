@@ -1,9 +1,9 @@
-import { Badge, Box, Button, Flex, Grid, Heading, IconButton, Input, Stack, Text, Tooltip } from "@chakra-ui/react";
-import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Info, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import { Badge, Box, Button, Flex, Grid, Heading, IconButton, Input, Spinner, Stack, Text, Tooltip } from "@chakra-ui/react";
+import { ArrowRight, CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Info, Package, Pulse, Sparkle, Star, WarningCircle, X } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { fetchDashboard, type DashboardRangePreset } from "../api/client";
-import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
+import { fetchDashboard, fetchProblemDetail, type DashboardRangePreset } from "../api/client";
+import type { DashboardData, DashboardProblemDetail, DashboardProduct, ProblemBreakdown, ProductRatingTrendPoint, ProductTheme, SentimentTrendPoint } from "../api/types";
 import { captureDashboardPdf } from "../utils/dashboardPdf";
 import { cleanDisplayText } from "../utils/displayText";
 
@@ -12,7 +12,6 @@ type DatePreset = DashboardRangePreset;
 type DateMode = "current" | "combined" | "all";
 
 const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
-const ratingColor = "#ec7e24";
 const chartViewBoxWidth = 760;
 const chartTextSize = 13;
 const chartLabelSize = 20;
@@ -249,22 +248,63 @@ function DateRangeFilter({ value, onChange, customRange, onCustomRangeChange }: 
   );
 }
 
-function RatingBars({ items }: { items: Array<{ label: string; count: number }> }) {
-  const max = Math.max(1, ...items.map((item) => item.count));
+function sentimentPeriodLabel(value: string, granularity: "day" | "month"): string {
+  const date = dateOnly(value);
+  if (!date) return value;
+  return granularity === "day"
+    ? new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(date)
+    : new Intl.DateTimeFormat("en-GB", { month: "short", year: "2-digit" }).format(date);
+}
+
+function SentimentBars({ points, granularity }: { points: SentimentTrendPoint[]; granularity: "day" | "month" }) {
+  const colors = { positive: "#16a34a", neutral: "#d97706", negative: "#e11d48" };
+  const ariaLabel = points.map((point) => `${sentimentPeriodLabel(point.date, granularity)}: ${point.positive.toLocaleString()} positive, ${point.neutral.toLocaleString()} neutral, ${point.negative.toLocaleString()} negative`).join(". ");
   return (
-    <Grid role="list" aria-label="Rating buckets" gridTemplateColumns="repeat(5, minmax(0, 1fr))" gap={{ base: "2", md: "3" }} h="190px" alignItems="end">
-      {items.map((item) => (
-        <Flex key={item.label} role="listitem" aria-label={`${item.label} ${item.label === "1" ? "star" : "stars"}: ${item.count.toLocaleString()}`} direction="column" align="center" justify="flex-end" h="full" gap="2">
-          <Text fontSize="xs" fontWeight="750">{item.count.toLocaleString()}</Text>
-          <Flex w="full" maxW="44px" h={`${Math.max(8, (item.count / max) * 104)}px`} bg={ratingColor} borderRadius="6px 6px 2px 2px" transition="height .25s ease" />
-          <Flex align="center" gap="1" fontSize="xs" fontWeight="700"><Star size={13} weight="fill" color={ratingColor} />{item.label}</Flex>
+    <Stack gap="4" pt="2">
+      <Flex justify="flex-end" gap="4" wrap="wrap">
+        <Flex align="center" gap="2"><Box w="3" h="3" bg={colors.positive} borderRadius="sm" /><Text color="muted" fontSize="xs" fontWeight="650">Positive</Text></Flex>
+        <Flex align="center" gap="2"><Box w="3" h="3" bg={colors.neutral} borderRadius="sm" /><Text color="muted" fontSize="xs" fontWeight="650">Neutral</Text></Flex>
+        <Flex align="center" gap="2"><Box w="3" h="3" bg={colors.negative} borderRadius="sm" /><Text color="muted" fontSize="xs" fontWeight="650">Negative</Text></Flex>
+      </Flex>
+      <Box overflowX="auto">
+      <Flex role="img" aria-label={`Review sentiment over time. ${ariaLabel || "No sentiment data"}`} minH="220px" minW={points.length > 14 ? "720px" : "full"} gap="3">
+        <Flex direction="column" justify="space-between" h="164px" pt="1" pb="1" color="muted" fontSize="2xs" textAlign="right">
+          <Text>100%</Text><Text>50%</Text><Text>0%</Text>
         </Flex>
-      ))}
-    </Grid>
+        <Box position="relative" flex="1" minW="0" h="220px">
+          <Box position="absolute" left="0" right="0" top="0" h="164px">
+            {[0, 50, 100].map((value) => <Box key={value} position="absolute" left="0" right="0" top={`${100 - value}%`} borderTopWidth="1px" borderColor="border" />)}
+          </Box>
+          <Flex position="relative" h="full" align="flex-start" justify="space-around" gap={{ base: "1", md: "2" }}>
+            {points.map((point, index) => {
+              const segments = [
+                { label: "Negative", count: point.negative, rate: ratio(point.negative, point.total) ?? 0, color: colors.negative },
+                { label: "Neutral", count: point.neutral, rate: ratio(point.neutral, point.total) ?? 0, color: colors.neutral },
+                { label: "Positive", count: point.positive, rate: ratio(point.positive, point.total) ?? 0, color: colors.positive },
+              ];
+              return (
+                <Stack key={point.date} flex="1" minW="0" gap="2" align="center">
+                  <Flex h="164px" align="flex-end" justify="center" width="full" title={`${sentimentPeriodLabel(point.date, granularity)}: ${point.total.toLocaleString()} classified reviews`}>
+                    <Stack h="164px" justify="flex-end" align="center" gap="1" width="full">
+                      <Text fontSize="2xs" fontWeight="750">{point.total.toLocaleString()}</Text>
+                      <Flex direction="column" width="full" maxW={{ base: "28px", md: "38px" }} h="124px" justify="flex-end" borderRadius="5px 5px 1px 1px" overflow="hidden">
+                        {segments.map((segment) => <Box key={segment.label} width="full" h={`${segment.rate * 124}px`} minH={segment.count > 0 ? "1px" : "0"} bg={segment.color} transition="height .25s ease" />)}
+                      </Flex>
+                    </Stack>
+                  </Flex>
+                  <Text fontSize="2xs" fontWeight="700" textAlign="center" lineHeight="1.35" whiteSpace="nowrap">{granularity === "month" || index === 0 || index === points.length - 1 || index % 5 === 0 ? sentimentPeriodLabel(point.date, granularity) : "\u00a0"}</Text>
+                </Stack>
+              );
+            })}
+          </Flex>
+        </Box>
+      </Flex>
+      </Box>
+    </Stack>
   );
 }
 
-function ProblemCategoryChart({ items, mode, empty }: { items: ProductTheme[]; mode: DateMode; empty: string }) {
+function ProblemCategoryChart({ items, mode, empty, onViewMore }: { items: ProductTheme[]; mode: DateMode; empty: string; onViewMore: (problem: string) => void }) {
   const displayed = items.map((item) => ({
     ...item,
     displayCount: mode === "current" ? item.count : item.count + item.baselineCount,
@@ -274,7 +314,7 @@ function ProblemCategoryChart({ items, mode, empty }: { items: ProductTheme[]; m
   const width = chartViewBoxWidth;
   const rowHeight = 42;
   const top = 12;
-  const right = 58;
+  const right = 142;
   const labelWidth = 252;
   const barWidth = width - labelWidth - right;
   const height = top * 2 + displayed.length * rowHeight;
@@ -305,6 +345,18 @@ function ProblemCategoryChart({ items, mode, empty }: { items: ProductTheme[]; m
               <text x={labelWidth + bar + 10} y={y + 25} fill="var(--chakra-colors-ink)" fontSize={chartValueSize} fontWeight="750">
                 {item.displayCount.toLocaleString()}
               </text>
+              <g
+                role="button"
+                tabIndex={0}
+                aria-label={`View more about ${label}`}
+                onClick={() => onViewMore(item.label)}
+                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onViewMore(item.label); }}
+                style={{ cursor: "pointer" }}
+              >
+                <text x={width - 4} y={y + 25} textAnchor="end" fill="var(--chakra-colors-accent)" fontSize={chartValueSize} fontWeight="750">
+                  View more →
+                </text>
+              </g>
             </g>
           );
         })}
@@ -452,12 +504,12 @@ function hasUsefulInsight(data: DashboardData): boolean {
 
 function weeklySummaryMessage({ insight, feedback, positive, neutral, issue }: { insight: DashboardData["primaryInsight"]; feedback: number; positive: number; neutral: number; issue?: ProductTheme }): string {
   if (insight) return cleanDisplayText(insight.title);
-  if (feedback <= 0) return "No resolved customer feedback this week.";
+  if (feedback <= 0) return "No resolved customer feedback in this period.";
   const negative = Math.max(0, feedback - positive - neutral);
   if (positive >= negative && issue && issue.count > 0) return `Customers are mostly happy, but ${humanize(issue.label).toLocaleLowerCase()} needs action now.`;
-  if (positive >= negative) return "Customers are mostly happy this week.";
-  if (issue && issue.count > 0) return `${humanize(issue.label)} needs action this week.`;
-  return "Customer sentiment needs attention this week.";
+  if (positive >= negative) return "Customers are mostly happy in this period.";
+  if (issue && issue.count > 0) return `${humanize(issue.label)} needs action in this period.`;
+  return "Customer sentiment needs attention in this period.";
 }
 
 function combinedPeriod(product: DashboardProduct) {
@@ -475,11 +527,11 @@ function periodForMode(product: DashboardProduct, mode: DateMode) {
   return combinedPeriod(product);
 }
 
-function WeeklySummaryCard({ message }: { message: string }) {
+function WeeklySummaryCard({ message, isAi }: { message: string; isAi: boolean }) {
   return (
     <Flex
       as="section"
-      aria-label="Last week summary"
+      aria-label={isAi ? "AI summary" : "Period summary"}
       position="relative"
       overflow="hidden"
       align="center"
@@ -501,7 +553,7 @@ function WeeklySummaryCard({ message }: { message: string }) {
         </Flex>
       </Flex>
       <Box position="relative" minW="0" maxW="980px">
-        <Badge mb="2" colorPalette="orange" variant="subtle" fontSize="2xs">AI summary</Badge>
+        <Badge mb="2" colorPalette="orange" variant="subtle" fontSize="2xs">{isAi ? "AI summary" : "Period summary"}</Badge>
         <Heading size={{ base: "sm", md: "lg" }} lineHeight="1.28" letterSpacing="0">
           {message}
         </Heading>
@@ -532,6 +584,120 @@ function WeeklySummaryCard({ message }: { message: string }) {
   );
 }
 
+function BreakdownChart({ title, items }: { title: string; items: ProblemBreakdown[] }) {
+  const max = Math.max(1, ...items.map((item) => item.count));
+  return (
+    <Box {...panelProps} p="4">
+      <Text fontWeight="750" mb="4">{title}</Text>
+      {items.length ? <Stack gap="3">{items.map((item) => (
+        <Box key={item.label}>
+          <Flex justify="space-between" gap="3" mb="1.5"><Text fontSize="sm" fontWeight="650" lineClamp={1}>{cleanDisplayText(item.label)}</Text><Text fontSize="sm" fontWeight="750">{item.count}</Text></Flex>
+          <Box h="8px" bg="subtle" borderRadius="full" overflow="hidden"><Box h="full" bg="accent" borderRadius="full" width={`${Math.max(4, item.count / max * 100)}%`} /></Box>
+        </Box>
+      ))}</Stack> : <Text color="muted" fontSize="sm">No breakdown is available.</Text>}
+    </Box>
+  );
+}
+
+function ComplaintTrendChart({ detail }: { detail: DashboardProblemDetail }) {
+  const points = detail.trend;
+  const max = Math.max(1, ...points.map((point) => point.count));
+  return (
+    <Box {...panelProps} p="4">
+      <Text fontWeight="750" mb="4">Complaints over time</Text>
+      {points.length ? (
+        <Flex h="170px" align="flex-end" gap="1.5" role="img" aria-label="Complaint count over time">
+          {points.map((point, index) => (
+            <Flex key={point.date} direction="column" justify="flex-end" align="center" flex="1" minW="4px" h="full" gap="1">
+              <Text fontSize="2xs" fontWeight="700">{point.count}</Text>
+              <Box w="full" maxW="24px" minH="5px" h={`${Math.max(5, point.count / max * 118)}px`} bg="accent" borderRadius="4px 4px 1px 1px" title={`${point.date}: ${point.count}`} />
+              {(index === 0 || index === points.length - 1) && <Text fontSize="2xs" color="muted" whiteSpace="nowrap">{new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(new Date(`${point.date}T00:00:00`))}</Text>}
+            </Flex>
+          ))}
+        </Flex>
+      ) : <Text color="muted" fontSize="sm">No dated complaints are available.</Text>}
+    </Box>
+  );
+}
+
+function ProblemDetailModal({ problem, preset, customRange, onClose }: { problem: string; preset: DatePreset; customRange: { from: string; to: string }; onClose: () => void }) {
+  const [detail, setDetail] = useState<DashboardProblemDetail | null>(null);
+  const [error, setError] = useState("");
+  const parsedStart = parseDisplayDate(customRange.from);
+  const parsedEnd = parseDisplayDate(customRange.to);
+  const isoDate = (date: Date | null) => date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` : undefined;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setDetail(null);
+    setError("");
+    void fetchProblemDetail(problem, {
+      preset,
+      startDate: preset === "custom" ? isoDate(parsedStart) : undefined,
+      endDate: preset === "custom" ? isoDate(parsedEnd) : undefined,
+    }, controller.signal).then(setDetail).catch((cause) => {
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Problem detail could not be loaded.");
+    });
+    return () => controller.abort();
+  }, [problem, preset, customRange.from, customRange.to]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", closeOnEscape); };
+  }, [onClose]);
+
+  const readableProblem = humanize(problem);
+  const viewAllReviews = () => {
+    const params = new URLSearchParams({ problem, timeframe: preset });
+    window.history.pushState(null, "", `/reviews?${params}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    onClose();
+  };
+  return (
+    <Flex position="fixed" inset="0" zIndex="modal" bg="rgba(15, 23, 42, 0.56)" align={{ base: "stretch", md: "center" }} justify="center" p={{ base: "0", md: "5" }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <Box role="dialog" aria-modal="true" aria-labelledby="problem-detail-title" bg="canvas" width="full" maxW="1180px" maxH={{ base: "100vh", md: "92vh" }} overflowY="auto" borderRadius={{ base: "0", md: "panel" }} boxShadow="2xl">
+        <Flex position="sticky" top="0" zIndex="docked" bg="surface" borderBottomWidth="1px" borderColor="border" px={{ base: "4", md: "6" }} py="4" align="flex-start" justify="space-between" gap="4">
+          <Box><Heading id="problem-detail-title" size="lg">{readableProblem}</Heading><Text color="muted" fontSize="sm">{detail?.periodLabel ?? "Loading complaint cohort..."}</Text></Box>
+          <Button variant="ghost" size="sm" aria-label="Close problem detail" onClick={onClose}><X size={20} /></Button>
+        </Flex>
+        <Stack p={{ base: "4", md: "6" }} gap="5">
+          {error ? <Box {...panelProps} role="alert"><Heading size="sm" mb="2">Problem detail could not be loaded</Heading><Text color="muted">{error}</Text></Box> : !detail ? <Flex minH="360px" align="center" justify="center" gap="3"><Spinner color="accent" /><Text color="muted">Analyzing complaint evidence...</Text></Flex> : <>
+            <Grid gridTemplateColumns={{ base: "1fr", md: "repeat(3, minmax(0, 1fr))" }} gap="3">
+              {[
+                [detail.count.toLocaleString(), "Complaints"],
+                [detail.share === null ? "-" : percent(detail.share, 0), "Share of complaints"],
+                [detail.percentageChange === null ? "-" : `${detail.percentageChange >= 0 ? "+" : ""}${detail.percentageChange.toFixed(0)}%`, "Vs previous period"],
+              ].map(([value, label]) => <Box key={label} {...panelProps} p="4"><Text fontSize="2xl" fontWeight="780">{value}</Text><Text color="muted" fontSize="sm">{label}</Text></Box>)}
+            </Grid>
+            <Box {...panelProps} borderColor="brand.200" bg="surface">
+	              <Flex align="center" gap="2" mb="3"><Sparkle size={20} weight="fill" color="var(--chakra-colors-accent)" /><Text fontWeight="780">{detail.summarySource === "ai" ? "AI summary" : "Evidence summary"}</Text>{detail.summarySource === "ai" && <Badge colorPalette="orange" variant="subtle">{detail.summaryModel ?? "GPT"}</Badge>}</Flex>
+              <Text lineHeight="1.7">{cleanDisplayText(detail.summary)}</Text>
+              <Text mt="3" color="muted" fontSize="xs">Based on {detail.count.toLocaleString()} complaint{detail.count === 1 ? "" : "s"} in this cohort.</Text>
+              {detail.themes.length > 0 && <Flex mt="4" gap="2" wrap="wrap">{detail.themes.map((theme) => <Badge key={theme.label} colorPalette="orange" variant="subtle" px="3" py="1.5">{cleanDisplayText(theme.label)} · {theme.count}</Badge>)}</Flex>}
+            </Box>
+            <Grid gridTemplateColumns={{ base: "1fr", lg: "repeat(3, minmax(0, 1fr))" }} gap="4">
+              <ComplaintTrendChart detail={detail} />
+              <BreakdownChart title="Affected products" items={detail.products} />
+              <BreakdownChart title="Source breakdown" items={detail.sources} />
+            </Grid>
+            <Box {...panelProps} p="0" overflow="hidden">
+              <Flex px="5" py="4" align="center" justify="space-between" borderBottomWidth="1px" borderColor="border"><Text fontWeight="780">Representative reviews</Text><Text color="muted" fontSize="sm">Showing {Math.min(5, detail.reviews.length)} of {detail.count}</Text></Flex>
+              {detail.reviews.length ? <Stack gap="0">{detail.reviews.slice(0, 5).map((review) => <Box key={review.id} px="5" py="4" borderTopWidth="1px" borderColor="border" _first={{ borderTopWidth: "0" }}>
+                <Flex justify="space-between" gap="4" mb="2" wrap="wrap"><Text fontWeight="700">{cleanDisplayText(review.productName)}</Text><Text color="muted" fontSize="sm">{humanize(review.sourcePlatform)}{review.rating === null ? "" : ` · ${review.rating.toFixed(0)}★`}</Text></Flex>
+                <Text color="ink" lineClamp={3}>{cleanDisplayText(review.text)}</Text>
+              </Box>)}</Stack> : <Text p="5" color="muted">No representative reviews are available.</Text>}
+            </Box>
+            <Flex justify="flex-end"><Button colorPalette="orange" onClick={viewAllReviews}>View all {detail.count.toLocaleString()} reviews <ArrowRight size={18} /></Button></Flex>
+          </>}
+        </Stack>
+      </Box>
+    </Flex>
+  );
+}
+
 export function Dashboard({ data }: DashboardProps) {
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
@@ -540,9 +706,11 @@ export function Dashboard({ data }: DashboardProps) {
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [selectedProblem, setSelectedProblem] = useState<string | null>(null);
   const dashboardCaptureRef = useRef<HTMLDivElement>(null);
   const rangeRequestRef = useRef<AbortController | null>(null);
   const activeData = datePreset === "all" ? data : rangeData;
+  const displayedData = activeData;
   const dateMode: DateMode = datePreset === "all" ? "all" : "current";
 
   useEffect(() => {
@@ -589,23 +757,12 @@ export function Dashboard({ data }: DashboardProps) {
     return { feedback: result.feedback + period.feedback, complaints: result.complaints + period.complaints, positive: result.positive + period.positive, neutral: result.neutral + period.neutral };
   }, { feedback: 0, complaints: 0, positive: 0, neutral: 0 });
   const negative = Math.max(0, totals.feedback - totals.positive - totals.neutral);
-  const ratingCounts = new Map<number, number>([5, 4, 3, 2, 1].map((rating) => [rating, 0]));
-  activeData.products.forEach((product) => {
-    const allRatings = product.allRatingDistribution ?? [];
-    const distributions = dateMode === "all"
-      ? [allRatings.length ? allRatings : [...product.ratingDistribution, ...product.baselineRatingDistribution]]
-      : dateMode === "current"
-        ? [product.ratingDistribution]
-        : [product.ratingDistribution, product.baselineRatingDistribution];
-    distributions.flat().forEach((item) => ratingCounts.set(item.rating, (ratingCounts.get(item.rating) ?? 0) + item.count));
-  });
-  const ratingDistribution = [1, 2, 3, 4, 5].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
   const displayedIssueCount = (item: ProductTheme) => dateMode === "current" || dateMode === "all" ? item.count : item.count + item.baselineCount;
   const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
   const allProblems = aggregateThemes(activeData.products, "allProblems");
   const problems = (dateMode === "all" && allProblems.length ? allProblems : aggregateThemes(activeData.products, "problems")).sort(periodIssueSort).slice(0, 5);
   const ratingTrend = filterRatingTrend(aggregateRatingTrend(activeData.products), trendDateRange(activeData, datePreset, customRange));
-  const insight = hasUsefulInsight(activeData) ? activeData.primaryInsight : null;
+  const insight = datePreset === "all" && hasUsefulInsight(activeData) ? activeData.primaryInsight : null;
   const weeklyMessage = weeklySummaryMessage({ insight, feedback: totals.feedback, positive: totals.positive, neutral: totals.neutral, issue: problems[0] });
 
   const metrics = [
@@ -659,7 +816,7 @@ export function Dashboard({ data }: DashboardProps) {
       {rangeError && <Text color="danger" fontSize="sm" role="alert">{rangeError}</Text>}
       {exportError && <Text color="danger" fontSize="sm" role="alert">{exportError}</Text>}
 
-      <WeeklySummaryCard message={weeklyMessage} />
+      <WeeklySummaryCard message={weeklyMessage} isAi={insight !== null} />
 
       <Grid as="section" aria-label="Sentiment metrics" gridTemplateColumns={{ base: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }} gap="4">
         {metrics.map((metric) => <Flex key={metric.label} minH={{ base: "126px", md: "112px" }} p={{ base: "4", md: "4" }} gap={{ base: "2", md: "3" }} direction={{ base: "column", md: "row" }} justify={{ base: "center", md: "flex-start" }} align="center" bg="surface" borderWidth="1px" borderTopWidth="3px" borderColor="border" borderTopColor={metric.color} borderRadius="panel">
@@ -669,11 +826,13 @@ export function Dashboard({ data }: DashboardProps) {
       </Grid>
 
       <Grid gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }} gap="4">
-        <Section title="Rating distribution"><RatingBars items={ratingDistribution} /></Section>
-        <Section title="Top 5 product problems"><ProblemCategoryChart items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
+        <Section title="Review sentiment over time"><SentimentBars points={displayedData.sentimentTrend} granularity={displayedData.sentimentTrendGranularity} /></Section>
+        <Section title="Top 5 product problems"><ProblemCategoryChart items={problems} mode={dateMode} empty="No product problems in this period." onViewMore={setSelectedProblem} /></Section>
         <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
         <Section title="Social experience score" titleInfo={socialExperienceScoreInfo}><SocialExperienceScore benchmark={activeData.benchmark} /></Section>
+
       </Grid>
+      {selectedProblem && <ProblemDetailModal problem={selectedProblem} preset={datePreset} customRange={customRange} onClose={() => setSelectedProblem(null)} />}
     </Stack>
   );
 }

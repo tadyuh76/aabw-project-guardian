@@ -839,6 +839,55 @@ def test_evidence_limit_samples_across_products(
     service.close()
 
 
+def test_dashboard_presets_use_distinct_date_windows(tmp_path: Path) -> None:
+    service = _service(tmp_path, "dashboard-date-presets")
+    rows = [
+        _raw("recent", occurred_at="2026-07-10T09:00:00+07:00", text="Guardian recent review.", rating=5),
+        _raw("older", occurred_at="2026-03-10T09:00:00+07:00", text="Guardian older review.", rating=1),
+    ]
+    assert service._ingest_raw_rows(rows, source_name="dashboard_date_fixture", source_file=None)["inserted"] == 2
+    _persist_by_external_id(service, {
+        "recent": ("praise", "positive", 0.8),
+        "older": ("complaint", "negative", -0.8),
+    })
+
+    last_30_days = service.dashboard(preset="30d")
+    last_year = service.dashboard(preset="1y")
+
+    assert last_30_days.products[0].current.feedback == 1
+    assert last_year.products[0].current.feedback == 2
+    assert (last_30_days.windows.current_end - last_30_days.windows.current_start).days == 30
+    assert (last_year.windows.current_end - last_year.windows.current_start).days == 365
+    service.close()
+
+
+@pytest.mark.asyncio
+async def test_problem_detail_uses_the_same_independent_complaint_cohort(tmp_path: Path) -> None:
+    service = _service(tmp_path, "problem-detail")
+    rows = [
+        _raw("complaint-a", occurred_at="2026-07-10T09:00:00+07:00", text="Guardian Serum A performed poorly.", rating=1),
+        _raw("complaint-b", occurred_at="2026-07-09T09:00:00+07:00", text="Guardian Serum B performed poorly.", rating=2, product_id="P-2", product_name="Serum B", source_platform="tiktok_shop"),
+        _raw("praise-a", occurred_at="2026-07-08T09:00:00+07:00", text="Guardian Serum A works well.", rating=5),
+    ]
+    assert service._ingest_raw_rows(rows, source_name="problem_detail_fixture", source_file=None)["inserted"] == 3
+    _persist_by_external_id(service, {
+        "complaint-a": ("complaint", "negative", -0.8),
+        "complaint-b": ("complaint", "negative", -0.7),
+        "praise-a": ("praise", "positive", 0.7),
+    })
+
+    detail = await service.problem_detail(problem="product_performance", preset="all")
+
+    assert detail.count == 2
+    assert detail.total_complaints == 2
+    assert detail.share == 1
+    assert detail.summary_source == "deterministic"
+    assert {item.label: item.count for item in detail.products} == {"Serum A": 1, "Serum B": 1}
+    assert {item.label: item.count for item in detail.sources} == {"shopee": 1, "tiktok_shop": 1}
+    assert [item.id for item in detail.reviews]
+    service.close()
+
+
 @pytest.mark.parametrize("path", ["/api", "/api/v1/does-not-exist"])
 def test_unknown_api_routes_return_json_404(path: str) -> None:
     client = TestClient(app)
