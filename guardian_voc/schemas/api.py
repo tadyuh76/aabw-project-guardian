@@ -203,6 +203,13 @@ class DashboardRatingTrendPointView(BaseModel):
     predicted: bool = False
 
 
+class DashboardSentimentTrendPointView(BaseModel):
+    date: date
+    positive: int = Field(ge=0)
+    negative: int = Field(ge=0)
+    neutral: int = Field(ge=0)
+
+
 class DashboardProductView(BaseModel):
     id: str
     name: str
@@ -224,6 +231,7 @@ class DashboardProductView(BaseModel):
     baseline_rating_distribution: list[DashboardRatingCountView] = Field(default_factory=list)
     all_rating_distribution: list[DashboardRatingCountView] = Field(default_factory=list)
     rating_trend: list[DashboardRatingTrendPointView] = Field(default_factory=list)
+    sentiment_trend: list[DashboardSentimentTrendPointView] = Field(default_factory=list)
     negative_feedback: list[DashboardComparisonThemeView] = Field(default_factory=list)
     problems: list[DashboardComparisonThemeView] = Field(default_factory=list)
     all_negative_feedback: list[DashboardComparisonThemeView] = Field(default_factory=list)

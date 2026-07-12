@@ -96,6 +96,7 @@ from guardian_voc.schemas.api import (
     DashboardRatingCountView,
     DashboardRatingTrendPointView,
     DashboardResponse,
+    DashboardSentimentTrendPointView,
     DashboardThemeView,
     DashboardWordCloudTermView,
     DashboardWindowsView,
@@ -3831,6 +3832,36 @@ class GuardianService:
                 projection = projected_rating_point(platform, observed_points)
                 if projection is not None:
                     rating_trend.append(projection)
+
+            sentiment_rows: dict[int, Counter[str]] = defaultdict(Counter)
+            for row in product_rows:
+                sentiment = str(row.get("sentiment") or "")
+                occurred_at = row.get("occurred_at")
+                if (
+                    sentiment not in {"positive", "negative", "neutral"}
+                    or str(row.get("analysis_status")) != "completed"
+                    or not bool(row.get("is_relevant"))
+                    or not self._dashboard_time_eligible(row)
+                    or not isinstance(occurred_at, datetime)
+                    or occurred_at < trend_start
+                    or occurred_at >= windows.current_end
+                ):
+                    continue
+                week_index = (occurred_at - trend_start).days // 7
+                sentiment_rows[week_index][sentiment] += 1
+
+            sentiment_trend: list[DashboardSentimentTrendPointView] = []
+            if sentiment_rows:
+                for week in range(min(sentiment_rows), max(sentiment_rows) + 1):
+                    counts = sentiment_rows[week]
+                    sentiment_trend.append(
+                        DashboardSentimentTrendPointView(
+                            date=(trend_start + timedelta(days=week * 7)).date(),
+                            positive=counts["positive"],
+                            negative=counts["negative"],
+                            neutral=counts["neutral"],
+                        )
+                    )
             sorted_feedback = sorted(
                 ((label, feedback_counts[label]) for label in set(feedback_counts) | set(baseline_feedback_counts)),
                 key=lambda item: (-item[1], item[0]),
@@ -3898,6 +3929,7 @@ class GuardianService:
                         if all_rating_counts[rating]
                     ],
                     rating_trend=rating_trend,
+                    sentiment_trend=sentiment_trend,
                     negative_feedback=[
                         DashboardComparisonThemeView(
                             label=label,
