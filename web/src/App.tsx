@@ -1,5 +1,5 @@
 import { Box, Button, ChakraProvider, Flex, Grid, IconButton, Spinner, Stack, Text, Heading } from "@chakra-ui/react";
-import { ChatCircleDots, Database, Pulse, SidebarSimple, UploadSimple, WarningCircle } from "@phosphor-icons/react";
+import { CaretDoubleLeft, CaretDoubleRight, ChatCircleDots, Database, Pulse, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fetchDashboard } from "./api/client";
@@ -118,7 +118,38 @@ function AppContent() {
           {tabButton("reviews", "Reviews", <ChatCircleDots size={19} />)}
           {tabButton("import", "Import", <UploadSimple size={19} />)}
         </Stack>
-        <IconButton m="3" variant="ghost" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setSidebarCollapsed((value) => !value)}><SidebarSimple size={20} /></IconButton>
+        <Flex p="3" borderTopWidth="1px" borderColor="border" justify={sidebarCollapsed ? "center" : "stretch"}>
+          {sidebarCollapsed ? (
+            <IconButton
+              aria-label="Expand sidebar"
+              variant="subtle"
+              colorPalette="gray"
+              size="sm"
+              minW="10"
+              h="10"
+              borderWidth="1px"
+              borderColor="border"
+              onClick={() => setSidebarCollapsed(false)}
+            >
+              <CaretDoubleRight size={18} />
+            </IconButton>
+          ) : (
+            <Button
+              aria-label="Collapse sidebar"
+              variant="ghost"
+              colorPalette="gray"
+              w="full"
+              h="10"
+              px="3"
+              justifyContent="flex-start"
+              gap="2.5"
+              onClick={() => setSidebarCollapsed(true)}
+            >
+              <CaretDoubleLeft size={18} />
+              Collapse
+            </Button>
+          )}
+        </Flex>
       </Flex>
 
       <Box minW="0">
