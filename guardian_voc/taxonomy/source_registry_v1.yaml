@@ -195,6 +195,78 @@ sources:
         query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
       - id: guardian_promo_value_vi
         query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Guardian Việt Nam" OR "Guardian VN" OR guardianvn OR guardianvietnam) ("khuyến mãi ảo" OR "voucher không áp dụng" OR "không mua lại") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: guardian_facebook_voucher_simple_vi
+        query: 'site:facebook.com Guardian voucher'
+      - id: guardian_facebook_promo_simple_vi
+        query: 'site:facebook.com Guardian khuyến mãi'
+      - id: guardian_facebook_stock_simple_vi
+        query: 'site:facebook.com Guardian hết hàng'
+      - id: guardian_facebook_gift_simple_vi
+        query: 'site:facebook.com Guardian hết quà'
+      - id: guardian_facebook_refund_simple_vi
+        query: 'site:facebook.com Guardian hoàn tiền'
+      - id: guardian_facebook_delivery_simple_vi
+        query: 'site:facebook.com Guardian giao hàng'
+      - id: guardian_facebook_staff_simple_vi
+        query: 'site:facebook.com Guardian nhân viên'
+      - id: guardian_facebook_thao_dien_vi
+        query: 'site:facebook.com Guardian Thảo Điền'
+      - id: guardian_threads_voucher_simple_vi
+        query: 'site:threads.net Guardian voucher'
+      - id: guardian_threads_promo_simple_vi
+        query: 'site:threads.net Guardian khuyến mãi'
+      - id: guardian_threads_stock_simple_vi
+        query: 'site:threads.net Guardian hết hàng'
+      - id: guardian_threads_gift_simple_vi
+        query: 'site:threads.net Guardian hết quà'
+      - id: guardian_threads_delivery_simple_vi
+        query: 'site:threads.net Guardian giao hàng'
+      - id: guardian_threads_staff_simple_vi
+        query: 'site:threads.net Guardian nhân viên'
+      - id: guardian_threads_thao_dien_vi
+        query: 'site:threads.net Guardian Thảo Điền'
+      - id: guardian_threads_com_simple_vi
+        query: 'site:threads.com Guardian khuyến mãi'
+      - id: guardian_tiktok_voucher_simple_vi
+        query: 'site:tiktok.com Guardian voucher'
+      - id: guardian_tiktok_promo_simple_vi
+        query: 'site:tiktok.com Guardian khuyến mãi'
+      - id: guardian_tiktok_stock_simple_vi
+        query: 'site:tiktok.com Guardian hết hàng'
+      - id: guardian_tiktok_gift_simple_vi
+        query: 'site:tiktok.com Guardian hết quà'
+      - id: guardian_tiktok_skin_simple_vi
+        query: 'site:tiktok.com Guardian kích ứng'
+      - id: guardian_tiktok_review_simple_vi
+        query: 'site:tiktok.com Guardian review'
+      - id: guardian_instagram_voucher_simple_vi
+        query: 'site:instagram.com Guardian voucher'
+      - id: guardian_instagram_promo_simple_vi
+        query: 'site:instagram.com Guardian khuyến mãi'
+      - id: guardian_instagram_stock_simple_vi
+        query: 'site:instagram.com Guardian hết hàng'
+      - id: guardian_instagram_gift_simple_vi
+        query: 'site:instagram.com Guardian hết quà'
+      - id: guardian_youtube_review_simple_vi
+        query: 'site:youtube.com Guardian review'
+      - id: guardian_youtube_promo_simple_vi
+        query: 'site:youtube.com Guardian khuyến mãi'
+      - id: guardian_threads_fake_simple_vi
+        query: 'site:threads.net Guardian fake'
+      - id: guardian_threads_hang_gia_simple_vi
+        query: 'site:threads.net Guardian hàng giả'
+      - id: guardian_threads_canh_giac_simple_vi
+        query: 'site:threads.net Guardian cảnh giác'
+      - id: guardian_facebook_fake_simple_vi
+        query: 'site:facebook.com Guardian fake'
+      - id: guardian_facebook_hang_gia_simple_vi
+        query: 'site:facebook.com Guardian hàng giả'
+      - id: guardian_facebook_canh_giac_simple_vi
+        query: 'site:facebook.com Guardian cảnh giác'
+      - id: guardian_tiktok_fake_simple_vi
+        query: 'site:tiktok.com Guardian fake'
+      - id: guardian_tiktok_hang_gia_simple_vi
+        query: 'site:tiktok.com Guardian hàng giả'
 
   - source_id: hasaki_public_social
     owner_brand: hasaki
@@ -231,6 +303,22 @@ sources:
         query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
       - id: hasaki_promo_value_vi
         query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) (Hasaki OR "Hasaki Việt Nam" OR "Hasaki.vn" OR hasakibeauty) ("khuyến mãi ảo" OR "voucher không áp dụng" OR "không mua lại") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: hasaki_threads_fake_simple_vi
+        query: 'site:threads.net Hasaki fake'
+      - id: hasaki_threads_hang_gia_simple_vi
+        query: 'site:threads.net Hasaki hàng giả'
+      - id: hasaki_threads_tron_fake_simple_vi
+        query: 'site:threads.net Hasaki trộn fake'
+      - id: hasaki_threads_canh_giac_simple_vi
+        query: 'site:threads.net Hasaki cảnh giác'
+      - id: hasaki_facebook_fake_simple_vi
+        query: 'site:facebook.com Hasaki fake'
+      - id: hasaki_facebook_hang_gia_simple_vi
+        query: 'site:facebook.com Hasaki hàng giả'
+      - id: hasaki_facebook_tron_fake_simple_vi
+        query: 'site:facebook.com Hasaki trộn fake'
+      - id: hasaki_tiktok_fake_simple_vi
+        query: 'site:tiktok.com Hasaki fake'
 
   - source_id: watsons_public_social
     owner_brand: watsons
@@ -267,3 +355,17 @@ sources:
         query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("nhân viên thái độ" OR "tư vấn sai" OR "thanh toán lỗi") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
       - id: watsons_promo_value_vi
         query: '(site:facebook.com OR site:instagram.com OR site:threads.net OR site:tiktok.com OR site:youtube.com OR site:reddit.com) ("Watsons Việt Nam" OR "Watsons VN" OR watsonsvn OR watsonsvietnam) ("khuyến mãi ảo" OR "voucher không áp dụng" OR "không mua lại") -site:shopee.vn -site:lazada.vn -site:shop.tiktok.com'
+      - id: watsons_threads_fake_simple_vi
+        query: 'site:threads.net Watsons fake'
+      - id: watsons_threads_hang_gia_simple_vi
+        query: 'site:threads.net Watsons hàng giả'
+      - id: watsons_threads_canh_giac_simple_vi
+        query: 'site:threads.net Watsons cảnh giác'
+      - id: watsons_facebook_fake_simple_vi
+        query: 'site:facebook.com Watsons fake'
+      - id: watsons_facebook_hang_gia_simple_vi
+        query: 'site:facebook.com Watsons hàng giả'
+      - id: watsons_facebook_canh_giac_simple_vi
+        query: 'site:facebook.com Watsons cảnh giác'
+      - id: watsons_tiktok_fake_simple_vi
+        query: 'site:tiktok.com Watsons fake'

@@ -1,13 +1,14 @@
-import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
+import { Badge, Box, Button, Flex, Grid, Heading, IconButton, Input, Stack, Text, Tooltip } from "@chakra-ui/react";
+import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Info, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { fetchDashboard, type DashboardRangePreset } from "../api/client";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
-import { openDashboardPdfReport } from "../utils/dashboardPdf";
+import { captureDashboardPdf } from "../utils/dashboardPdf";
 import { cleanDisplayText } from "../utils/displayText";
 
 interface DashboardProps { data: DashboardData; }
-type DatePreset = "7d" | "30d" | "1y" | "all" | "custom";
+type DatePreset = DashboardRangePreset;
 type DateMode = "current" | "combined" | "all";
 
 const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
@@ -17,6 +18,7 @@ const chartTextSize = 13;
 const chartLabelSize = 20;
 const chartValueSize = 13;
 const platformColors: Record<string, string> = {
+  "Guardian.com.vn": "#ec7e24",
   "TikTok Shop": "#18181b",
   Shopee: "#f97316",
   Lazada: "#7c3aed",
@@ -24,6 +26,7 @@ const platformColors: Record<string, string> = {
 };
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "4", md: "5" } } as const;
 const svgChartStyle = { width: "100%", minWidth: "340px", display: "block" } as const;
+const socialExperienceScoreInfo = "Score = 50 + 50 x ((positive mentions - negative mentions) / total mentions). Neutral mentions keep the score near 50, while more positive feedback moves it toward 100 and more negative feedback moves it toward 0.";
 
 function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
@@ -58,11 +61,36 @@ function aggregateThemes(products: DashboardProduct[], key: "problems" | "allPro
   })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
-function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+function Section({ title, titleInfo, action, children }: { title: string; titleInfo?: string; action?: ReactNode; children: ReactNode }) {
   return (
     <Box {...panelProps} minW="0">
       <Flex align="center" justify="space-between" gap="4" mb="4">
-        <Heading size="sm" letterSpacing="0">{title}</Heading>
+        <Flex align="center" gap="2" minW="0">
+          <Heading size="md" fontWeight="800" letterSpacing="0">{title}</Heading>
+          {titleInfo && (
+            <Tooltip.Root openDelay={150} positioning={{ placement: "top-start" }}>
+              <Tooltip.Trigger asChild>
+                <IconButton
+                  aria-label={`How ${title.toLowerCase()} is calculated`}
+                  size="2xs"
+                  variant="ghost"
+                  color="muted"
+                  minW="5"
+                  h="5"
+                  borderRadius="full"
+                >
+                  <Info size={14} weight="bold" />
+                </IconButton>
+              </Tooltip.Trigger>
+              <Tooltip.Positioner>
+                <Tooltip.Content maxW="280px" p="3" fontSize="xs" lineHeight="1.45" boxShadow="lg">
+                  <Tooltip.Arrow />
+                  {titleInfo}
+                </Tooltip.Content>
+              </Tooltip.Positioner>
+            </Tooltip.Root>
+          )}
+        </Flex>
         {action}
       </Flex>
       {children}
@@ -88,6 +116,14 @@ function formatDisplayDate(date: Date): string {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getFullYear()),
   ].join("/");
+}
+
+function formatApiDate(date: Date): string {
+  return [
+    String(date.getFullYear()),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function normalizeDateInput(value: string): string {
@@ -499,16 +535,62 @@ function WeeklySummaryCard({ message }: { message: string }) {
 export function Dashboard({ data }: DashboardProps) {
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
+  const [rangeData, setRangeData] = useState<DashboardData>(data);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const [rangeError, setRangeError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
-  const dateMode: DateMode = datePreset === "all" ? "all" : datePreset === "7d" ? "current" : "combined";
+  const [exporting, setExporting] = useState(false);
+  const dashboardCaptureRef = useRef<HTMLDivElement>(null);
+  const rangeRequestRef = useRef<AbortController | null>(null);
+  const activeData = datePreset === "all" ? data : rangeData;
+  const dateMode: DateMode = datePreset === "all" ? "all" : "current";
 
-  const totals = data.products.reduce((result, product) => {
+  useEffect(() => {
+    if (datePreset === "all") {
+      rangeRequestRef.current?.abort();
+      setRangeData(data);
+      setRangeError(null);
+      setRangeLoading(false);
+    }
+  }, [data, datePreset]);
+
+  useEffect(() => {
+    if (datePreset === "all") return undefined;
+    const from = customRange.from ? parseDisplayDate(customRange.from) : null;
+    const to = customRange.to ? parseDisplayDate(customRange.to) : null;
+    if (datePreset === "custom" && (!from || !to || to < from)) {
+      setRangeError("Choose a valid custom date range.");
+      setRangeLoading(false);
+      return undefined;
+    }
+    const controller = new AbortController();
+    rangeRequestRef.current?.abort();
+    rangeRequestRef.current = controller;
+    setRangeLoading(true);
+    setRangeError(null);
+    void fetchDashboard(controller.signal, {
+      range: datePreset,
+      dateFrom: from ? formatApiDate(from) : null,
+      dateTo: to ? formatApiDate(to) : null,
+    }).then((nextData) => {
+      if (!controller.signal.aborted) setRangeData(nextData);
+    }).catch((cause) => {
+      if (!controller.signal.aborted) {
+        setRangeError(cause instanceof Error ? cause.message : "The dashboard range could not be loaded.");
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setRangeLoading(false);
+    });
+    return () => controller.abort();
+  }, [customRange.from, customRange.to, datePreset, data.lastUpdated]);
+
+  const totals = activeData.products.reduce((result, product) => {
     const period = periodForMode(product, dateMode);
     return { feedback: result.feedback + period.feedback, complaints: result.complaints + period.complaints, positive: result.positive + period.positive, neutral: result.neutral + period.neutral };
   }, { feedback: 0, complaints: 0, positive: 0, neutral: 0 });
   const negative = Math.max(0, totals.feedback - totals.positive - totals.neutral);
   const ratingCounts = new Map<number, number>([5, 4, 3, 2, 1].map((rating) => [rating, 0]));
-  data.products.forEach((product) => {
+  activeData.products.forEach((product) => {
     const allRatings = product.allRatingDistribution ?? [];
     const distributions = dateMode === "all"
       ? [allRatings.length ? allRatings : [...product.ratingDistribution, ...product.baselineRatingDistribution]]
@@ -520,10 +602,10 @@ export function Dashboard({ data }: DashboardProps) {
   const ratingDistribution = [1, 2, 3, 4, 5].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
   const displayedIssueCount = (item: ProductTheme) => dateMode === "current" || dateMode === "all" ? item.count : item.count + item.baselineCount;
   const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
-  const allProblems = aggregateThemes(data.products, "allProblems");
-  const problems = (dateMode === "all" && allProblems.length ? allProblems : aggregateThemes(data.products, "problems")).sort(periodIssueSort).slice(0, 5);
-  const ratingTrend = filterRatingTrend(aggregateRatingTrend(data.products), trendDateRange(data, datePreset, customRange));
-  const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
+  const allProblems = aggregateThemes(activeData.products, "allProblems");
+  const problems = (dateMode === "all" && allProblems.length ? allProblems : aggregateThemes(activeData.products, "problems")).sort(periodIssueSort).slice(0, 5);
+  const ratingTrend = filterRatingTrend(aggregateRatingTrend(activeData.products), trendDateRange(activeData, datePreset, customRange));
+  const insight = hasUsefulInsight(activeData) ? activeData.primaryInsight : null;
   const weeklyMessage = weeklySummaryMessage({ insight, feedback: totals.feedback, positive: totals.positive, neutral: totals.neutral, issue: problems[0] });
 
   const metrics = [
@@ -532,9 +614,24 @@ export function Dashboard({ data }: DashboardProps) {
     { icon: <Pulse size={28} weight="fill" />, label: "Neutral", value: percent(ratio(totals.neutral, totals.feedback), 0), iconBg: "#fff7e6", darkIconBg: "#38260d", color: "#d97706" },
     { icon: <WarningCircle size={28} weight="fill" />, label: "Negative", value: percent(ratio(negative, totals.feedback), 0), iconBg: "#fff1f2", darkIconBg: "#3a151c", color: "#e11d48" },
   ];
+  const exportDashboard = async () => {
+    if (!dashboardCaptureRef.current) {
+      setExportError("Dashboard is not ready to export yet.");
+      return;
+    }
+    setExportError(null);
+    setExporting(true);
+    try {
+      await captureDashboardPdf(dashboardCaptureRef.current, { filename: `guardian-dashboard-${datePreset}.pdf` });
+    } catch {
+      setExportError("Dashboard PDF could not be created. Try again after the charts finish loading.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-    <Stack gap="5">
+    <Stack ref={dashboardCaptureRef} data-pdf-capture="dashboard" gap="5">
       <Flex
         as="header"
         align={{ base: "stretch", lg: "center" }}
@@ -547,18 +644,19 @@ export function Dashboard({ data }: DashboardProps) {
         </Flex>
         <Flex align={{ base: "stretch", sm: "center" }} justify={{ base: "stretch", sm: "flex-end" }} direction={{ base: "column", sm: "row" }} gap="3">
           <Button
+            data-pdf-hidden="true"
             colorPalette="orange"
             variant="outline"
-            onClick={() => {
-              setExportError(null);
-              if (!openDashboardPdfReport(data)) setExportError("Allow pop-ups to export the PDF report.");
-            }}
+            disabled={exporting}
+            onClick={() => void exportDashboard()}
           >
             <DownloadSimple size={18} weight="bold" />
-            Export PDF
+            {exporting ? "Exporting..." : "Export PDF"}
           </Button>
         </Flex>
       </Flex>
+      {rangeLoading && <Text color="muted" fontSize="sm" aria-live="polite">Updating dashboard range...</Text>}
+      {rangeError && <Text color="danger" fontSize="sm" role="alert">{rangeError}</Text>}
       {exportError && <Text color="danger" fontSize="sm" role="alert">{exportError}</Text>}
 
       <WeeklySummaryCard message={weeklyMessage} />
@@ -574,7 +672,7 @@ export function Dashboard({ data }: DashboardProps) {
         <Section title="Rating distribution"><RatingBars items={ratingDistribution} /></Section>
         <Section title="Top 5 product problems"><ProblemCategoryChart items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
         <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
-        <Section title="Social experience score"><SocialExperienceScore benchmark={data.benchmark} /></Section>
+        <Section title="Social experience score" titleInfo={socialExperienceScoreInfo}><SocialExperienceScore benchmark={activeData.benchmark} /></Section>
       </Grid>
     </Stack>
   );

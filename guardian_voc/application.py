@@ -58,6 +58,7 @@ from guardian_voc.insights.ranking import rank_today_candidates
 from guardian_voc.pipeline.normalize import normalize_raw_feedback, utc_now
 from guardian_voc.pipeline.pii import mask_preview_mapping
 from guardian_voc.schemas.analysis import (
+    AnalysisWindows,
     AnalyticsUnit,
     Brand,
     ClassificationRequest,
@@ -1782,6 +1783,57 @@ class GuardianService:
             as_of_date_is_complete=self.settings.voc_demo_mode,
         )
 
+    def _dashboard_windows(
+        self,
+        dashboard_range: str = "all",
+        *,
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> AnalysisWindows:
+        windows = self._windows()
+        if dashboard_range == "all":
+            return windows
+
+        zone = ZoneInfo(windows.business_timezone)
+        current_end = windows.current_end
+        if dashboard_range == "7d":
+            current_start = current_end - timedelta(days=7)
+        elif dashboard_range == "30d":
+            current_start = current_end - timedelta(days=30)
+        elif dashboard_range == "1y":
+            current_start = current_end - timedelta(days=365)
+        elif dashboard_range == "custom":
+            if date_from is None or date_to is None:
+                raise ValueError("date_from and date_to are required for custom dashboard range")
+            if date_to < date_from:
+                raise ValueError("date_to must be on or after date_from")
+            current_start = datetime.combine(
+                date_from,
+                datetime.min.time(),
+                tzinfo=zone,
+            ).astimezone(timezone.utc)
+            current_end = datetime.combine(
+                date_to + timedelta(days=1),
+                datetime.min.time(),
+                tzinfo=zone,
+            ).astimezone(timezone.utc)
+        else:
+            raise ValueError("dashboard range must be one of 7d, 30d, 1y, all, or custom")
+
+        duration = current_end - current_start
+        baseline_end = current_start
+        baseline_start = baseline_end - duration
+        days = max(1, duration.days)
+        return AnalysisWindows(
+            current_start=current_start,
+            current_end=current_end,
+            baseline_start=baseline_start,
+            baseline_end=baseline_end,
+            business_timezone=windows.business_timezone,
+            current_days=days,
+            baseline_days=days,
+        )
+
     def _thresholds(self) -> TrendThresholds:
         return TrendThresholds(
             min_support=self.settings.voc_alert_min_support,
@@ -3400,7 +3452,13 @@ class GuardianService:
             ),
         )
 
-    def dashboard(self) -> DashboardResponse:
+    def dashboard(
+        self,
+        *,
+        dashboard_range: str = "all",
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> DashboardResponse:
         """Return the product dashboard from canonical, non-duplicate feedback.
 
         Window counts use independent feedback signals. Coverage deliberately
@@ -3431,7 +3489,11 @@ class GuardianService:
             ORDER BY fi.feedback_id
             """
         )
-        windows = self._windows()
+        windows = self._dashboard_windows(
+            dashboard_range,
+            date_from=date_from,
+            date_to=date_to,
+        )
 
         representatives: dict[str, Mapping[str, Any]] = {}
         for row in rows:
@@ -3577,6 +3639,7 @@ class GuardianService:
             )
 
         platform_aliases = {
+            "guardian_ecommerce": "Guardian.com.vn",
             "tiktok": "TikTok Shop",
             "tiktok_shop": "TikTok Shop",
             "shopee": "Shopee",
@@ -3606,7 +3669,7 @@ class GuardianService:
             last_week, _, _, sample_size = observed[-1]
             next_week = last_week + 1
             return DashboardRatingTrendPointView(
-                date=(windows.current_end - timedelta(days=28) + timedelta(days=next_week * 7)).date(),
+                date=(trend_start + timedelta(days=next_week * 7)).date(),
                 platform=platform,
                 average_rating=max(1.0, min(5.0, intercept + slope * next_week)),
                 count=sample_size,
@@ -3722,7 +3785,11 @@ class GuardianService:
                 if row.get("rating") is not None
             )
 
-            trend_start = windows.current_end - timedelta(days=28)
+            trend_start = (
+                windows.current_end - timedelta(days=28)
+                if dashboard_range == "all"
+                else windows.current_start
+            )
             trend_rows: dict[tuple[str, int], list[float]] = defaultdict(list)
             for row in product_rows:
                 platform = platform_aliases.get(str(row.get("source_platform") or "").lower())
@@ -3884,6 +3951,14 @@ class GuardianService:
                 or not bool(row.get("is_relevant"))
             ):
                 continue
+            if dashboard_range != "all":
+                if not self._dashboard_time_eligible(row):
+                    continue
+                occurred_at = row.get("occurred_at")
+                if not isinstance(occurred_at, datetime) or not (
+                    windows.current_start <= occurred_at < windows.current_end
+                ):
+                    continue
             sentiment = str(row.get("sentiment"))
             evidence.append(
                 DashboardEvidenceView(
@@ -3979,7 +4054,9 @@ class GuardianService:
             messages=messages,
             products=products,
             evidence=evidence,
-            word_cloud=_dashboard_word_cloud(guardian_independent),
+            word_cloud=_dashboard_word_cloud(
+                guardian_independent if dashboard_range == "all" else guardian_current_rows
+            ),
             primary_insight=primary_insight,
             benchmark=self._dashboard_benchmark(
                 independent,
@@ -4168,6 +4245,7 @@ class GuardianService:
         self,
         *,
         source_group: str | None,
+        source_platform: str | None,
         brand: str | None,
         topic: str | None,
         sentiment: str | None,
@@ -4196,6 +4274,9 @@ class GuardianService:
         if source_group:
             clauses.append("fi.source_group = ?")
             params.append(source_group)
+        if source_platform:
+            clauses.append("fi.source_platform = ?")
+            params.append(source_platform)
         if brand:
             clauses.append("coalesce(fi.brand, fa.primary_brand) = ?")
             params.append(brand)
@@ -4247,7 +4328,8 @@ class GuardianService:
             f"""
             SELECT fi.feedback_id, fi.occurred_at, fi.observed_at,
                 fi.occurred_at_quality, fi.source_group,
-                fi.source_platform, coalesce(fi.brand, fa.primary_brand) AS brand,
+                fi.source_platform, fi.source_url,
+                coalesce(fi.brand, fa.primary_brand) AS brand,
                 fa.primary_topic, fa.subtopic, fa.intent, fa.sentiment,
                 fa.confidence, fi.rating, fi.product_name, fi.product_category,
                 fi.store, fi.text_redacted, fi.is_synthetic,
@@ -4271,6 +4353,7 @@ class GuardianService:
                     occurred_at_quality=str(row["occurred_at_quality"]),
                     source_group=str(row["source_group"]),
                     source_platform=str(row["source_platform"]),
+                    source_url=row.get("source_url"),
                     brand=row.get("brand"),
                     topic=row.get("primary_topic"),
                     subtopic=row.get("subtopic"),

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -296,6 +297,131 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
         client.close()
         app.dependency_overrides.pop(service_from_request, None)
         service.close()
+
+
+def test_dashboard_range_query_changes_product_period_counts(tmp_path: Path) -> None:
+    service = _service(tmp_path, "dashboard-range-filter")
+    rows = [
+        _raw(
+            "recent-complaint",
+            occurred_at="2026-07-10T09:00:00+07:00",
+            text="Guardian Serum A gần đây gây thất vọng.",
+            rating=1,
+        ),
+        _raw(
+            "older-positive",
+            occurred_at="2026-01-10T09:00:00+07:00",
+            text="Guardian Serum A đầu năm dùng tốt.",
+            rating=5,
+        ),
+        _raw(
+            "previous-year-complaint",
+            occurred_at="2025-08-10T09:00:00+07:00",
+            text="Guardian Serum A năm trước giao hàng kém.",
+            rating=2,
+        ),
+    ]
+    assert service._ingest_raw_rows(
+        rows, source_name="dashboard_range_fixture", source_file=None
+    )["inserted"] == 3
+    _persist_by_external_id(
+        service,
+        {
+            "recent-complaint": ("complaint", "negative", -0.8),
+            "older-positive": ("praise", "positive", 0.8),
+            "previous-year-complaint": ("complaint", "negative", -0.6),
+        },
+    )
+
+    thirty_days = service.dashboard(dashboard_range="30d")
+    one_year = service.dashboard(dashboard_range="1y")
+
+    zone = ZoneInfo(thirty_days.windows.business_timezone)
+    assert thirty_days.windows.current_start.astimezone(zone).date().isoformat() == "2026-06-11"
+    assert one_year.windows.current_start.astimezone(zone).date().isoformat() == "2025-07-11"
+    assert thirty_days.products[0].current.model_dump() == {
+        "feedback": 1,
+        "complaints": 1,
+        "positive": 0,
+        "neutral": 0,
+    }
+    assert one_year.products[0].current.model_dump() == {
+        "feedback": 3,
+        "complaints": 2,
+        "positive": 1,
+        "neutral": 0,
+    }
+    assert [item.count for item in thirty_days.word_cloud if item.keyword == "serum"] == [1]
+    assert [item.count for item in one_year.word_cloud if item.keyword == "serum"] == [3]
+
+    app.dependency_overrides[service_from_request] = lambda: service
+    client = TestClient(app)
+    try:
+        response = client.get("/api/v1/dashboard", params={"range": "30d"})
+        assert response.status_code == 200
+        assert response.json()["products"][0]["current"]["feedback"] == 1
+        invalid = client.get(
+            "/api/v1/dashboard",
+            params={"range": "custom", "date_from": "2026-07-10"},
+        )
+        assert invalid.status_code == 422
+    finally:
+        client.close()
+        app.dependency_overrides.pop(service_from_request, None)
+        service.close()
+
+
+def test_dashboard_rating_trend_includes_guardian_ecommerce_and_custom_forecast(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, "dashboard-owned-rating-trend")
+    rows = [
+        _raw(
+            "owned-week-1",
+            occurred_at="2026-06-02T09:00:00+07:00",
+            text="Guardian Serum A chính hãng và giao tốt.",
+            rating=4,
+            source_group="owned",
+            source_platform="guardian_ecommerce",
+            visibility="owned",
+        ),
+        _raw(
+            "owned-week-3",
+            occurred_at="2026-06-15T09:00:00+07:00",
+            text="Guardian Serum A lần sau tốt hơn.",
+            rating=5,
+            source_group="owned",
+            source_platform="guardian_ecommerce",
+            visibility="owned",
+        ),
+    ]
+    assert service._ingest_raw_rows(
+        rows, source_name="dashboard_owned_trend_fixture", source_file=None
+    )["inserted"] == 2
+    _persist_by_external_id(
+        service,
+        {
+            "owned-week-1": ("praise", "positive", 0.6),
+            "owned-week-3": ("praise", "positive", 0.8),
+        },
+    )
+
+    result = service.dashboard(
+        dashboard_range="custom",
+        date_from=date(2026, 6, 1),
+        date_to=date(2026, 6, 20),
+    )
+
+    trend = result.products[0].rating_trend
+    guardian_trend = [item for item in trend if item.platform == "Guardian.com.vn"]
+    assert len([item for item in guardian_trend if not item.predicted]) == 2
+    predicted = [item for item in guardian_trend if item.predicted]
+    assert len(predicted) == 1
+    assert predicted[0].date == date(2026, 6, 21)
+    assert predicted[0].date > max(
+        item.date for item in guardian_trend if not item.predicted
+    )
+    service.close()
 
 
 def test_live_missing_date_and_product_is_partial_but_keeps_actual_evidence(

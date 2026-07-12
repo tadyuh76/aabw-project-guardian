@@ -10,6 +10,8 @@ import {
   type DashboardState,
   type DashboardWordCloudTerm,
   type DashboardWindows,
+  type FeedbackListItem,
+  type FeedbackListResponse,
   type HealthStatus,
   type ImportConfigResponse,
   type ImportColumnMapping,
@@ -24,6 +26,27 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const IMPORT_REQUEST_TIMEOUT_MS = 60_000;
 const RUN_POLL_INTERVAL_MS = 1_500;
 const RUN_POLL_TIMEOUT_MS = 10 * 60_000;
+
+export type DashboardRangePreset = "7d" | "30d" | "1y" | "all" | "custom";
+
+export interface DashboardRequestOptions {
+  range?: DashboardRangePreset;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
+export interface FeedbackRequestOptions {
+  sourceGroup?: string | null;
+  sourcePlatform?: string | null;
+  brand?: string | null;
+  topic?: string | null;
+  sentiment?: string | null;
+  query?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  limit?: number;
+  offset?: number;
+}
 
 export class ApiError extends Error {
   constructor(message: string, readonly status?: number) {
@@ -181,6 +204,52 @@ function normalizeEvidence(value: unknown): DashboardEvidence | null {
     topic: stringValue(value.topic),
     subtopic: stringValue(value.subtopic),
     sentiment: stringValue(value.sentiment),
+  };
+}
+
+function normalizeFeedbackItem(value: unknown): FeedbackListItem | null {
+  if (!isRecord(value)) return null;
+  const feedbackId = stringValue(value.feedback_id ?? value.feedbackId);
+  const text = stringValue(value.text_redacted ?? value.text);
+  if (!feedbackId || !text) return null;
+  return {
+    feedbackId,
+    occurredAt: stringValue(value.occurred_at ?? value.occurredAt),
+    observedAt: stringValue(value.observed_at ?? value.observedAt),
+    occurredAtQuality: stringValue(value.occurred_at_quality ?? value.occurredAtQuality),
+    sourceGroup: stringValue(value.source_group ?? value.sourceGroup) ?? "Unknown source group",
+    sourcePlatform: stringValue(value.source_platform ?? value.sourcePlatform) ?? "Unknown source",
+    sourceUrl: stringValue(value.source_url ?? value.sourceUrl),
+    brand: stringValue(value.brand),
+    topic: stringValue(value.topic),
+    subtopic: stringValue(value.subtopic),
+    intent: stringValue(value.intent),
+    sentiment: stringValue(value.sentiment),
+    confidence: numberValue(value.confidence),
+    rating: numberValue(value.rating),
+    productName: stringValue(value.product_name ?? value.productName),
+    productCategory: stringValue(value.product_category ?? value.productCategory),
+    store: stringValue(value.store),
+    text,
+    insightIds: stringList(value.insight_ids ?? value.insightIds),
+    isSynthetic: booleanValue(value.is_synthetic ?? value.isSynthetic),
+  };
+}
+
+export function normalizeFeedbackList(payload: unknown): FeedbackListResponse {
+  if (!isRecord(payload)) throw new ApiError("Feedback response is not an object");
+  return {
+    mode: stringValue(payload.mode) ?? "live",
+    syntheticItems: countValue(payload.synthetic_items ?? payload.syntheticItems),
+    items: Array.isArray(payload.items)
+      ? payload.items.flatMap((item) => {
+          const feedback = normalizeFeedbackItem(item);
+          return feedback ? [feedback] : [];
+        })
+      : [],
+    total: countValue(payload.total),
+    limit: countValue(payload.limit),
+    offset: countValue(payload.offset),
   };
 }
 
@@ -397,8 +466,45 @@ async function requestImport<T>(
   }
 }
 
-export async function fetchDashboard(signal?: AbortSignal): Promise<DashboardData> {
-  return normalizeDashboard(await requestJson<unknown>("/api/v1/dashboard", signal));
+function dashboardPath(options?: DashboardRequestOptions): string {
+  const params = new URLSearchParams();
+  if (options?.range && options.range !== "all") params.set("range", options.range);
+  if (options?.range === "custom") {
+    if (options.dateFrom) params.set("date_from", options.dateFrom);
+    if (options.dateTo) params.set("date_to", options.dateTo);
+  }
+  const query = params.toString();
+  return query ? `/api/v1/dashboard?${query}` : "/api/v1/dashboard";
+}
+
+function feedbackPath(options: FeedbackRequestOptions = {}): string {
+  const params = new URLSearchParams();
+  if (options.sourceGroup) params.set("source_group", options.sourceGroup);
+  if (options.sourcePlatform) params.set("source_platform", options.sourcePlatform);
+  if (options.brand) params.set("brand", options.brand);
+  if (options.topic) params.set("topic", options.topic);
+  if (options.sentiment) params.set("sentiment", options.sentiment);
+  if (options.query) params.set("q", options.query);
+  if (options.dateFrom) params.set("date_from", options.dateFrom);
+  if (options.dateTo) params.set("date_to", options.dateTo);
+  params.set("limit", String(Math.min(200, Math.max(1, options.limit ?? 200))));
+  if (options.offset) params.set("offset", String(Math.max(0, options.offset)));
+  const query = params.toString();
+  return query ? `/api/v1/feedback?${query}` : "/api/v1/feedback";
+}
+
+export async function fetchDashboard(
+  signal?: AbortSignal,
+  options?: DashboardRequestOptions,
+): Promise<DashboardData> {
+  return normalizeDashboard(await requestJson<unknown>(dashboardPath(options), signal));
+}
+
+export async function fetchFeedback(
+  signal?: AbortSignal,
+  options?: FeedbackRequestOptions,
+): Promise<FeedbackListResponse> {
+  return normalizeFeedbackList(await requestJson<unknown>(feedbackPath(options), signal));
 }
 
 export async function fetchImportConfig(signal?: AbortSignal): Promise<ImportConfigResponse> {

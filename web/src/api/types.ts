@@ -87,6 +87,38 @@ export interface DashboardEvidence {
   sentiment: string | null;
 }
 
+export interface FeedbackListItem {
+  feedbackId: string;
+  occurredAt: string | null;
+  observedAt: string | null;
+  occurredAtQuality: string | null;
+  sourceGroup: string;
+  sourcePlatform: string;
+  sourceUrl: string | null;
+  brand: string | null;
+  topic: string | null;
+  subtopic: string | null;
+  intent: string | null;
+  sentiment: string | null;
+  confidence: number | null;
+  rating: number | null;
+  productName: string | null;
+  productCategory: string | null;
+  store: string | null;
+  text: string;
+  insightIds: string[];
+  isSynthetic: boolean;
+}
+
+export interface FeedbackListResponse {
+  mode: "demo" | "live" | string;
+  syntheticItems: number;
+  items: FeedbackListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface DashboardWordCloudTerm {
   keyword: string;
   count: number;
