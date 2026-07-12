@@ -1,5 +1,5 @@
 import { Box, Button, Flex, Heading, Spinner, Stack, Text } from "@chakra-ui/react";
-import { CheckCircle, FileCsv, UploadSimple, WarningCircle } from "@phosphor-icons/react";
+import { CheckCircle, FileCsv, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import {
   commitReviewImport,
@@ -275,9 +275,6 @@ export function ReviewImportPanel({ onImported }: ReviewImportPanelProps) {
     <Stack as="section" aria-labelledby="review-import-title" gap="8" w="full">
       <Flex align={{ base: "flex-start", md: "center" }} justify="space-between" gap="4" wrap="wrap">
         <Flex align="center" gap="3">
-          <Flex w="11" h="11" align="center" justify="center" borderRadius="control" bg="orange.100" color="orange.700" flexShrink="0">
-            <UploadSimple size={23} weight="bold" />
-          </Flex>
           <Box>
             <Heading id="review-import-title" size="xl" letterSpacing="0">Import reviews</Heading>
             <Text color="muted" fontSize="sm">Preview a marketplace export, then import the reviewed rows.</Text>
