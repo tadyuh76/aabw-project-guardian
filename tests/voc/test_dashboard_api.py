@@ -204,6 +204,9 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
 
     assert result.mode == "live"
     assert result.data_state == "ready"
+    assert result.sentiment_trend_granularity == "month"
+    assert len(result.sentiment_trend) == 12
+    assert result.sentiment_trend[-1].total == 5
     assert result.coverage.model_dump() == {
         "feedback_items": 5,
         "analyzed_items": 5,
@@ -339,6 +342,10 @@ def test_dashboard_range_query_changes_product_period_counts(tmp_path: Path) -> 
     zone = ZoneInfo(thirty_days.windows.business_timezone)
     assert thirty_days.windows.current_start.astimezone(zone).date().isoformat() == "2026-06-11"
     assert one_year.windows.current_start.astimezone(zone).date().isoformat() == "2025-07-11"
+    assert thirty_days.sentiment_trend_granularity == "day"
+    assert len(thirty_days.sentiment_trend) == 30
+    assert one_year.sentiment_trend_granularity == "month"
+    assert len(one_year.sentiment_trend) == 12
     assert thirty_days.products[0].current.model_dump() == {
         "feedback": 1,
         "complaints": 1,

@@ -365,17 +365,57 @@ function ProblemCategoryChart({ items, mode, empty, onViewMore }: { items: Produ
   );
 }
 
-function aggregateRatingTrend(products: DashboardProduct[]): ProductRatingTrendPoint[] {
+export function aggregateRatingTrend(products: DashboardProduct[]): ProductRatingTrendPoint[] {
   const groups = new Map<string, { total: number; count: number; point: ProductRatingTrendPoint }>();
   products.forEach((product) => product.ratingTrend.forEach((point) => {
-    const key = `${point.platform}|${point.date}|${point.predicted}`;
+    if (point.predicted) return;
+    const key = `${point.platform}|${point.date}`;
     const current = groups.get(key) ?? { total: 0, count: 0, point };
     const weight = Math.max(1, point.count);
     current.total += point.averageRating * weight;
     current.count += weight;
     groups.set(key, current);
   }));
-  return [...groups.values()].map(({ total, count, point }) => ({ ...point, averageRating: total / count, count }));
+  const observed = [...groups.values()].map(({ total, count, point }) => ({
+    ...point,
+    averageRating: total / count,
+    count,
+    predicted: false,
+  }));
+  const forecasts: ProductRatingTrendPoint[] = [];
+  const platforms = [...new Set(observed.map((point) => point.platform))];
+  const dayMs = 24 * 60 * 60 * 1000;
+  platforms.forEach((platform) => {
+    const platformPoints = observed
+      .filter((point) => point.platform === platform)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (platformPoints.length < 2) return;
+    const firstDate = dateOnly(platformPoints[0]?.date ?? null);
+    const lastPoint = platformPoints.at(-1);
+    const lastDate = dateOnly(lastPoint?.date ?? null);
+    if (!firstDate || !lastDate || !lastPoint) return;
+    const xs = platformPoints.flatMap((point) => {
+      const date = dateOnly(point.date);
+      return date ? [(date.getTime() - firstDate.getTime()) / dayMs / 7] : [];
+    });
+    const ys = platformPoints.map((point) => point.averageRating);
+    const xMean = xs.reduce((sum, value) => sum + value, 0) / xs.length;
+    const yMean = ys.reduce((sum, value) => sum + value, 0) / ys.length;
+    const denominator = xs.reduce((sum, value) => sum + (value - xMean) ** 2, 0);
+    const slope = denominator === 0
+      ? 0
+      : xs.reduce((sum, value, index) => sum + (value - xMean) * (ys[index]! - yMean), 0) / denominator;
+    const intercept = yMean - slope * xMean;
+    const nextX = xs.at(-1)! + 1;
+    forecasts.push({
+      date: formatApiDate(addDays(lastDate, 7)),
+      platform,
+      averageRating: Math.max(1, Math.min(5, intercept + slope * nextX)),
+      count: lastPoint.count,
+      predicted: true,
+    });
+  });
+  return [...observed, ...forecasts].sort((a, b) => a.platform.localeCompare(b.platform) || a.date.localeCompare(b.date) || Number(a.predicted) - Number(b.predicted));
 }
 
 function dateOnly(value: string | null): Date | null {
@@ -431,12 +471,12 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
   const platforms = Object.keys(platformColors).filter((platform) => points.some((point) => point.platform === platform));
   const dates = [...new Set(points.map((point) => point.date))].sort();
   if (!platforms.length || dates.length < 2) return <Text color="muted">A dated platform rating series is not available yet.</Text>;
-  const width = chartViewBoxWidth;
   const height = 250;
   const left = 56;
   const right = 22;
   const top = 18;
   const bottom = 46;
+  const width = Math.max(chartViewBoxWidth, left + right + dates.length * 30);
   const minRating = 3;
   const maxRating = 5;
   const ratingTicks = [3, 3.5, 4, 4.5, 5];
@@ -451,7 +491,7 @@ function RatingTrendChart({ points }: { points: ProductRatingTrendPoint[] }) {
   return (
     <Stack gap="4">
       <Box overflowX="auto">
-        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Historical and predicted average ratings by marketplace" style={svgChartStyle}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Historical and predicted average ratings by marketplace" style={{ ...svgChartStyle, minWidth: `${width}px` }}>
           <rect x={predictionX} y="0" width={width - predictionX} height={height - bottom + 12} fill="var(--chakra-colors-subtle)" opacity="0.72" />
           {ratingTicks.map((rating) => <g key={rating}><line x1={left} y1={y(rating)} x2={width - right} y2={y(rating)} stroke="var(--chakra-colors-border)" /><text x={left - 12} y={y(rating) + 4} textAnchor="end" fill="var(--chakra-colors-muted)" fontSize={chartTextSize}>{rating.toFixed(1)}</text></g>)}
           {firstPrediction && <text x={predictionX + 12} y="18" fill="var(--chakra-colors-muted)" fontSize={chartTextSize} fontWeight="600">PREDICTED</text>}

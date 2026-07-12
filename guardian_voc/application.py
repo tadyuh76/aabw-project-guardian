@@ -3686,9 +3686,10 @@ class GuardianService:
         trend_start_date = windows.current_start.astimezone(business_zone).date()
         trend_end_date = (windows.current_end - timedelta(microseconds=1)).astimezone(business_zone).date()
         trend_days = (trend_end_date - trend_start_date).days + 1
+        trend_preset = dashboard_range if dashboard_range != "all" else preset
         sentiment_trend_granularity = (
             "month"
-            if preset in {"all", "1y"} or trend_days > 62
+            if trend_preset in {"all", "1y"} or trend_days > 62
             else "day"
         )
         if sentiment_trend_granularity == "day":
@@ -3697,12 +3698,12 @@ class GuardianService:
             trend_end_month = trend_end_date.replace(day=1)
             trend_start_month = (
                 shift_month(trend_end_month, -11)
-                if preset in {"all", "1y"}
+                if trend_preset in {"all", "1y"}
                 else trend_start_date.replace(day=1)
             )
             month_count = (
                 12
-                if preset in {"all", "1y"}
+                if trend_preset in {"all", "1y"}
                 else (trend_end_month.year - trend_start_month.year) * 12
                 + trend_end_month.month - trend_start_month.month
                 + 1
@@ -3726,7 +3727,7 @@ class GuardianService:
             sentiment = str(row.get("sentiment"))
             if sentiment in {"positive", "neutral", "negative"}:
                 sentiment_months[period][sentiment] += 1
-        sentiment_trend = [
+        overall_sentiment_trend = [
             DashboardSentimentTrendPointView(
                 date=period,
                 total=sum(counts.values()),
@@ -3954,11 +3955,11 @@ class GuardianService:
                 week_index = (occurred_at - trend_start).days // 7
                 sentiment_rows[week_index][sentiment] += 1
 
-            sentiment_trend: list[DashboardSentimentTrendPointView] = []
+            product_sentiment_trend: list[DashboardSentimentTrendPointView] = []
             if sentiment_rows:
                 for week in range(min(sentiment_rows), max(sentiment_rows) + 1):
                     counts = sentiment_rows[week]
-                    sentiment_trend.append(
+                    product_sentiment_trend.append(
                         DashboardSentimentTrendPointView(
                             date=(trend_start + timedelta(days=week * 7)).date(),
                             total=sum(counts.values()),
@@ -4034,7 +4035,7 @@ class GuardianService:
                         if all_rating_counts[rating]
                     ],
                     rating_trend=rating_trend,
-                    sentiment_trend=sentiment_trend,
+                    sentiment_trend=product_sentiment_trend,
                     negative_feedback=[
                         DashboardComparisonThemeView(
                             label=label,
@@ -4190,7 +4191,7 @@ class GuardianService:
             coverage=coverage,
             messages=messages,
             products=products,
-            sentiment_trend=sentiment_trend,
+            sentiment_trend=overall_sentiment_trend,
             sentiment_trend_granularity=sentiment_trend_granularity,
             evidence=evidence,
             word_cloud=_dashboard_word_cloud(
