@@ -1,8 +1,9 @@
-import { Badge, Box, createListCollection, Flex, Grid, Heading, Input, Select, Stack, Text } from "@chakra-ui/react";
+import { Badge, Box, Button, createListCollection, Flex, Grid, Heading, Input, Select, Stack, Text } from "@chakra-ui/react";
 import { FunnelSimple, MagnifyingGlass } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
-import type { DashboardData, DashboardEvidence } from "../api/types";
+import { useEffect, useMemo, useState } from "react";
+import { fetchFeedback } from "../api/client";
+import type { DashboardData, DashboardEvidence, FeedbackListItem } from "../api/types";
 import { cleanDisplayText } from "../utils/displayText";
 
 interface ReviewExplorerProps {
@@ -11,6 +12,7 @@ interface ReviewExplorerProps {
 
 type TimeFrame = "all" | "7d" | "30d" | "90d" | "1y";
 type SortMode = "newest" | "oldest" | "platform" | "problem" | "sentiment" | "product";
+type PageSize = "25" | "50" | "100";
 type ProblemCategory =
   | "Leaking"
   | "Poor packaging"
@@ -22,6 +24,12 @@ type ProblemCategory =
   | "Packaging deformation"
   | "Late delivery"
   | "Skin irritation";
+
+type ReviewItem = DashboardEvidence & {
+  productName: string | null;
+  productCategory: string | null;
+  brand: string | null;
+};
 
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "5", md: "6" } } as const;
 
@@ -41,6 +49,26 @@ const sortOptions: Array<{ value: SortMode; label: string }> = [
   { value: "sentiment", label: "Sentiment" },
   { value: "product", label: "Product A-Z" },
 ];
+
+const pageSizeOptions: Array<{ value: PageSize; label: string }> = [
+  { value: "25", label: "25 per page" },
+  { value: "50", label: "50 per page" },
+  { value: "100", label: "100 per page" },
+];
+
+const knownPlatforms = [
+  "facebook",
+  "instagram",
+  "threads",
+  "tiktok",
+  "youtube",
+  "shopee",
+  "lazada",
+  "grabmart",
+  "guardian_ecommerce",
+  "watsons_ecommerce",
+  "hasaki",
+] as const;
 
 const problemMatchers: Array<{ category: ProblemCategory; patterns: RegExp[] }> = [
   { category: "Wrong item received", patterns: [/wrong\s+(item|product)/i, /incorrect\s+(item|product)/i, /received\s+wrong/i] },
@@ -70,12 +98,18 @@ function friendlyPlatform(value: string): string {
     shopee: "Shopee",
     lazada: "Lazada",
     watsons: "Watsons",
+    watsons_ecommerce: "Watsons eCommerce",
     hasaki: "Hasaki",
     facebook: "Facebook",
     instagram: "Instagram",
+    threads: "Threads",
     youtube: "YouTube",
   };
   return labels[normalized] ?? humanize(cleanDisplayText(value));
+}
+
+function normalizePlatformValue(value: string): string {
+  return value.trim().toLocaleLowerCase().replace(/[\s-]+/g, "_");
 }
 
 function friendlySourceGroup(value: string): string | null {
@@ -93,6 +127,10 @@ function parseTime(value: string | null): number | null {
   if (!value) return null;
   const time = new Date(value).getTime();
   return Number.isFinite(time) ? time : null;
+}
+
+function formatDateInput(time: number): string {
+  return new Date(time).toISOString().slice(0, 10);
 }
 
 function formatDate(value: string | null): string {
@@ -153,7 +191,7 @@ function FilterSelect<T extends string>({ label, value, items, onChange }: { lab
   );
 }
 
-function reviewSearchText(item: DashboardEvidence, productName: string): string {
+function reviewSearchText(item: ReviewItem, productName: string): string {
   const problem = categorizeProblem(item);
   return [
     item.text,
@@ -162,6 +200,8 @@ function reviewSearchText(item: DashboardEvidence, productName: string): string 
     item.sourceGroup,
     friendlySourceGroup(item.sourceGroup),
     productName,
+    item.productCategory,
+    item.brand,
     problem,
     item.sentiment,
     item.topic,
@@ -177,7 +217,7 @@ function categorizeProblem(item: DashboardEvidence): ProblemCategory {
 function isSocialSource(item: DashboardEvidence): boolean {
   const group = item.sourceGroup.toLocaleLowerCase();
   const platform = item.sourcePlatform.toLocaleLowerCase();
-  return group === "social" || ["facebook", "instagram", "tiktok", "youtube"].some((name) => platform === name);
+  return group === "social" || ["facebook", "instagram", "threads", "tiktok", "youtube"].some((name) => platform === name);
 }
 
 function SourceLink({ href, children }: { href: string | null; children: ReactNode }) {
@@ -191,28 +231,90 @@ function SourceLink({ href, children }: { href: string | null; children: ReactNo
   );
 }
 
+function feedbackToReviewItem(item: FeedbackListItem): ReviewItem {
+  return {
+    id: item.feedbackId,
+    productId: null,
+    productName: item.productName,
+    productCategory: item.productCategory,
+    brand: item.brand,
+    text: item.text,
+    sourceGroup: item.sourceGroup,
+    sourcePlatform: normalizePlatformValue(item.sourcePlatform),
+    sourceUrl: item.sourceUrl,
+    timestamp: item.occurredAt,
+    confidence: item.confidence,
+    stance: null,
+    topic: item.topic,
+    subtopic: item.subtopic,
+    sentiment: item.sentiment,
+  };
+}
+
 export function ReviewExplorer({ data }: ReviewExplorerProps) {
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState("all");
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const [pageSize, setPageSize] = useState<PageSize>("25");
+  const [pageIndex, setPageIndex] = useState(0);
+  const [feedbackItems, setFeedbackItems] = useState<FeedbackListItem[]>([]);
+  const [feedbackTotal, setFeedbackTotal] = useState(0);
+  const [feedbackError, setFeedbackError] = useState("");
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   const productsById = useMemo(() => new Map(data.products.map((product) => [product.id, product])), [data.products]);
+  const anchorTime = parseTime(data.asOf) ?? parseTime(data.lastUpdated) ?? Date.now();
+  const frame = timeFrames.find((item) => item.value === timeFrame) ?? timeFrames[0]!;
+  const dateFrom = frame.days === null ? null : formatDateInput(anchorTime - frame.days * 24 * 60 * 60 * 1000);
+  const dateTo = frame.days === null ? null : formatDateInput(anchorTime);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setFeedbackLoading(true);
+    setFeedbackError("");
+    fetchFeedback(controller.signal, {
+      sourcePlatform: platform === "all" ? null : platform,
+      query: query.trim() || null,
+      dateFrom,
+      dateTo,
+      limit: Number(pageSize),
+      offset: pageIndex * Number(pageSize),
+    }).then((response) => {
+      setFeedbackItems(response.items);
+      setFeedbackTotal(response.total);
+    }).catch((error) => {
+      if (!controller.signal.aborted) {
+        setFeedbackError(error instanceof Error ? error.message : "Reviews could not be loaded.");
+        setFeedbackItems([]);
+        setFeedbackTotal(0);
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setFeedbackLoading(false);
+    });
+    return () => controller.abort();
+  }, [dateFrom, dateTo, pageIndex, pageSize, platform, query]);
+
+  const feedbackRows = useMemo(() => feedbackItems.map(feedbackToReviewItem), [feedbackItems]);
   const platforms = useMemo(
-    () => [...new Set(data.evidence.map((item) => item.sourcePlatform).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [data.evidence],
+    () => [
+      ...new Set([
+        ...data.evidence.map((item) => normalizePlatformValue(item.sourcePlatform)).filter(Boolean),
+        ...feedbackRows.map((item) => item.sourcePlatform).filter(Boolean),
+        ...knownPlatforms,
+      ]),
+    ].sort((a, b) => friendlyPlatform(a).localeCompare(friendlyPlatform(b))),
+    [data.evidence, feedbackRows],
   );
   const platformOptions = useMemo(
     () => [{ value: "all", label: "All platforms" }, ...platforms.map((value) => ({ value, label: friendlyPlatform(value) }))],
     [platforms],
   );
-  const anchorTime = parseTime(data.asOf) ?? parseTime(data.lastUpdated) ?? Date.now();
-  const frame = timeFrames.find((item) => item.value === timeFrame) ?? timeFrames[0]!;
   const normalizedQuery = query.trim().toLocaleLowerCase();
 
   const reviews = useMemo(() => {
     const minimumTime = frame.days === null ? null : anchorTime - frame.days * 24 * 60 * 60 * 1000;
-    return data.evidence
+    return feedbackRows
       .filter((item) => platform === "all" || item.sourcePlatform === platform)
       .filter((item) => {
         if (minimumTime === null) return true;
@@ -221,7 +323,7 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
       })
       .filter((item) => {
         if (!normalizedQuery) return true;
-        const productName = item.productId ? productsById.get(item.productId)?.name ?? "" : "";
+        const productName = item.productId ? productsById.get(item.productId)?.name ?? "" : item.productName ?? "";
         return reviewSearchText(item, productName).includes(normalizedQuery);
       })
       .sort((a, b) => {
@@ -232,11 +334,19 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
         if (sortMode === "platform") return a.sourcePlatform.localeCompare(b.sourcePlatform) || bTime - aTime;
         if (sortMode === "problem") return categorizeProblem(a).localeCompare(categorizeProblem(b)) || bTime - aTime;
         if (sortMode === "sentiment") return (a.sentiment ?? "").localeCompare(b.sentiment ?? "") || bTime - aTime;
-        const aProduct = a.productId ? productsById.get(a.productId)?.name ?? "" : "";
-        const bProduct = b.productId ? productsById.get(b.productId)?.name ?? "" : "";
+        const aProduct = a.productId ? productsById.get(a.productId)?.name ?? "" : a.productName ?? "";
+        const bProduct = b.productId ? productsById.get(b.productId)?.name ?? "" : b.productName ?? "";
         return aProduct.localeCompare(bProduct) || bTime - aTime;
       });
-  }, [anchorTime, data.evidence, frame.days, normalizedQuery, platform, productsById, sortMode]);
+  }, [anchorTime, feedbackRows, frame.days, normalizedQuery, platform, productsById, sortMode]);
+
+  const pageCount = Math.max(1, Math.ceil(feedbackTotal / Number(pageSize)));
+  const pageStart = feedbackTotal === 0 ? 0 : pageIndex * Number(pageSize) + 1;
+  const pageEnd = feedbackTotal === 0 ? 0 : Math.min(feedbackTotal, pageIndex * Number(pageSize) + reviews.length);
+  const reviewCountLabel = feedbackTotal === 0
+    ? "0 reviews"
+    : `${pageStart.toLocaleString()}–${pageEnd.toLocaleString()} of ${feedbackTotal.toLocaleString()} reviews`;
+  const resetToFirstPage = () => setPageIndex(0);
 
   return (
     <Stack as="section" aria-labelledby="reviews-title" gap="6" w="full">
@@ -245,23 +355,30 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
           <Heading id="reviews-title" size="xl" letterSpacing="0">Reviews</Heading>
           <Text color="muted" fontSize="sm">Search and inspect customer review signals across every connected platform.</Text>
         </Box>
-        <Badge colorPalette="orange" variant="subtle" px="3" py="1.5" borderRadius="control">{reviews.length.toLocaleString()} reviews</Badge>
+        <Badge colorPalette="orange" variant="subtle" px="3" py="1.5" borderRadius="control">{feedbackLoading ? "Loading..." : reviewCountLabel}</Badge>
       </Flex>
+
+      {feedbackError && <Box {...panelProps} borderColor="danger" color="danger">{feedbackError}</Box>}
 
       <Box {...panelProps}>
         <Grid gridTemplateColumns={{ base: "1fr", lg: "minmax(260px, 1fr) auto auto auto" }} gap="3" alignItems="center">
           <Flex align="center" gap="2" h="42px" px="3" borderWidth="1px" borderColor="border" borderRadius="control" bg="surface">
             <MagnifyingGlass size={18} />
-            <Input aria-label="Search reviews" placeholder="Search review text, product, topic..." value={query} onChange={(event) => setQuery(event.target.value)} border="0" px="0" h="38px" _focusVisible={{ outline: "none", boxShadow: "none" }} />
+            <Input aria-label="Search reviews" placeholder="Search review text, product, topic..." value={query} onChange={(event) => { setQuery(event.target.value); resetToFirstPage(); }} border="0" px="0" h="38px" _focusVisible={{ outline: "none", boxShadow: "none" }} />
           </Flex>
-          <FilterSelect label="Filter reviews by platform" value={platform} items={platformOptions} onChange={setPlatform} />
-          <FilterSelect label="Filter reviews by time frame" value={timeFrame} items={timeFrames} onChange={setTimeFrame} />
+          <FilterSelect label="Filter reviews by platform" value={platform} items={platformOptions} onChange={(next) => { setPlatform(next); resetToFirstPage(); }} />
+          <FilterSelect label="Filter reviews by time frame" value={timeFrame} items={timeFrames} onChange={(next) => { setTimeFrame(next); resetToFirstPage(); }} />
           <FilterSelect label="Sort reviews" value={sortMode} items={sortOptions} onChange={setSortMode} />
         </Grid>
       </Box>
 
       <Box {...panelProps} p="0" overflow="hidden">
-        {reviews.length === 0 ? (
+        {feedbackLoading && reviews.length === 0 ? (
+          <Stack align="center" justify="center" minH="260px" gap="3" p="8" textAlign="center">
+            <Heading size="md">Loading reviews...</Heading>
+            <Text color="muted">Fetching the full production feedback table.</Text>
+          </Stack>
+        ) : reviews.length === 0 ? (
           <Stack align="center" justify="center" minH="260px" gap="3" p="8" textAlign="center">
             <FunnelSimple size={32} />
             <Heading size="md">No reviews match these filters</Heading>
@@ -269,7 +386,7 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
           </Stack>
         ) : (
           <Box overflowX="auto">
-              <Box as="table" width="full" minW="860px" borderCollapse="collapse" fontSize="sm">
+            <Box as="table" width="full" minW="860px" borderCollapse="collapse" fontSize="sm">
               <Box as="thead" bg="subtle">
                 <Box as="tr">
                   {["Review", "Problem", "Product", "Platform", "Sentiment", "Date"].map((label) => (
@@ -280,6 +397,7 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
               <Box as="tbody">
                 {reviews.map((item) => {
                   const product = item.productId ? productsById.get(item.productId) : undefined;
+                  const productLabel = product?.shortName ?? product?.name ?? item.productName ?? "Unknown product";
                   const social = isSocialSource(item);
                   const sourceGroup = friendlySourceGroup(item.sourceGroup);
                   const problem = categorizeProblem(item);
@@ -301,7 +419,7 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
                         ) : (
                           <>
                             <SourceLink href={item.sourceUrl}>
-                              <Text as="span" fontWeight="600" fontSize="sm">{cleanDisplayText(product?.shortName ?? product?.name ?? "Unknown product")}</Text>
+                              <Text as="span" fontWeight="600" fontSize="sm">{cleanDisplayText(productLabel)}</Text>
                             </SourceLink>
                             {product?.sku && <Text color="muted" fontSize="xs">{product.sku}</Text>}
                           </>
@@ -317,6 +435,23 @@ export function ReviewExplorer({ data }: ReviewExplorerProps) {
             </Box>
           </Box>
         )}
+        <Flex align={{ base: "stretch", md: "center" }} justify="space-between" gap="3" p="4" borderTopWidth="1px" borderColor="border" direction={{ base: "column", md: "row" }}>
+          <Text color="muted" fontSize="sm">
+            {feedbackLoading ? "Updating reviews..." : reviewCountLabel}
+          </Text>
+          <Flex align="center" gap="2" wrap="wrap">
+            <FilterSelect label="Reviews per page" value={pageSize} items={pageSizeOptions} onChange={(next) => { setPageSize(next); resetToFirstPage(); }} />
+            <Button variant="outline" colorPalette="gray" disabled={pageIndex === 0 || feedbackLoading} onClick={() => setPageIndex((value) => Math.max(0, value - 1))}>
+              Previous
+            </Button>
+            <Text color="muted" fontSize="sm" minW="90px" textAlign="center">
+              Page {(pageIndex + 1).toLocaleString()} of {pageCount.toLocaleString()}
+            </Text>
+            <Button variant="outline" colorPalette="gray" disabled={pageIndex + 1 >= pageCount || feedbackLoading} onClick={() => setPageIndex((value) => value + 1)}>
+              Next
+            </Button>
+          </Flex>
+        </Flex>
       </Box>
     </Stack>
   );

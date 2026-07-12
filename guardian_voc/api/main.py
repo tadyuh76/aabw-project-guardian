@@ -9,7 +9,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import (
     BackgroundTasks,
@@ -217,8 +217,21 @@ def today(
 @app.get("/api/v1/dashboard", response_model=DashboardResponse)
 def dashboard(
     service: Annotated[GuardianService, Depends(service_from_request)],
+    dashboard_range: Literal["7d", "30d", "1y", "all", "custom"] = Query(
+        default="all",
+        alias="range",
+    ),
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> DashboardResponse:
-    return service.dashboard()
+    try:
+        return service.dashboard(
+            dashboard_range=dashboard_range,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/api/v1/insights", response_model=list[InsightCardView])
@@ -268,6 +281,7 @@ def patch_insight(
 def feedback(
     service: Annotated[GuardianService, Depends(service_from_request)],
     source_group: str | None = None,
+    source_platform: str | None = None,
     brand: str | None = None,
     topic: str | None = None,
     sentiment: str | None = None,
@@ -283,6 +297,7 @@ def feedback(
     try:
         return service.feedback(
             source_group=source_group,
+            source_platform=source_platform,
             brand=brand,
             topic=topic,
             sentiment=sentiment,

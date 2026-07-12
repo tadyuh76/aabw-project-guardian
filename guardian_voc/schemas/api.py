@@ -299,6 +299,7 @@ class FeedbackListItem(BaseModel):
     occurred_at_quality: Literal["exact", "parsed", "inferred", "missing"]
     source_group: str
     source_platform: str
+    source_url: str | None
     brand: str | None
     topic: str | None
     subtopic: str | None

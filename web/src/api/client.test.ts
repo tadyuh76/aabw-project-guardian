@@ -108,6 +108,27 @@ describe("dashboard API contract", () => {
     expect(result.wordCloud).toEqual([{ keyword: "delivery", count: 4 }, { keyword: "late", count: 2 }]);
   });
 
+  it("requests dashboard range query parameters", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(wirePayload), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchDashboard(undefined, {
+      range: "custom",
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-30",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/dashboard?range=custom&date_from=2026-06-01&date_to=2026-06-30",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
   it("rejects an invalid truth state instead of inventing a fallback", () => {
     expect(() => normalizeDashboard({ ...wirePayload, data_state: "unknown" })).toThrow("invalid data state");
   });

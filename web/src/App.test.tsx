@@ -1,17 +1,22 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dashboardFixture } from "./test/dashboardFixture";
 
 const api = vi.hoisted(() => ({
   fetchDashboard: vi.fn(),
+  fetchFeedback: vi.fn(),
   fetchImportConfig: vi.fn(),
   previewReviewImport: vi.fn(),
   commitReviewImport: vi.fn(),
   waitForRun: vi.fn(),
 }));
+const pdf = vi.hoisted(() => ({
+  captureDashboardPdf: vi.fn(),
+}));
 
 vi.mock("./api/client", () => api);
+vi.mock("./utils/dashboardPdf", () => pdf);
 
 import { App } from "./App";
 
@@ -19,6 +24,8 @@ describe("App dashboard states", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
     Object.values(api).forEach((mock) => mock.mockReset());
+    pdf.captureDashboardPdf.mockReset();
+    pdf.captureDashboardPdf.mockResolvedValue(undefined);
     api.fetchImportConfig.mockResolvedValue({
       enabled: false,
       max_bytes: 1000,
@@ -52,8 +59,8 @@ describe("App dashboard states", () => {
     expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating trend & forecast" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Guardian review keyword cloud" })).toBeInTheDocument();
-    expect(screen.getByText("cleanser")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Guardian review keyword cloud" })).not.toBeInTheDocument();
+    expect(screen.queryByText("cleanser")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products to watch" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
     expect(screen.getByText("480")).toBeInTheDocument();
@@ -63,27 +70,19 @@ describe("App dashboard states", () => {
     expect(screen.queryByText("Demo", { exact: true })).not.toBeInTheDocument();
   });
 
-  it("exports the full dashboard payload as a PDF report", async () => {
+  it("exports the selected dashboard view as a PDF capture", async () => {
     api.fetchDashboard.mockResolvedValue(dashboardFixture());
-    const write = vi.fn();
-    const print = vi.fn();
-    vi.spyOn(window, "open").mockReturnValue({
-      document: { open: vi.fn(), write, close: vi.fn() },
-      focus: vi.fn(),
-      print,
-    } as unknown as Window);
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "30D" }));
     await user.click(await screen.findByRole("button", { name: "Export PDF" }));
 
-    expect(window.open).toHaveBeenCalledWith("", "_blank");
-    expect(print).toHaveBeenCalled();
-    const html = String(write.mock.calls[0]?.[0] ?? "");
-    expect(html).toContain("Guardian VOC Dashboard");
-    expect(html).toContain("CeraVe Foaming Cleanser");
-    expect(html).toContain("The cleanser arrived securely packed.");
-    expect(html).toContain("Product attributed items");
+    await waitFor(() => expect(pdf.captureDashboardPdf).toHaveBeenCalledTimes(1));
+    const [element, options] = pdf.captureDashboardPdf.mock.calls[0]!;
+    expect(element).toBeInstanceOf(HTMLElement);
+    expect(element).toContainElement(screen.getByRole("heading", { name: "Rating distribution" }));
+    expect(options).toEqual({ filename: "guardian-dashboard-30d.pdf" });
   });
 
   it("keeps partial backend copy out of the dashboard", async () => {
@@ -193,52 +192,82 @@ describe("App dashboard states", () => {
 
   it("opens reviews at /reviews with platform, time-frame, sort, search, and source links", async () => {
     window.history.replaceState(null, "", "/reviews");
-    api.fetchDashboard.mockResolvedValue(dashboardFixture({
-      evidence: [
+    api.fetchDashboard.mockResolvedValue(dashboardFixture());
+    api.fetchFeedback.mockResolvedValue({
+      mode: "live",
+      syntheticItems: 0,
+      total: 3,
+      limit: 200,
+      offset: 0,
+      items: [
         {
-          id: "feedback-1",
-          productId: "cerave-473",
+          feedbackId: "feedback-1",
+          productName: "CeraVe Foaming Cleanser",
+          productCategory: null,
           text: "The cleanser arrived securely packed.",
           sourceGroup: "marketplace",
           sourcePlatform: "Shopee",
           sourceUrl: "https://shopee.vn/product/cerave-473",
-          timestamp: "2026-07-10T10:00:00Z",
+          occurredAt: "2026-07-10T10:00:00Z",
+          observedAt: "2026-07-10T10:00:00Z",
+          occurredAtQuality: "exact",
           confidence: 0.91,
-          stance: "support",
           topic: "packaging",
           subtopic: "seal",
           sentiment: "positive",
+          brand: "guardian",
+          intent: null,
+          rating: null,
+          store: null,
+          insightIds: [],
+          isSynthetic: false,
         },
         {
-          id: "feedback-2",
-          productId: "cerave-473",
+          feedbackId: "feedback-2",
+          productName: "CeraVe Foaming Cleanser",
+          productCategory: null,
           text: "Watsons delivery was late.",
           sourceGroup: "marketplace",
           sourcePlatform: "Watsons",
           sourceUrl: "https://www.watsons.vn/product/cerave-473",
-          timestamp: "2026-06-10T10:00:00Z",
+          occurredAt: "2026-06-10T10:00:00Z",
+          observedAt: "2026-06-10T10:00:00Z",
+          occurredAtQuality: "exact",
           confidence: 0.83,
-          stance: "support",
           topic: "delivery",
           subtopic: null,
           sentiment: "negative",
+          brand: "watsons",
+          intent: null,
+          rating: null,
+          store: null,
+          insightIds: [],
+          isSynthetic: false,
         },
         {
-          id: "feedback-3",
-          productId: "cerave-473",
+          feedbackId: "feedback-3",
+          productName: null,
+          productCategory: null,
           text: "Facebook post mentioned skin irritation.",
           sourceGroup: "social",
           sourcePlatform: "Facebook",
           sourceUrl: "https://www.facebook.com/example-review",
-          timestamp: null,
+          occurredAt: null,
+          observedAt: "2026-07-10T10:00:00Z",
+          occurredAtQuality: "missing",
           confidence: 0.74,
-          stance: "support",
           topic: "skin irritation",
           subtopic: null,
           sentiment: "negative",
+          brand: "guardian",
+          intent: null,
+          rating: null,
+          store: null,
+          insightIds: [],
+          isSynthetic: false,
         },
       ],
-    }));
+    });
     const user = userEvent.setup();
 
     render(<App />);
@@ -247,7 +276,7 @@ describe("App dashboard states", () => {
     expect(screen.getByRole("combobox", { name: "Filter reviews by platform" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Filter reviews by time frame" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Sort reviews" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Problem" })).toBeInTheDocument();
+    expect(await screen.findByRole("columnheader", { name: "Problem" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "URL" })).not.toBeInTheDocument();
     expect(screen.getByText("Seal quality")).toBeInTheDocument();
     expect(screen.queryByText("91% confidence")).not.toBeInTheDocument();

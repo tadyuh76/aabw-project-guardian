@@ -1,14 +1,14 @@
-import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
-import cloud from "d3-cloud";
+import { Badge, Box, Button, Flex, Grid, Heading, IconButton, Input, Stack, Text, Tooltip } from "@chakra-ui/react";
+import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Info, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { fetchDashboard, type DashboardRangePreset } from "../api/client";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
-import { openDashboardPdfReport } from "../utils/dashboardPdf";
+import { captureDashboardPdf } from "../utils/dashboardPdf";
 import { cleanDisplayText } from "../utils/displayText";
 
 interface DashboardProps { data: DashboardData; }
-type DatePreset = "7d" | "30d" | "1y" | "all" | "custom";
+type DatePreset = DashboardRangePreset;
 type DateMode = "current" | "combined" | "all";
 
 const chartColors = ["#ec7e24", "#2563eb", "#16a34a", "#7c3aed", "#e11d48"];
@@ -18,6 +18,7 @@ const chartTextSize = 13;
 const chartLabelSize = 20;
 const chartValueSize = 13;
 const platformColors: Record<string, string> = {
+  "Guardian.com.vn": "#ec7e24",
   "TikTok Shop": "#18181b",
   Shopee: "#f97316",
   Lazada: "#7c3aed",
@@ -25,21 +26,7 @@ const platformColors: Record<string, string> = {
 };
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "4", md: "5" } } as const;
 const svgChartStyle = { width: "100%", minWidth: "340px", display: "block" } as const;
-const wordCloudWidth = 760;
-const wordCloudHeight = 320;
-
-interface WordCloudWord {
-  text: string;
-  display: string;
-  title: string;
-  count: number;
-  color: string;
-  weight: number;
-  size?: number;
-  rotate?: number;
-  x?: number;
-  y?: number;
-}
+const socialExperienceScoreInfo = "Score = 50 + 50 x ((positive mentions - negative mentions) / total mentions). Neutral mentions keep the score near 50, while more positive feedback moves it toward 100 and more negative feedback moves it toward 0.";
 
 function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
@@ -74,11 +61,36 @@ function aggregateThemes(products: DashboardProduct[], key: "problems" | "allPro
   })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
-function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+function Section({ title, titleInfo, action, children }: { title: string; titleInfo?: string; action?: ReactNode; children: ReactNode }) {
   return (
     <Box {...panelProps} minW="0">
       <Flex align="center" justify="space-between" gap="4" mb="4">
-        <Heading size="sm" letterSpacing="0">{title}</Heading>
+        <Flex align="center" gap="2" minW="0">
+          <Heading size="md" fontWeight="800" letterSpacing="0">{title}</Heading>
+          {titleInfo && (
+            <Tooltip.Root openDelay={150} positioning={{ placement: "top-start" }}>
+              <Tooltip.Trigger asChild>
+                <IconButton
+                  aria-label={`How ${title.toLowerCase()} is calculated`}
+                  size="2xs"
+                  variant="ghost"
+                  color="muted"
+                  minW="5"
+                  h="5"
+                  borderRadius="full"
+                >
+                  <Info size={14} weight="bold" />
+                </IconButton>
+              </Tooltip.Trigger>
+              <Tooltip.Positioner>
+                <Tooltip.Content maxW="280px" p="3" fontSize="xs" lineHeight="1.45" boxShadow="lg">
+                  <Tooltip.Arrow />
+                  {titleInfo}
+                </Tooltip.Content>
+              </Tooltip.Positioner>
+            </Tooltip.Root>
+          )}
+        </Flex>
         {action}
       </Flex>
       {children}
@@ -104,6 +116,14 @@ function formatDisplayDate(date: Date): string {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getFullYear()),
   ].join("/");
+}
+
+function formatApiDate(date: Date): string {
+  return [
+    String(date.getFullYear()),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function normalizeDateInput(value: string): string {
@@ -425,115 +445,6 @@ function SocialExperienceScore({ benchmark }: { benchmark: DashboardData["benchm
   );
 }
 
-function seededRandom(seed: number) {
-  let value = seed;
-  return () => {
-    value = (value * 1664525 + 1013904223) % 4294967296;
-    return value / 4294967296;
-  };
-}
-
-function wordCloudSize(count: number, maxCount: number): number {
-  if (maxCount <= 0) return 18;
-  return Math.round(14 + (Math.log1p(count) / Math.log1p(maxCount)) * 42);
-}
-
-function GuardianWordCloud({ terms }: { terms: DashboardData["wordCloud"] }) {
-  const visibleTerms = useMemo(() => {
-    const positiveTerms = terms.filter((term) => term.count > 0);
-    const maxCount = Math.max(0, ...positiveTerms.map((term) => term.count));
-    const minimumCount = maxCount >= 12 ? Math.max(2, Math.ceil(maxCount * 0.08)) : 1;
-    const meaningfulTerms = positiveTerms.filter((term) => term.count >= minimumCount);
-    return (meaningfulTerms.length >= 12 ? meaningfulTerms : positiveTerms).slice(0, 45);
-  }, [terms]);
-  const [layoutWords, setLayoutWords] = useState<WordCloudWord[]>([]);
-
-  useEffect(() => {
-    if (!visibleTerms.length) {
-      setLayoutWords([]);
-      return undefined;
-    }
-
-    const max = Math.max(...visibleTerms.map((term) => term.count));
-    const words: WordCloudWord[] = visibleTerms.map((term, index) => {
-      const size = wordCloudSize(term.count, max);
-      return {
-        text: cleanDisplayText(term.keyword),
-        display: cleanDisplayText(term.keyword),
-        title: `${term.keyword}: ${term.count.toLocaleString()} mentions`,
-        count: term.count,
-        color: chartColor(index),
-        weight: size >= 42 ? 800 : size >= 30 ? 700 : 600,
-        size,
-      };
-    });
-
-    let cancelled = false;
-    const layout = cloud<WordCloudWord>()
-      .size([wordCloudWidth, wordCloudHeight])
-      .words(words)
-      .font("Inter, Arial, sans-serif")
-      .fontWeight((word) => word.weight)
-      .fontSize((word) => word.size ?? 17)
-      .padding((word) => Math.max(3, Math.round((word.size ?? 17) / 8)))
-      .rotate((_, index) => index % 9 === 0 ? -18 : index % 7 === 0 ? 18 : 0)
-      .random(seededRandom(42))
-      .on("end", (nextWords) => {
-        if (!cancelled) setLayoutWords(nextWords.filter((word) => word.x !== undefined && word.y !== undefined));
-      });
-
-    layout.start();
-    return () => {
-      cancelled = true;
-      layout.stop();
-    };
-  }, [visibleTerms]);
-
-  if (!visibleTerms.length) return (
-    <Section title="Guardian review keyword cloud">
-      <Text color="muted">No Guardian review keywords are available yet.</Text>
-    </Section>
-  );
-
-  return (
-    <Section title="Guardian review keyword cloud" action={<Badge colorPalette="orange" variant="subtle">{visibleTerms.length} keywords</Badge>}>
-      <Box
-        role="img"
-        aria-label="Word cloud of keywords from all Guardian reviews"
-        overflowX="auto"
-        bg="subtle"
-        borderRadius="control"
-        minH={{ base: "260px", md: "320px" }}
-      >
-        {layoutWords.length ? (
-          <svg viewBox={`0 0 ${wordCloudWidth} ${wordCloudHeight}`} style={svgChartStyle} aria-hidden="true">
-            <g transform={`translate(${wordCloudWidth / 2},${wordCloudHeight / 2})`}>
-              {layoutWords.map((word) => (
-                <text
-                  key={`${word.text}-${word.count}`}
-                  transform={`translate(${word.x ?? 0},${word.y ?? 0}) rotate(${word.rotate ?? 0})`}
-                  textAnchor="middle"
-                  fontFamily="Inter, Arial, sans-serif"
-                  fontSize={word.size}
-                  fontWeight={word.weight}
-                  fill={word.color}
-                >
-                  <title>{word.title}</title>
-                  {word.display}
-                </text>
-              ))}
-            </g>
-          </svg>
-        ) : (
-          <Flex minH={{ base: "260px", md: "320px" }} align="center" justify="center">
-            <Text color="muted">Laying out keywords...</Text>
-          </Flex>
-        )}
-      </Box>
-    </Section>
-  );
-}
-
 function hasUsefulInsight(data: DashboardData): boolean {
   const title = data.primaryInsight?.title.trim() ?? "";
   return Boolean(title && !/^ai auto summary$/i.test(title));
@@ -624,16 +535,62 @@ function WeeklySummaryCard({ message }: { message: string }) {
 export function Dashboard({ data }: DashboardProps) {
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
+  const [rangeData, setRangeData] = useState<DashboardData>(data);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const [rangeError, setRangeError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
-  const dateMode: DateMode = datePreset === "all" ? "all" : datePreset === "7d" ? "current" : "combined";
+  const [exporting, setExporting] = useState(false);
+  const dashboardCaptureRef = useRef<HTMLDivElement>(null);
+  const rangeRequestRef = useRef<AbortController | null>(null);
+  const activeData = datePreset === "all" ? data : rangeData;
+  const dateMode: DateMode = datePreset === "all" ? "all" : "current";
 
-  const totals = data.products.reduce((result, product) => {
+  useEffect(() => {
+    if (datePreset === "all") {
+      rangeRequestRef.current?.abort();
+      setRangeData(data);
+      setRangeError(null);
+      setRangeLoading(false);
+    }
+  }, [data, datePreset]);
+
+  useEffect(() => {
+    if (datePreset === "all") return undefined;
+    const from = customRange.from ? parseDisplayDate(customRange.from) : null;
+    const to = customRange.to ? parseDisplayDate(customRange.to) : null;
+    if (datePreset === "custom" && (!from || !to || to < from)) {
+      setRangeError("Choose a valid custom date range.");
+      setRangeLoading(false);
+      return undefined;
+    }
+    const controller = new AbortController();
+    rangeRequestRef.current?.abort();
+    rangeRequestRef.current = controller;
+    setRangeLoading(true);
+    setRangeError(null);
+    void fetchDashboard(controller.signal, {
+      range: datePreset,
+      dateFrom: from ? formatApiDate(from) : null,
+      dateTo: to ? formatApiDate(to) : null,
+    }).then((nextData) => {
+      if (!controller.signal.aborted) setRangeData(nextData);
+    }).catch((cause) => {
+      if (!controller.signal.aborted) {
+        setRangeError(cause instanceof Error ? cause.message : "The dashboard range could not be loaded.");
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setRangeLoading(false);
+    });
+    return () => controller.abort();
+  }, [customRange.from, customRange.to, datePreset, data.lastUpdated]);
+
+  const totals = activeData.products.reduce((result, product) => {
     const period = periodForMode(product, dateMode);
     return { feedback: result.feedback + period.feedback, complaints: result.complaints + period.complaints, positive: result.positive + period.positive, neutral: result.neutral + period.neutral };
   }, { feedback: 0, complaints: 0, positive: 0, neutral: 0 });
   const negative = Math.max(0, totals.feedback - totals.positive - totals.neutral);
   const ratingCounts = new Map<number, number>([5, 4, 3, 2, 1].map((rating) => [rating, 0]));
-  data.products.forEach((product) => {
+  activeData.products.forEach((product) => {
     const allRatings = product.allRatingDistribution ?? [];
     const distributions = dateMode === "all"
       ? [allRatings.length ? allRatings : [...product.ratingDistribution, ...product.baselineRatingDistribution]]
@@ -645,10 +602,10 @@ export function Dashboard({ data }: DashboardProps) {
   const ratingDistribution = [1, 2, 3, 4, 5].map((rating) => ({ label: String(rating), count: ratingCounts.get(rating) ?? 0 }));
   const displayedIssueCount = (item: ProductTheme) => dateMode === "current" || dateMode === "all" ? item.count : item.count + item.baselineCount;
   const periodIssueSort = (a: ProductTheme, b: ProductTheme) => displayedIssueCount(b) - displayedIssueCount(a) || a.label.localeCompare(b.label);
-  const allProblems = aggregateThemes(data.products, "allProblems");
-  const problems = (dateMode === "all" && allProblems.length ? allProblems : aggregateThemes(data.products, "problems")).sort(periodIssueSort).slice(0, 5);
-  const ratingTrend = filterRatingTrend(aggregateRatingTrend(data.products), trendDateRange(data, datePreset, customRange));
-  const insight = hasUsefulInsight(data) ? data.primaryInsight : null;
+  const allProblems = aggregateThemes(activeData.products, "allProblems");
+  const problems = (dateMode === "all" && allProblems.length ? allProblems : aggregateThemes(activeData.products, "problems")).sort(periodIssueSort).slice(0, 5);
+  const ratingTrend = filterRatingTrend(aggregateRatingTrend(activeData.products), trendDateRange(activeData, datePreset, customRange));
+  const insight = hasUsefulInsight(activeData) ? activeData.primaryInsight : null;
   const weeklyMessage = weeklySummaryMessage({ insight, feedback: totals.feedback, positive: totals.positive, neutral: totals.neutral, issue: problems[0] });
 
   const metrics = [
@@ -657,9 +614,24 @@ export function Dashboard({ data }: DashboardProps) {
     { icon: <Pulse size={28} weight="fill" />, label: "Neutral", value: percent(ratio(totals.neutral, totals.feedback), 0), iconBg: "#fff7e6", darkIconBg: "#38260d", color: "#d97706" },
     { icon: <WarningCircle size={28} weight="fill" />, label: "Negative", value: percent(ratio(negative, totals.feedback), 0), iconBg: "#fff1f2", darkIconBg: "#3a151c", color: "#e11d48" },
   ];
+  const exportDashboard = async () => {
+    if (!dashboardCaptureRef.current) {
+      setExportError("Dashboard is not ready to export yet.");
+      return;
+    }
+    setExportError(null);
+    setExporting(true);
+    try {
+      await captureDashboardPdf(dashboardCaptureRef.current, { filename: `guardian-dashboard-${datePreset}.pdf` });
+    } catch {
+      setExportError("Dashboard PDF could not be created. Try again after the charts finish loading.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-    <Stack gap="5">
+    <Stack ref={dashboardCaptureRef} data-pdf-capture="dashboard" gap="5">
       <Flex
         as="header"
         align={{ base: "stretch", lg: "center" }}
@@ -672,18 +644,19 @@ export function Dashboard({ data }: DashboardProps) {
         </Flex>
         <Flex align={{ base: "stretch", sm: "center" }} justify={{ base: "stretch", sm: "flex-end" }} direction={{ base: "column", sm: "row" }} gap="3">
           <Button
+            data-pdf-hidden="true"
             colorPalette="orange"
             variant="outline"
-            onClick={() => {
-              setExportError(null);
-              if (!openDashboardPdfReport(data)) setExportError("Allow pop-ups to export the PDF report.");
-            }}
+            disabled={exporting}
+            onClick={() => void exportDashboard()}
           >
             <DownloadSimple size={18} weight="bold" />
-            Export PDF
+            {exporting ? "Exporting..." : "Export PDF"}
           </Button>
         </Flex>
       </Flex>
+      {rangeLoading && <Text color="muted" fontSize="sm" aria-live="polite">Updating dashboard range...</Text>}
+      {rangeError && <Text color="danger" fontSize="sm" role="alert">{rangeError}</Text>}
       {exportError && <Text color="danger" fontSize="sm" role="alert">{exportError}</Text>}
 
       <WeeklySummaryCard message={weeklyMessage} />
@@ -699,10 +672,8 @@ export function Dashboard({ data }: DashboardProps) {
         <Section title="Rating distribution"><RatingBars items={ratingDistribution} /></Section>
         <Section title="Top 5 product problems"><ProblemCategoryChart items={problems} mode={dateMode} empty="No product problems in this period." /></Section>
         <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
-        <Section title="Social experience score"><SocialExperienceScore benchmark={data.benchmark} /></Section>
+        <Section title="Social experience score" titleInfo={socialExperienceScoreInfo}><SocialExperienceScore benchmark={activeData.benchmark} /></Section>
       </Grid>
-
-      <GuardianWordCloud terms={data.wordCloud} />
     </Stack>
   );
 }

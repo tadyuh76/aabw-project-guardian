@@ -23,7 +23,7 @@ const PROFILE_LOGOS: Record<ReviewImportProfile, string> = {
   tiktok_shop: "/marketplace-logos/tiktok.svg",
   shopee: "/marketplace-logos/shopee.svg",
   lazada: "/marketplace-logos/lazada.svg",
-  grabmart: "/marketplace-logos/grabmart.png",
+  grabmart: "/marketplace-logos/GrabMart.webp",
 };
 
 const PREVIEW_COLUMNS = [
