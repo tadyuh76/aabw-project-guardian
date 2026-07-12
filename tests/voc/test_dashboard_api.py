@@ -275,6 +275,9 @@ def test_dashboard_aggregates_current_and_baseline_product_periods(
     assert word_counts["serum"] == 5
     assert "guardian" not in word_counts
     assert "synthetic" not in word_counts
+    assert "không" not in word_counts
+    assert "được" not in word_counts
+    assert "dùng" in word_counts
     assert result.benchmark.comparable is False
     assert result.benchmark.aggregates == []
     assert result.benchmark.reason

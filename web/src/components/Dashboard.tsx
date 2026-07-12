@@ -433,8 +433,19 @@ function seededRandom(seed: number) {
   };
 }
 
+function wordCloudSize(count: number, maxCount: number): number {
+  if (maxCount <= 0) return 18;
+  return Math.round(14 + (Math.log1p(count) / Math.log1p(maxCount)) * 42);
+}
+
 function GuardianWordCloud({ terms }: { terms: DashboardData["wordCloud"] }) {
-  const visibleTerms = useMemo(() => terms.filter((term) => term.count > 0).slice(0, 60), [terms]);
+  const visibleTerms = useMemo(() => {
+    const positiveTerms = terms.filter((term) => term.count > 0);
+    const maxCount = Math.max(0, ...positiveTerms.map((term) => term.count));
+    const minimumCount = maxCount >= 12 ? Math.max(2, Math.ceil(maxCount * 0.08)) : 1;
+    const meaningfulTerms = positiveTerms.filter((term) => term.count >= minimumCount);
+    return (meaningfulTerms.length >= 12 ? meaningfulTerms : positiveTerms).slice(0, 45);
+  }, [terms]);
   const [layoutWords, setLayoutWords] = useState<WordCloudWord[]>([]);
 
   useEffect(() => {
@@ -444,18 +455,16 @@ function GuardianWordCloud({ terms }: { terms: DashboardData["wordCloud"] }) {
     }
 
     const max = Math.max(...visibleTerms.map((term) => term.count));
-    const min = Math.min(...visibleTerms.map((term) => term.count));
-    const scale = (count: number) => max === min ? 1 : (count - min) / (max - min);
     const words: WordCloudWord[] = visibleTerms.map((term, index) => {
-      const weight = scale(term.count);
+      const size = wordCloudSize(term.count, max);
       return {
         text: cleanDisplayText(term.keyword),
         display: cleanDisplayText(term.keyword),
         title: `${term.keyword}: ${term.count.toLocaleString()} mentions`,
         count: term.count,
         color: chartColor(index),
-        weight: Math.round(600 + weight * 200),
-        size: Math.round(17 + weight * 34),
+        weight: size >= 42 ? 800 : size >= 30 ? 700 : 600,
+        size,
       };
     });
 
@@ -466,7 +475,7 @@ function GuardianWordCloud({ terms }: { terms: DashboardData["wordCloud"] }) {
       .font("Inter, Arial, sans-serif")
       .fontWeight((word) => word.weight)
       .fontSize((word) => word.size ?? 17)
-      .padding(6)
+      .padding((word) => Math.max(3, Math.round((word.size ?? 17) / 8)))
       .rotate((_, index) => index % 9 === 0 ? -18 : index % 7 === 0 ? 18 : 0)
       .random(seededRandom(42))
       .on("end", (nextWords) => {

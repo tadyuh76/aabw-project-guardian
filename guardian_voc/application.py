@@ -13,6 +13,7 @@ import json
 import re
 import tempfile
 import threading
+import unicodedata
 import uuid
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass
@@ -134,11 +135,18 @@ FIXTURES = ROOT / "fixtures"
 DASHBOARD_EVIDENCE_LIMIT = 200
 DASHBOARD_WORD_CLOUD_LIMIT = 70
 WORD_CLOUD_STOPWORDS = {
-    "and", "are", "but", "can", "cho", "cua", "cung", "duoc", "for",
-    "guardian", "hang", "khi", "khong", "mot", "nay", "nhung", "qua",
-    "san", "the", "thi", "toi", "trong", "voi", "was", "were", "you",
+    "and", "are", "but", "cac", "can", "cho", "con", "cua", "cung",
+    "duoc", "for", "guardian", "hang", "hon", "kha", "khi", "khong",
+    "lai", "lan", "minh", "mot", "nay", "nen", "nha", "nhung", "qua",
+    "rat", "san", "the", "thi", "toi", "trong", "voi", "was", "were",
+    "you",
 }
 WORD_CLOUD_TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
+
+
+def _word_cloud_stopword_key(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", value).replace("đ", "d").replace("Đ", "D")
+    return normalized.encode("ascii", "ignore").decode("ascii")
 
 
 def _json_dump(value: object) -> str:
@@ -198,7 +206,7 @@ def _dashboard_word_cloud(
             continue
         for match in WORD_CLOUD_TOKEN_RE.finditer(text.lower()):
             keyword = match.group(0)
-            if keyword in WORD_CLOUD_STOPWORDS:
+            if _word_cloud_stopword_key(keyword) in WORD_CLOUD_STOPWORDS:
                 continue
             counts[keyword] += 1
     return [
