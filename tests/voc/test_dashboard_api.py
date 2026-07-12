@@ -895,6 +895,45 @@ async def test_problem_detail_uses_the_same_independent_complaint_cohort(tmp_pat
     service.close()
 
 
+@pytest.mark.asyncio
+async def test_problem_detail_uses_imported_brand_like_dashboard(tmp_path: Path) -> None:
+    service = _service(tmp_path, "problem-detail-imported-brand")
+    rows = [
+        _raw(
+            "expired-product",
+            occurred_at="2026-07-10T09:00:00+07:00",
+            text="This serum arrived expired.",
+            rating=1,
+        ),
+    ]
+    assert service._ingest_raw_rows(
+        rows,
+        source_name="problem_detail_imported_brand_fixture",
+        source_file=None,
+    )["inserted"] == 1
+    _persist_by_external_id(service, {
+        "expired-product": ("complaint", "negative", -0.9),
+    })
+    service.database.execute(
+        """
+        UPDATE feedback_analyses
+        SET primary_brand = NULL,
+            brand_attribution_confidence = 0,
+            brand_evidence_span = NULL,
+            subtopic = 'expired_product'
+        """
+    )
+
+    dashboard = service.dashboard(dashboard_range="1y")
+    detail = await service.problem_detail(problem="expired_product", preset="1y")
+
+    assert dashboard.products[0].problems[0].label == "expired_product"
+    assert dashboard.products[0].problems[0].count == 1
+    assert detail.count == 1
+    assert detail.reviews[0].text == "This serum arrived expired."
+    service.close()
+
+
 @pytest.mark.parametrize("path", ["/api", "/api/v1/does-not-exist"])
 def test_unknown_api_routes_return_json_404(path: str) -> None:
     client = TestClient(app)

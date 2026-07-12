@@ -4250,8 +4250,10 @@ class GuardianService:
         rows = self.database.query(
             f"""
             SELECT fi.feedback_id, fi.repost_group_id, fi.source_group,
-                fi.source_platform, fi.occurred_at, fi.text_redacted, fi.rating,
+                fi.source_platform, fi.brand, fi.occurred_at, fi.occurred_at_quality,
+                fi.text_redacted, fi.rating,
                 fi.product_name, fi.sanitized_metadata, fi.source_url,
+                fi.analysis_status,
                 fa.feedback_id AS analysis_feedback_id, fa.is_relevant,
                 fa.primary_brand, fa.brand_attribution_confidence,
                 fa.brand_evidence_span, fa.primary_topic, fa.subtopic,
@@ -4279,6 +4281,8 @@ class GuardianService:
         def in_period(row: Mapping[str, Any], start: datetime | None, end: datetime | None) -> bool:
             if start is None or end is None:
                 return True
+            if not self._dashboard_time_eligible(row):
+                return False
             occurred_at = row.get("occurred_at")
             return isinstance(occurred_at, datetime) and start <= occurred_at < end
 
