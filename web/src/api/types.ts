@@ -45,6 +45,14 @@ export interface ProductRatingTrendPoint {
   predicted: boolean;
 }
 
+export interface SentimentTrendPoint {
+  date: string;
+  total: number;
+  positive: number;
+  neutral: number;
+  negative: number;
+}
+
 export interface DashboardProduct {
   id: string;
   name: string | null;
@@ -167,10 +175,54 @@ export interface DashboardData {
   coverage: DashboardCoverage;
   messages: string[];
   products: DashboardProduct[];
+  sentimentTrend: SentimentTrendPoint[];
+  sentimentTrendGranularity: "day" | "month";
   evidence: DashboardEvidence[];
   wordCloud: DashboardWordCloudTerm[];
   primaryInsight: DashboardInsight | null;
   benchmark: DashboardBenchmark | null;
+}
+
+export interface ProblemBreakdown {
+  label: string;
+  count: number;
+}
+
+export interface ProblemTrendPoint {
+  date: string;
+  count: number;
+}
+
+export interface ProblemReview {
+  id: string;
+  productId: string;
+  productName: string;
+  text: string;
+  sourceGroup: string;
+  sourcePlatform: string;
+  sourceUrl: string | null;
+  timestamp: string | null;
+  rating: number | null;
+  sentiment: string;
+  confidence: number;
+}
+
+export interface DashboardProblemDetail {
+  problem: string;
+  count: number;
+  totalComplaints: number;
+  share: number | null;
+  previousCount: number | null;
+  percentageChange: number | null;
+  periodLabel: string;
+  summary: string;
+  summarySource: "ai" | "deterministic";
+  summaryModel: string | null;
+  themes: ProblemBreakdown[];
+  trend: ProblemTrendPoint[];
+  products: ProblemBreakdown[];
+  sources: ProblemBreakdown[];
+  reviews: ProblemReview[];
 }
 
 export const REVIEW_IMPORT_PROFILES = [

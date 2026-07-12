@@ -288,9 +288,11 @@ function feedbackToReviewItem(item: FeedbackListItem): ReviewItem {
 }
 
 export function ReviewExplorer({ data }: ReviewExplorerProps) {
-  const [query, setQuery] = useState("");
+  const initialParams = new URLSearchParams(window.location.search);
+  const initialTimeFrame = initialParams.get("timeframe");
+  const [query, setQuery] = useState(() => initialParams.get("problem") ?? "");
   const [platform, setPlatform] = useState("all");
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>("all");
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>(() => timeFrames.some((item) => item.value === initialTimeFrame) ? initialTimeFrame as TimeFrame : "all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [pageSize, setPageSize] = useState<PageSize>("25");
   const [pageIndex, setPageIndex] = useState(0);
