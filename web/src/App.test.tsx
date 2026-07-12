@@ -52,8 +52,8 @@ describe("App dashboard states", () => {
     expect(screen.getByRole("heading", { name: "Top 5 product problems" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rating trend & forecast" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Social experience score" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Guardian review keyword cloud" })).toBeInTheDocument();
-    expect(screen.getByText("cleanser")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Guardian review keyword cloud" })).not.toBeInTheDocument();
+    expect(screen.queryByText("cleanser")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products to watch" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
     expect(screen.getByText("480")).toBeInTheDocument();

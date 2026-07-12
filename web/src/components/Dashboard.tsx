@@ -1,8 +1,7 @@
 import { Badge, Box, Button, Flex, Grid, Heading, Input, Stack, Text } from "@chakra-ui/react";
 import { CalendarBlank, CaretLeft, CaretRight, ChatCircleDots, CheckCircle, DownloadSimple, Package, Pulse, Star, WarningCircle } from "@phosphor-icons/react";
-import cloud from "d3-cloud";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DashboardData, DashboardProduct, ProductRatingTrendPoint, ProductTheme } from "../api/types";
 import { openDashboardPdfReport } from "../utils/dashboardPdf";
 import { cleanDisplayText } from "../utils/displayText";
@@ -25,21 +24,6 @@ const platformColors: Record<string, string> = {
 };
 const panelProps = { bg: "surface", borderWidth: "1px", borderColor: "border", borderRadius: "panel", p: { base: "4", md: "5" } } as const;
 const svgChartStyle = { width: "100%", minWidth: "340px", display: "block" } as const;
-const wordCloudWidth = 760;
-const wordCloudHeight = 320;
-
-interface WordCloudWord {
-  text: string;
-  display: string;
-  title: string;
-  count: number;
-  color: string;
-  weight: number;
-  size?: number;
-  rotate?: number;
-  x?: number;
-  y?: number;
-}
 
 function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
@@ -425,115 +409,6 @@ function SocialExperienceScore({ benchmark }: { benchmark: DashboardData["benchm
   );
 }
 
-function seededRandom(seed: number) {
-  let value = seed;
-  return () => {
-    value = (value * 1664525 + 1013904223) % 4294967296;
-    return value / 4294967296;
-  };
-}
-
-function wordCloudSize(count: number, maxCount: number): number {
-  if (maxCount <= 0) return 18;
-  return Math.round(14 + (Math.log1p(count) / Math.log1p(maxCount)) * 42);
-}
-
-function GuardianWordCloud({ terms }: { terms: DashboardData["wordCloud"] }) {
-  const visibleTerms = useMemo(() => {
-    const positiveTerms = terms.filter((term) => term.count > 0);
-    const maxCount = Math.max(0, ...positiveTerms.map((term) => term.count));
-    const minimumCount = maxCount >= 12 ? Math.max(2, Math.ceil(maxCount * 0.08)) : 1;
-    const meaningfulTerms = positiveTerms.filter((term) => term.count >= minimumCount);
-    return (meaningfulTerms.length >= 12 ? meaningfulTerms : positiveTerms).slice(0, 45);
-  }, [terms]);
-  const [layoutWords, setLayoutWords] = useState<WordCloudWord[]>([]);
-
-  useEffect(() => {
-    if (!visibleTerms.length) {
-      setLayoutWords([]);
-      return undefined;
-    }
-
-    const max = Math.max(...visibleTerms.map((term) => term.count));
-    const words: WordCloudWord[] = visibleTerms.map((term, index) => {
-      const size = wordCloudSize(term.count, max);
-      return {
-        text: cleanDisplayText(term.keyword),
-        display: cleanDisplayText(term.keyword),
-        title: `${term.keyword}: ${term.count.toLocaleString()} mentions`,
-        count: term.count,
-        color: chartColor(index),
-        weight: size >= 42 ? 800 : size >= 30 ? 700 : 600,
-        size,
-      };
-    });
-
-    let cancelled = false;
-    const layout = cloud<WordCloudWord>()
-      .size([wordCloudWidth, wordCloudHeight])
-      .words(words)
-      .font("Inter, Arial, sans-serif")
-      .fontWeight((word) => word.weight)
-      .fontSize((word) => word.size ?? 17)
-      .padding((word) => Math.max(3, Math.round((word.size ?? 17) / 8)))
-      .rotate((_, index) => index % 9 === 0 ? -18 : index % 7 === 0 ? 18 : 0)
-      .random(seededRandom(42))
-      .on("end", (nextWords) => {
-        if (!cancelled) setLayoutWords(nextWords.filter((word) => word.x !== undefined && word.y !== undefined));
-      });
-
-    layout.start();
-    return () => {
-      cancelled = true;
-      layout.stop();
-    };
-  }, [visibleTerms]);
-
-  if (!visibleTerms.length) return (
-    <Section title="Guardian review keyword cloud">
-      <Text color="muted">No Guardian review keywords are available yet.</Text>
-    </Section>
-  );
-
-  return (
-    <Section title="Guardian review keyword cloud" action={<Badge colorPalette="orange" variant="subtle">{visibleTerms.length} keywords</Badge>}>
-      <Box
-        role="img"
-        aria-label="Word cloud of keywords from all Guardian reviews"
-        overflowX="auto"
-        bg="subtle"
-        borderRadius="control"
-        minH={{ base: "260px", md: "320px" }}
-      >
-        {layoutWords.length ? (
-          <svg viewBox={`0 0 ${wordCloudWidth} ${wordCloudHeight}`} style={svgChartStyle} aria-hidden="true">
-            <g transform={`translate(${wordCloudWidth / 2},${wordCloudHeight / 2})`}>
-              {layoutWords.map((word) => (
-                <text
-                  key={`${word.text}-${word.count}`}
-                  transform={`translate(${word.x ?? 0},${word.y ?? 0}) rotate(${word.rotate ?? 0})`}
-                  textAnchor="middle"
-                  fontFamily="Inter, Arial, sans-serif"
-                  fontSize={word.size}
-                  fontWeight={word.weight}
-                  fill={word.color}
-                >
-                  <title>{word.title}</title>
-                  {word.display}
-                </text>
-              ))}
-            </g>
-          </svg>
-        ) : (
-          <Flex minH={{ base: "260px", md: "320px" }} align="center" justify="center">
-            <Text color="muted">Laying out keywords...</Text>
-          </Flex>
-        )}
-      </Box>
-    </Section>
-  );
-}
-
 function hasUsefulInsight(data: DashboardData): boolean {
   const title = data.primaryInsight?.title.trim() ?? "";
   return Boolean(title && !/^ai auto summary$/i.test(title));
@@ -701,8 +576,6 @@ export function Dashboard({ data }: DashboardProps) {
         <Section title="Rating trend & forecast"><RatingTrendChart points={ratingTrend} /></Section>
         <Section title="Social experience score"><SocialExperienceScore benchmark={data.benchmark} /></Section>
       </Grid>
-
-      <GuardianWordCloud terms={data.wordCloud} />
     </Stack>
   );
 }
