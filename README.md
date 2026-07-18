@@ -9,6 +9,13 @@ validates, redacts, deduplicates, stores, and analyzes the complete file.
 This is one repository and one production service. There is no required sibling
 repository or separate frontend deployment.
 
+The app also supports a serverless Vercel deployment backed by PostgreSQL. Set
+`DATABASE_URL` (the Neon integration injects it automatically); local runs keep
+using `VOC_DB_PATH` and DuckDB. To copy an existing local database, run
+`scripts/migrate_duckdb_to_postgres.py --replace` with
+`DATABASE_URL_UNPOOLED` set. The command verifies every copied table with row
+counts and content checksums before it succeeds.
+
 ## Repository layout
 
 ```text

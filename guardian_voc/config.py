@@ -28,10 +28,17 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,
     )
 
+    database_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("database_url", "DATABASE_URL"),
+        repr=False,
+        exclude=True,
+    )
     voc_db_path: Path = Path("data/guardian_voc.duckdb")
     voc_data_dir: Path = Path("data")
     voc_inbox_dir: Path = Path("data/inbox")
     voc_demo_mode: bool = True
+    voc_process_existing_on_startup: bool = True
     voc_demo_as_of: datetime | None = datetime.fromisoformat(
         "2026-07-11T23:59:59+07:00"
     )
@@ -178,6 +185,7 @@ class Settings(BaseSettings):
     @field_validator(
         "voc_admin_token",
         "voc_hash_salt",
+        "database_url",
         "ai_api_key",
         "serp_api_key",
         "tinyfish_api_key",

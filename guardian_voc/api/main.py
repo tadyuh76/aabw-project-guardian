@@ -75,7 +75,11 @@ def _mapping_json(value: str | None) -> dict[str, str | None] | None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     service = get_service()
-    await asyncio.to_thread(service.initialize, seed_demo=service.settings.voc_demo_mode)
+    await asyncio.to_thread(
+        service.initialize,
+        seed_demo=service.settings.voc_demo_mode,
+        process_existing=service.settings.voc_process_existing_on_startup,
+    )
     scheduler = PipelineScheduler(service, service.settings)
     scheduler.start()
     app.state.service = service

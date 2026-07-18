@@ -288,7 +288,7 @@ class BuiltInsight:
 
 
 class GuardianService:
-    """One-process application service with one serialized DuckDB writer."""
+    """Application service with one serialized database writer per process."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -339,6 +339,8 @@ class GuardianService:
         self._hydrated = False
 
     def _reset_database(self) -> None:
+        if self.database.is_postgres:
+            raise RuntimeError("cloud PostgreSQL cannot be reset with the local demo reset")
         path = Path(self.settings.voc_db_path)
         self.close()
         for candidate in (path, Path(f"{path}.wal")):
@@ -4669,6 +4671,13 @@ class GuardianService:
             """,
             params,
         ) or {"count": 0, "synthetic_count": 0}
+        insight_ids_sql = (
+            "coalesce(array_agg(ie.insight_id) FILTER "
+            "(WHERE ie.insight_id IS NOT NULL), ARRAY[]::VARCHAR[])"
+            if self.database.is_postgres
+            else "coalesce(list(ie.insight_id) FILTER "
+            "(WHERE ie.insight_id IS NOT NULL), [])"
+        )
         rows = self.database.query(
             f"""
             SELECT fi.feedback_id, fi.occurred_at, fi.observed_at,
@@ -4678,12 +4687,13 @@ class GuardianService:
                 fa.primary_topic, fa.subtopic, fa.intent, fa.sentiment,
                 fa.confidence, fi.rating, fi.product_name, fi.product_category,
                 fi.store, fi.text_redacted, fi.is_synthetic,
-                coalesce(list(ie.insight_id) FILTER (WHERE ie.insight_id IS NOT NULL), []) AS insight_ids
+                {insight_ids_sql} AS insight_ids
             FROM feedback_items fi
             LEFT JOIN feedback_analyses fa ON fa.feedback_id = fi.feedback_id
             LEFT JOIN insight_evidence ie ON ie.feedback_id = fi.feedback_id
             WHERE {where}
-            GROUP BY ALL
+            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                11, 12, 13, 14, 15, 16, 17, 18, 19
             ORDER BY fi.occurred_at DESC NULLS LAST, fi.feedback_id
             LIMIT ? OFFSET ?
             """,

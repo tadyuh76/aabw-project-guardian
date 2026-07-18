@@ -1,8 +1,8 @@
-"""DuckDB migrations and the canonical ingestion repository.
+"""Database migrations and the canonical ingestion repository.
 
-DuckDB is intentionally used through one connection and a re-entrant writer
-lock.  Deployment must still run a single API process as documented in the
-implementation plan.
+Local development keeps the zero-service DuckDB default. Cloud deployments can
+provide ``DATABASE_URL`` to use durable PostgreSQL through the same serialized
+repository interface.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 import duckdb
+import psycopg
 from pydantic import BaseModel
 
 from guardian_voc.config import Settings, get_settings
@@ -72,13 +73,135 @@ def _json_load(value: object, default: object) -> object:
         return default
 
 
-def _rows(cursor: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
+def _rows(cursor: Any) -> list[dict[str, Any]]:
     columns = [item[0] for item in (cursor.description or [])]
     return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
 
 
+def _translate_qmark(sql: str) -> str:
+    """Translate qmark parameters without touching quoted text or comments."""
+
+    output: list[str] = []
+    index = 0
+    state = "sql"
+    dollar_tag = ""
+    while index < len(sql):
+        char = sql[index]
+        following = sql[index + 1] if index + 1 < len(sql) else ""
+        if state == "sql":
+            if char == "'":
+                state = "single"
+            elif char == '"':
+                state = "double"
+            elif char == "-" and following == "-":
+                output.extend((char, following))
+                index += 2
+                state = "line_comment"
+                continue
+            elif char == "/" and following == "*":
+                output.extend((char, following))
+                index += 2
+                state = "block_comment"
+                continue
+            elif char == "$":
+                end = sql.find("$", index + 1)
+                if end != -1:
+                    candidate = sql[index : end + 1]
+                    if candidate == "$$" or candidate[1:-1].replace("_", "a").isalnum():
+                        dollar_tag = candidate
+                        state = "dollar"
+                        output.append(candidate)
+                        index = end + 1
+                        continue
+            elif char == "?":
+                output.append("%s")
+                index += 1
+                continue
+        elif state == "single":
+            if char == "'":
+                if following == "'":
+                    output.extend((char, following))
+                    index += 2
+                    continue
+                state = "sql"
+        elif state == "double":
+            if char == '"':
+                if following == '"':
+                    output.extend((char, following))
+                    index += 2
+                    continue
+                state = "sql"
+        elif state == "line_comment":
+            if char in "\r\n":
+                state = "sql"
+        elif state == "block_comment":
+            if char == "*" and following == "/":
+                output.extend((char, following))
+                index += 2
+                state = "sql"
+                continue
+        elif state == "dollar" and sql.startswith(dollar_tag, index):
+            output.append(dollar_tag)
+            index += len(dollar_tag)
+            state = "sql"
+            continue
+        output.append(char)
+        index += 1
+    return "".join(output)
+
+
+def _postgres_migration_sql(sql: str) -> str:
+    """Map the small DuckDB type/default surface used by our migrations."""
+
+    import re
+
+    sql = re.sub(r"\bDOUBLE\b", "DOUBLE PRECISION", sql, flags=re.IGNORECASE)
+    return re.sub(r"\bDEFAULT\s+\[\]", "DEFAULT '{}'", sql, flags=re.IGNORECASE)
+
+
+def _postgres_parameters(parameters: Sequence[object] | None) -> tuple[object, ...]:
+    # Psycopg adapts lists to PostgreSQL arrays; tuples represent composite
+    # values, while the application uses tuples only for array-valued fields.
+    return tuple(
+        list(value) if isinstance(value, tuple) else value
+        for value in (parameters or ())
+    )
+
+
+class _PostgresConnection:
+    """Minimal connection facade matching the DuckDB methods used below."""
+
+    def __init__(self, connection: psycopg.Connection[Any]) -> None:
+        self.raw = connection
+
+    @property
+    def closed(self) -> bool:
+        return self.raw.closed
+
+    def execute(
+        self, sql: str, parameters: Sequence[object] | None = None
+    ) -> psycopg.Cursor[Any]:
+        return self.raw.execute(_translate_qmark(sql), _postgres_parameters(parameters))
+
+    def executemany(
+        self, sql: str, parameters: Iterable[Sequence[object]]
+    ) -> psycopg.Cursor[Any]:
+        cursor = self.raw.cursor()
+        cursor.executemany(
+            _translate_qmark(sql),
+            (_postgres_parameters(row) for row in parameters),
+        )
+        return cursor
+
+    def close(self) -> None:
+        self.raw.close()
+
+
+DatabaseConnection = duckdb.DuckDBPyConnection | _PostgresConnection
+
+
 class Database:
-    """A single-connection DuckDB handle with ordered SQL migrations."""
+    """A serialized DuckDB or PostgreSQL handle with ordered migrations."""
 
     def __init__(
         self,
@@ -91,13 +214,26 @@ class Database:
             settings = path
             path = None
         self.settings = settings or get_settings()
+        self.database_url = "" if path is not None else self.settings.database_url
+        self.is_postgres = bool(self.database_url)
         self.path = str(path or self.settings.voc_db_path)
         self.read_only = read_only
-        self._connection: duckdb.DuckDBPyConnection | None = None
+        self._connection: DatabaseConnection | None = None
         self._lock = threading.RLock()
 
-    def _open(self) -> duckdb.DuckDBPyConnection:
-        if self._connection is None:
+    def _open(self) -> DatabaseConnection:
+        if self._connection is None or (
+            isinstance(self._connection, _PostgresConnection) and self._connection.closed
+        ):
+            if self.is_postgres:
+                raw = psycopg.connect(self.database_url, autocommit=True)
+                self._connection = _PostgresConnection(raw)
+                self._connection.execute("SET TIME ZONE 'UTC'")
+                if self.read_only:
+                    self._connection.execute(
+                        "SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY"
+                    )
+                return self._connection
             if self.path != ":memory:" and not self.read_only:
                 Path(self.path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
             self._connection = duckdb.connect(self.path, read_only=self.read_only)
@@ -105,16 +241,16 @@ class Database:
         return self._connection
 
     @property
-    def conn(self) -> duckdb.DuckDBPyConnection:
+    def conn(self) -> DatabaseConnection:
         return self._open()
 
     @contextmanager
-    def connection(self) -> Iterator[duckdb.DuckDBPyConnection]:
+    def connection(self) -> Iterator[DatabaseConnection]:
         with self._lock:
             yield self._open()
 
     @contextmanager
-    def transaction(self) -> Iterator[duckdb.DuckDBPyConnection]:
+    def transaction(self) -> Iterator[DatabaseConnection]:
         with self.connection() as connection:
             connection.execute("BEGIN TRANSACTION")
             try:
@@ -159,7 +295,9 @@ class Database:
                     )
                 continue
             with self.transaction() as connection:
-                connection.execute(sql)
+                connection.execute(
+                    _postgres_migration_sql(sql) if self.is_postgres else sql
+                )
                 connection.execute(
                     "INSERT INTO schema_version VALUES (?, ?, ?, ?)",
                     [version, migration.name, checksum, utc_now()],
@@ -169,13 +307,13 @@ class Database:
 
     def execute(
         self, sql: str, parameters: Sequence[object] | None = None
-    ) -> duckdb.DuckDBPyConnection:
+    ) -> Any:
         with self.connection() as connection:
             return connection.execute(sql, list(parameters or []))
 
     def executemany(
         self, sql: str, parameters: Iterable[Sequence[object]]
-    ) -> duckdb.DuckDBPyConnection:
+    ) -> Any:
         with self.connection() as connection:
             return connection.executemany(sql, parameters)
 
@@ -197,7 +335,7 @@ class Database:
     def schema_version(self) -> int:
         try:
             row = self.query_one("SELECT max(version) AS version FROM schema_version")
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, psycopg.errors.UndefinedTable):
             return 0
         return int(row["version"] or 0) if row else 0
 

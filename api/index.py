@@ -1,0 +1,26 @@
+"""Vercel serverless entrypoint for the Guardian Palm application."""
+
+from __future__ import annotations
+
+import os
+
+
+# Serverless instances have only ephemeral local storage. Application records
+# use the Neon DATABASE_URL injected by the Vercel integration; these paths are
+# reserved for temporary uploads and a harmless local fallback during builds.
+os.environ.setdefault("VOC_DB_PATH", "/tmp/guardian-palm/guardian.duckdb")
+os.environ.setdefault("VOC_DATA_DIR", "/tmp/guardian-palm")
+os.environ.setdefault("VOC_INBOX_DIR", "/tmp/guardian-palm/inbox")
+os.environ.setdefault("VOC_DEMO_MODE", "false")
+os.environ.setdefault("VOC_PROCESS_EXISTING_ON_STARTUP", "false")
+os.environ.setdefault("VOC_WRITE_API_ENABLED", "false")
+os.environ.setdefault("VOC_SCHEDULER_ENABLED", "false")
+os.environ.setdefault("VOC_SCHEDULER_CRAWL_ENABLED", "false")
+os.environ.setdefault("VOC_SCHEDULER_FULL_FLOW_ENABLED", "false")
+os.environ.setdefault("AI_PROVIDER", "cached")
+os.environ.setdefault("VOC_CORS_ORIGINS", "https://guardian-palm.vercel.app")
+
+from guardian_voc.api.main import app  # noqa: E402
+
+
+__all__ = ["app"]

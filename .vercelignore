@@ -1,0 +1,17 @@
+.git
+.env
+.pytest_cache
+.runtime
+.venv
+backups
+data
+design
+docs
+tests
+uv.lock
+requirements.lock
+web/dist
+web/node_modules
+**/__pycache__
+**/*.pyc
+**/.DS_Store

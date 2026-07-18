@@ -1847,7 +1847,7 @@ class LiveDataLayer:
             LEFT JOIN discovery_results dr ON dr.source_id = sr.source_id
             LEFT JOIN fetch_attempts fa ON fa.discovery_id = dr.discovery_id
             LEFT JOIN page_extractions pe ON pe.fetch_id = fa.fetch_id
-            GROUP BY ALL ORDER BY sr.source_id
+            GROUP BY 1, 2, 3, 4, 5 ORDER BY sr.source_id
             """
         )
         checkpoint_rows = self.database.query(
