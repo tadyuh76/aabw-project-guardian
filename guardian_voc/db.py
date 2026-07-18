@@ -220,6 +220,7 @@ class Database:
         self.read_only = read_only
         self._connection: DatabaseConnection | None = None
         self._lock = threading.RLock()
+        self._transaction_depth = 0
 
     def _open(self) -> DatabaseConnection:
         if self._connection is None or (
@@ -253,13 +254,17 @@ class Database:
     def transaction(self) -> Iterator[DatabaseConnection]:
         with self.connection() as connection:
             connection.execute("BEGIN TRANSACTION")
+            self._transaction_depth += 1
             try:
-                yield connection
-            except BaseException:
-                connection.execute("ROLLBACK")
-                raise
-            else:
-                connection.execute("COMMIT")
+                try:
+                    yield connection
+                except BaseException:
+                    connection.execute("ROLLBACK")
+                    raise
+                else:
+                    connection.execute("COMMIT")
+            finally:
+                self._transaction_depth -= 1
 
     def initialize(self) -> list[int]:
         return self.migrate()
@@ -317,11 +322,34 @@ class Database:
         with self.connection() as connection:
             return connection.executemany(sql, parameters)
 
+    def _discard_connection(self) -> None:
+        """Drop a failed connection so the next open creates a fresh session."""
+
+        connection = self._connection
+        self._connection = None
+        if connection is None:
+            return
+        try:
+            connection.close()
+        except Exception:
+            # The connection is already unusable and has been detached. Some
+            # drivers raise again while closing a broken TLS session.
+            pass
+
     def query(
         self, sql: str, parameters: Sequence[object] | None = None
     ) -> list[dict[str, Any]]:
         with self.connection() as connection:
-            cursor = connection.execute(sql, list(parameters or []))
+            try:
+                cursor = connection.execute(sql, list(parameters or []))
+            except psycopg.OperationalError:
+                if not self.is_postgres or self._transaction_depth:
+                    raise
+                # Read queries are safe to retry once when a warm serverless
+                # instance discovers that Neon closed its idle TLS session.
+                # Mutating execute/executemany calls deliberately never retry.
+                self._discard_connection()
+                cursor = self._open().execute(sql, list(parameters or []))
             return _rows(cursor)
 
     read = query
