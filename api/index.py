@@ -11,6 +11,10 @@ import os
 os.environ.setdefault("VOC_DB_PATH", "/tmp/guardian-palm/guardian.duckdb")
 os.environ.setdefault("VOC_DATA_DIR", "/tmp/guardian-palm")
 os.environ.setdefault("VOC_INBOX_DIR", "/tmp/guardian-palm/inbox")
+# PostgreSQL makes review uploads durable in the serverless deployment. Keep
+# this independently configurable so enabling imports does not open admin-only
+# writes or restart background collection.
+os.environ.setdefault("VOC_IMPORT_API_ENABLED", "true")
 # These are deliberate production safety controls, not defaults. Project-level
 # environment variables must not be able to restart collection or paid AI work
 # in a serverless instance.

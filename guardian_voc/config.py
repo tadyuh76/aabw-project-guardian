@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     )
     voc_business_timezone: str = "Asia/Ho_Chi_Minh"
     voc_allow_inferred_dates: bool = False
+    # Review uploads can be enabled without opening the admin-only write APIs.
+    # When unset, preserve the original single-switch behavior for self-hosted
+    # deployments.
+    voc_import_api_enabled: bool | None = None
     voc_write_api_enabled: bool = False
     voc_admin_token: str = Field(default="", repr=False, exclude=True)
     voc_admin_token_file: Path | None = None
@@ -319,6 +323,12 @@ class Settings(BaseSettings):
     @property
     def demo_as_of(self) -> datetime | None:
         return self.voc_demo_as_of
+
+    @property
+    def review_imports_enabled(self) -> bool:
+        if self.voc_import_api_enabled is not None:
+            return self.voc_import_api_enabled
+        return self.voc_write_api_enabled
 
     @property
     def tinyfish_resolved_api_key(self) -> str:

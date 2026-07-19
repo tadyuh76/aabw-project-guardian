@@ -139,12 +139,12 @@ def require_admin(
         raise HTTPException(status_code=401, detail="A valid admin token is required")
 
 
-def require_write_api(
+def require_import_api(
     request: Request,
 ) -> None:
     current: Settings = service_from_request(request).settings
-    if not current.voc_write_api_enabled:
-        raise HTTPException(status_code=403, detail="Write APIs are disabled")
+    if not current.review_imports_enabled:
+        raise HTTPException(status_code=403, detail="Review imports are disabled")
 
 
 @app.get("/api/v1/health")
@@ -377,7 +377,7 @@ def import_config(
         list(REVIEW_CSV_PROFILES),
     )
     return {
-        "enabled": service.settings.voc_write_api_enabled,
+        "enabled": service.settings.review_imports_enabled,
         "max_bytes": service.settings.voc_max_import_bytes,
         "profiles": list(REVIEW_CSV_PROFILES),
         "accepted_extensions": [".csv", ".xlsx"],
@@ -397,7 +397,7 @@ def import_history(
     return service.import_history()
 
 
-@app.post("/api/v1/imports/detect", dependencies=[Depends(require_write_api)])
+@app.post("/api/v1/imports/detect", dependencies=[Depends(require_import_api)])
 async def detect_import_columns(
     service: Annotated[GuardianService, Depends(service_from_request)],
     file: Annotated[UploadFile, File()],
@@ -417,7 +417,7 @@ async def detect_import_columns(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@app.post("/api/v1/imports/preview", dependencies=[Depends(require_write_api)])
+@app.post("/api/v1/imports/preview", dependencies=[Depends(require_import_api)])
 async def preview_import(
     service: Annotated[GuardianService, Depends(service_from_request)],
     file: Annotated[UploadFile, File()],
@@ -445,7 +445,7 @@ async def preview_import(
     "/api/v1/imports",
     response_model=RunResponse,
     status_code=202,
-    dependencies=[Depends(require_write_api)],
+    dependencies=[Depends(require_import_api)],
 )
 async def commit_import(
     background_tasks: BackgroundTasks,

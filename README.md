@@ -91,8 +91,9 @@ git pull --ff-only
 Every pull request runs release checks: production dependency export, frontend
 build, Compose validation, and production-image build. Production is deployed
 to Vercel from this repository's `vercel.json`; the former automatic VPS deploy
-job is intentionally disabled. Social collection is also disabled in the
-Vercel entrypoint and its GitHub Actions workflow is disabled.
+job is intentionally disabled. Review imports remain enabled against PostgreSQL,
+while admin writes and social collection stay disabled in the Vercel entrypoint.
+The social collection GitHub Actions workflow is also disabled.
 
 ### Backups
 

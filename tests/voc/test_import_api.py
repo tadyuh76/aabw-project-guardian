@@ -23,8 +23,8 @@ def test_review_csv_config_preview_commit_and_dedup(
         voc_data_dir=tmp_path / "data",
         voc_inbox_dir=tmp_path / "inbox",
         voc_demo_mode=False,
-        voc_write_api_enabled=True,
-        voc_admin_token="local-import-token",
+        voc_import_api_enabled=True,
+        voc_write_api_enabled=False,
         ai_provider="cached",
     )
     service = GuardianService(settings)
@@ -55,6 +55,9 @@ def test_review_csv_config_preview_commit_and_dedup(
             "lazada",
             "grabmart",
         }
+
+        admin_history = client.get("/api/v1/imports/history")
+        assert admin_history.status_code == 403
 
         tokenless_preview = client.post(
             "/api/v1/imports/preview",
